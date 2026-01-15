@@ -12,6 +12,8 @@ use App\Http\Controllers\SignerController;
 use App\Http\Controllers\UserSignatureController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\EvidencePackageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -127,5 +129,26 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/ai/analyze-document', [App\Http\Controllers\AIController::class, 'analyzeDocument']);
     Route::post('/ai/validate-template', [App\Http\Controllers\AIController::class, 'validateTemplateForDocument']);
     Route::post('/ai/best-match', [App\Http\Controllers\AIController::class, 'getBestMatch']);
+
+    // -------------------------------------------------------------------------
+    // Identity Verification (Phase 10: Legal Defensibility)
+    // -------------------------------------------------------------------------
+    Route::prefix('verification')->group(function () {
+        Route::post('/signers/{signerId}/email', [VerificationController::class, 'createEmailVerification']);
+        Route::post('/email/verify', [VerificationController::class, 'verifyEmail']);
+        Route::post('/signers/{signerId}/otp', [VerificationController::class, 'createOTPVerification']);
+        Route::post('/signers/{signerId}/otp/verify', [VerificationController::class, 'verifyOTP']);
+        Route::post('/signers/{signerId}/device', [VerificationController::class, 'createDeviceVerification']);
+        Route::get('/signers/{signerId}/status', [VerificationController::class, 'getVerificationStatus']);
+    });
+
+    // -------------------------------------------------------------------------
+    // Evidence Packages (Phase 10: Legal Defensibility)
+    // -------------------------------------------------------------------------
+    Route::prefix('evidence')->group(function () {
+        Route::get('/documents/{id}', [EvidencePackageController::class, 'show']);
+        Route::post('/documents/{id}/generate', [EvidencePackageController::class, 'generate']);
+        Route::get('/documents/{id}/download', [EvidencePackageController::class, 'download']);
+    });
 });
 
