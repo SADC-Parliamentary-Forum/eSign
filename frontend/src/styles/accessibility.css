@@ -1,0 +1,141 @@
+/* Accessibility-focused global styles */
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus visible styles for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove focus outline for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* High contrast focus for buttons */
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Skip link visible on focus */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  z-index: 10000;
+  padding: 12px 24px;
+  background: rgb(var(--v-theme-primary));
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Ensure sufficient color contrast */
+.text-medium-emphasis {
+  color: rgba(var(--v-theme-on-surface), 0.7) !important;
+}
+
+.text-disabled {
+  color: rgba(var(--v-theme-on-surface), 0.38) !important;
+}
+
+/* Touch target size minimum 44x44px */
+@media (pointer: coarse) {
+  button,
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Reduce motion for users with vestibular disorders */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  * {
+    border-color: currentColor;
+  }
+  
+  button,
+  a {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Focus within for complex components */
+.v-card:focus-within {
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.3);
+}
+
+/* Accessible disabled state */
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Improved list accessibility */
+[role="list"],
+[role="listbox"] {
+  list-style: none;
+  padding: 0;
+}
+
+[role="listitem"]:focus {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+/* Accessible loading states */
+[aria-busy="true"] {
+  position: relative;
+}
+
+[aria-busy="true"]::after {
+  content: "Loading...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  
+  /* Screen reader only */
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 1px;
+}
