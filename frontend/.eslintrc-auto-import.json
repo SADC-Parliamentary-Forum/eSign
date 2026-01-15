@@ -359,6 +359,20 @@
     "watchThrottled": true,
     "watchTriggerable": true,
     "watchWithFilter": true,
-    "whenever": true
+    "whenever": true,
+    "aiAPI": true,
+    "announce": true,
+    "createLiveRegion": true,
+    "generateAriaLabel": true,
+    "generateId": true,
+    "getReadableDate": true,
+    "getStatusDescription": true,
+    "templateAPI": true,
+    "useKeyboardNavigation": true,
+    "useNetworkErrorRecovery": true,
+    "useRealTimeNotifications": true,
+    "useResponsive": true,
+    "useSessionTimeout": true,
+    "workflowAPI": true
   }
 }

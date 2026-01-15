@@ -24,6 +24,12 @@ declare module 'vue-router/auto-routes' {
     'documents-id': RouteRecordInfo<'documents-id', '/documents/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     'login': RouteRecordInfo<'login', '/login', Record<never, never>, Record<never, never>>,
     'second-page': RouteRecordInfo<'second-page', '/second-page', Record<never, never>, Record<never, never>>,
+    'sign-token': RouteRecordInfo<'sign-token', '/sign/:token', { token: ParamValue<true> }, { token: ParamValue<false> }>,
+    'sign-declined': RouteRecordInfo<'sign-declined', '/sign/declined', Record<never, never>, Record<never, never>>,
+    'sign-success': RouteRecordInfo<'sign-success', '/sign/success', Record<never, never>, Record<never, never>>,
+    'signatures': RouteRecordInfo<'signatures', '/signatures', Record<never, never>, Record<never, never>>,
+    'templates': RouteRecordInfo<'templates', '/templates', Record<never, never>, Record<never, never>>,
+    'templates-create': RouteRecordInfo<'templates-create', '/templates/create', Record<never, never>, Record<never, never>>,
     'upload': RouteRecordInfo<'upload', '/upload', Record<never, never>, Record<never, never>>,
   }
 }
