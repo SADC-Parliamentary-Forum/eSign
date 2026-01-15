@@ -2,6 +2,8 @@
 import { useRoute, useRouter } from 'vue-router'
 import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
+import TrustScoreIndicator from '@/components/common/TrustScoreIndicator.vue'
+import EvidencePackageViewer from '@/components/evidence/EvidencePackageViewer.vue'
 
 const route = useRoute()
 const router = useRouter()

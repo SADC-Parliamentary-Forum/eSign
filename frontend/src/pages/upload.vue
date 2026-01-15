@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import { useAIStore } from '@/stores/ai'
 import { useTemplateStore } from '@/stores/templates'
 import TemplateSuggestion from '@/components/ai/TemplateSuggestion.vue'
+import SignatureLevelSelector from '@/components/signatures/SignatureLevelSelector.vue'
 
 const router = useRouter()
 const aiStore = useAIStore()
@@ -35,6 +36,9 @@ const sequentialSigning = ref(false)
 const sending = ref(false)
 const expiresInDays = ref(30)
 
+// Signature Level (Phase 10: Legal Defensibility)
+const signatureLevel = ref('SIMPLE')
+
 const error = ref('')
 const success = ref('')
 
@@ -60,6 +64,7 @@ async function handleUpload() {
   const formData = new FormData()
   formData.append('file', file.value[0] || file.value)
   formData.append('title', title.value)
+  formData.append('signature_level', signatureLevel.value)
 
   try {
     const res = await $api('/documents', {
