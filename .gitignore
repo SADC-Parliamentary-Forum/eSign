@@ -1,0 +1,56 @@
+# Dependencies
+/node_modules
+/vendor
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+/dist
+/build
+*.js.map
+
+# Laravel
+/backend/storage/*.key
+/backend/storage/logs/*
+/backend/bootstrap/cache/*.php
+
+# Frontend
+/frontend/dist
+/frontend/.vite
+
+# Mobile
+/mobile/.dart_tool
+/mobile/.flutter-plugins
+/mobile/.flutter-plugins-dependencies
+/mobile/build
+/mobile/*.iml
+
+# Docker volumes (for local dev)
+/docker/data
+
+# Test coverage
+/coverage
+/.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
