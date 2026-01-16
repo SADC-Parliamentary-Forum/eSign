@@ -12,7 +12,7 @@ class FinancialThresholdService
     /**
      * Validate that amount meets template requirements.
      */
-    public function validateAmount(Template $template, ?float $amount): bool
+    public function validateAmount(Template $template, float|string|null $amount): bool
     {
         // If template doesn't require amount, validation passes
         if (!$template->requiresAmount()) {
@@ -23,6 +23,8 @@ class FinancialThresholdService
         if ($amount === null) {
             return false;
         }
+
+        $amount = (float) $amount;
 
         // Check if amount falls within any defined threshold
         if ($template->thresholds()->count() > 0) {
@@ -37,7 +39,7 @@ class FinancialThresholdService
     /**
      * Get required roles for a given amount.
      */
-    public function getRequiredRoles(Template $template, float $amount): array
+    public function getRequiredRoles(Template $template, float|string $amount): array
     {
         if (!$template->requiresAmount()) {
             // Return all required roles from template
@@ -47,6 +49,7 @@ class FinancialThresholdService
                 ->toArray();
         }
 
+        $amount = (float) $amount;
         $threshold = $template->getThresholdForAmount($amount);
 
         if ($threshold) {
@@ -82,7 +85,7 @@ class FinancialThresholdService
             throw new \RuntimeException('Document amount is required for this template');
         }
 
-        $requiredRoles = $this->getRequiredRoles($template, $document->amount);
+        $requiredRoles = $this->getRequiredRoles($template, (float) $document->amount);
 
         if (empty($requiredRoles)) {
             throw new \RuntimeException('No valid threshold found for amount: ' . $document->amount);
@@ -100,7 +103,7 @@ class FinancialThresholdService
     /**
      * Recalculate workflow when amount changes.
      */
-    public function recalculateWorkflow(Document $document, float $newAmount): array
+    public function recalculateWorkflow(Document $document, float|string $newAmount): array
     {
         $oldAmount = $document->amount;
         $template = $document->template;
@@ -113,8 +116,8 @@ class FinancialThresholdService
             ];
         }
 
-        $oldRoles = $oldAmount ? $this->getRequiredRoles($template, $oldAmount) : [];
-        $newRoles = $this->getRequiredRoles($template, $newAmount);
+        $oldRoles = $oldAmount ? $this->getRequiredRoles($template, (float) $oldAmount) : [];
+        $newRoles = $this->getRequiredRoles($template, (float) $newAmount);
 
         $changed = $oldRoles !== $newRoles;
 
@@ -140,9 +143,9 @@ class FinancialThresholdService
     /**
      * Get threshold details for an amount.
      */
-    public function getThresholdDetails(Template $template, float $amount): ?array
+    public function getThresholdDetails(Template $template, float|string $amount): ?array
     {
-        $threshold = $template->getThresholdForAmount($amount);
+        $threshold = $template->getThresholdForAmount((float) $amount);
 
         if (!$threshold) {
             return null;
@@ -159,9 +162,9 @@ class FinancialThresholdService
     /**
      * Check if user assignment satisfies threshold requirements.
      */
-    public function validateUserAssignments(Template $template, float $amount, array $userAssignments): bool
+    public function validateUserAssignments(Template $template, float|string $amount, array $userAssignments): bool
     {
-        $requiredRoles = $this->getRequiredRoles($template, $amount);
+        $requiredRoles = $this->getRequiredRoles($template, (float) $amount);
         $assignedRoles = array_keys($userAssignments);
 
         // Check if all required roles are assigned
@@ -206,10 +209,10 @@ class FinancialThresholdService
     protected function formatRange(TemplateThreshold $threshold): string
     {
         if ($threshold->max_amount === null) {
-            return '> ' . number_format($threshold->min_amount, 2);
+            return '> ' . number_format((float) $threshold->min_amount, 2);
         }
 
-        return number_format($threshold->min_amount, 2) . ' - ' . number_format($threshold->max_amount, 2);
+        return number_format((float) $threshold->min_amount, 2) . ' - ' . number_format((float) $threshold->max_amount, 2);
     }
 
     /**
@@ -217,10 +220,13 @@ class FinancialThresholdService
      */
     protected function getExampleAmount(TemplateThreshold $threshold): float
     {
+        $min = (float) $threshold->min_amount;
+
         if ($threshold->max_amount === null) {
-            return $threshold->min_amount * 1.5; // 50% above minimum
+            return $min * 1.5; // 50% above minimum
         }
 
-        return ($threshold->min_amount + $threshold->max_amount) / 2;
+        $max = (float) $threshold->max_amount;
+        return ($min + $max) / 2;
     }
 }

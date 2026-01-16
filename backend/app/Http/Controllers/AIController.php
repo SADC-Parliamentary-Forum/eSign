@@ -58,7 +58,7 @@ class AIController extends Controller
         try {
             $file = $request->file('file');
             $tempPath = $file->store('temp', 'local');
-            $fullPath = storage_path('app/' . $tempPath);
+            $fullPath = Storage::disk('local')->path($tempPath);
 
             $suggestions = $this->templateMatchingService->suggestTemplates($fullPath);
 
@@ -69,6 +69,10 @@ class AIController extends Controller
                 'total_count' => count($suggestions)
             ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::build([
+                'driver' => 'single',
+                'path' => storage_path('logs/ai_error.log'),
+            ])->error($e);
             return response()->json(['message' => $e->getMessage()], 500);
         }
     }
@@ -85,7 +89,7 @@ class AIController extends Controller
         try {
             $file = $request->file('file');
             $tempPath = $file->store('temp', 'local');
-            $fullPath = storage_path('app/' . $tempPath);
+            $fullPath = Storage::disk('local')->path($tempPath);
 
             $analysis = $this->templateMatchingService->analyzeDocument($fullPath);
 
@@ -111,7 +115,7 @@ class AIController extends Controller
             $template = Template::findOrFail($validated['template_id']);
             $file = $request->file('file');
             $tempPath = $file->store('temp', 'local');
-            $fullPath = storage_path('app/' . $tempPath);
+            $fullPath = Storage::disk('local')->path($tempPath);
 
             $validation = $this->templateMatchingService->validateTemplateForDocument($template, $fullPath);
 
@@ -135,7 +139,7 @@ class AIController extends Controller
         try {
             $file = $request->file('file');
             $tempPath = $file->store('temp', 'local');
-            $fullPath = storage_path('app/' . $tempPath);
+            $fullPath = Storage::disk('local')->path($tempPath);
 
             $bestMatch = $this->templateMatchingService->getBestMatch($fullPath);
 

@@ -11,6 +11,17 @@ export const $api = ofetch.create({
     if (accessToken)
       options.headers.set('Authorization', `Bearer ${accessToken}`)
   },
+  async onResponseError({ response }) {
+    if (response.status === 401) {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('token')
+      localStorage.removeItem('userData')
+      localStorage.removeItem('userAbilityRules')
+
+      if (!window.location.pathname.includes('/login'))
+        window.location.href = '/login'
+    }
+  },
 })
 
 // Template Management API
@@ -29,6 +40,7 @@ export const templateAPI = {
 
   // Configuration
   addRoles: (id, roles) => $api(`/templates/${id}/roles`, { method: 'POST', body: { roles } }),
+  saveFields: (id, fields) => $api(`/templates/${id}/fields`, { method: 'POST', body: { fields } }),
   addFieldMappings: (id, mappings) => $api(`/templates/${id}/field-mappings`, { method: 'POST', body: { mappings } }),
   addThresholds: (id, thresholds) => $api(`/templates/${id}/thresholds`, { method: 'POST', body: { thresholds } }),
 

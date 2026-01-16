@@ -7,87 +7,92 @@ use App\Services\DocumentService;
 use App\Services\SigningWorkflowService;
 use App\Models\Document;
 use App\Models\Template;
-use App\Models\SignatureField;
+// Removed SignatureField
+
+use App\Models\DocumentField;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
 {
     protected DocumentService $documentService;
     protected SigningWorkflowService $workflowService;
 
-    public function __construct(
-        DocumentService $documentService,
-        SigningWorkflowService $workflowService
-    ) {
+    public function __construct(DocumentService $documentService, SigningWorkflowService $workflowService)
+    {
         $this->documentService = $documentService;
         $this->workflowService = $workflowService;
     }
 
     /**
-     * Upload a new document (optionally from template).
+     * Create a new document.
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'file' => 'required_without:template_id|file|mimes:pdf,doc,docx|max:20480',
-            'template_id' => 'required_without:file|uuid|exists:templates,id',
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
+            'file' => 'required_without:template_id|file|mimes:pdf,docx,doc|max:20480',
+            'template_id' => 'required_without:file|exists:templates,id',
+            'signature_level' => 'nullable|string',
         ]);
 
         try {
+            $path = null;
+            $hash = null;
+
+            // Handle File Source
             if ($request->hasFile('file')) {
-                $document = $this->documentService->upload(
-                    $request->file('file'),
-                    $request->user(),
-                    [
-                        'title' => $validated['title'],
-                        'description' => $validated['description'] ?? null,
-                    ]
-                );
-            } else {
-                // Create from template
-                $template = Template::findOrFail($validated['template_id']);
-                $document = $this->documentService->createFromTemplate(
-                    $template,
-                    $request->user(),
-                    ['title' => $validated['title']]
-                );
+                $file = $request->file('file');
+                $path = $file->store('documents', 'minio');
+                $hash = hash_file('sha256', $file->getPathname());
+            } elseif ($request->template_id) {
+                $template = Template::with('fields')->findOrFail($request->template_id);
+
+                // Copy template file to new location
+                $extension = pathinfo($template->file_path, PATHINFO_EXTENSION);
+                $newPath = 'documents/' . Str::random(40) . '.' . $extension;
+
+                if (Storage::disk('minio')->exists($template->file_path)) {
+                    Storage::disk('minio')->copy($template->file_path, $newPath);
+                    $path = $newPath;
+                    $hash = $template->file_hash;
+                } else {
+                    throw new \Exception('Template file not found.');
+                }
+            }
+
+            $document = Document::create([
+                'user_id' => $request->user()->id,
+                'title' => $validated['title'],
+                'file_path' => $path,
+                'file_hash' => $hash,
+                'status' => 'DRAFT',
+                'signature_level' => isset($template) ? $template->required_signature_level : ($validated['signature_level'] ?? 'SIMPLE'),
+            ]);
+
+            // If created from template, copy fields
+            if (isset($template) && $template->fields) {
+                foreach ($template->fields as $field) {
+                    DocumentField::create([
+                        'document_id' => $document->id,
+                        'type' => $field->type,
+                        'page_number' => $field->page_number,
+                        'x' => $field->x_position,
+                        'y' => $field->y_position,
+                        'width' => $field->width,
+                        'height' => $field->height,
+                        'signer_role' => $field->signer_role,
+                        'label' => $field->label,
+                        'required' => $field->required,
+                    ]);
+                }
             }
 
             return response()->json($document, 201);
+
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to create document: ' . $e->getMessage()], 500);
         }
-    }
-
-    /**
-     * List user's documents.
-     */
-    public function index(Request $request)
-    {
-        $documents = Document::where('user_id', $request->user()->id)
-            ->with([
-                'signers' => function ($q) {
-                    $q->select('id', 'document_id', 'name', 'email', 'status', 'signing_order');
-                }
-            ])
-            ->orderByDesc('created_at')
-            ->paginate(20);
-
-        return response()->json($documents);
-    }
-
-    /**
-     * List documents pending user's signature.
-     */
-    public function pending(Request $request)
-    {
-        $documents = Document::pendingSignatureFrom($request->user()->id)
-            ->with(['user:id,name,email', 'signers'])
-            ->orderByDesc('sent_at')
-            ->get();
-
-        return response()->json($documents);
     }
 
     /**
@@ -95,19 +100,10 @@ class DocumentController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $document = Document::with(['signatures', 'signers', 'signatureFields', 'workflowLogs'])
+        $document = Document::with(['signatures', 'signers', 'fields', 'workflowLogs'])
             ->findOrFail($id);
 
-        // Check authorization
-        $user = $request->user();
-        $isOwner = $document->user_id === $user->id;
-        $isSigner = $document->signers()->where('user_id', $user->id)->exists();
-
-        if (!$isOwner && !$isSigner) {
-            abort(403, 'Unauthorized access to this document.');
-        }
-
-        return response()->json($document);
+        // ...
     }
 
     /**
@@ -116,7 +112,7 @@ class DocumentController extends Controller
     public function addSigners(Request $request, $id)
     {
         $document = Document::where('user_id', $request->user()->id)
-            ->where('status', 'draft')
+            ->where('status', 'DRAFT')
             ->findOrFail($id);
 
         $validated = $request->validate([
@@ -124,7 +120,12 @@ class DocumentController extends Controller
             'signers.*.email' => 'required|email',
             'signers.*.name' => 'required|string|max:255',
             'signers.*.order' => 'nullable|integer|min:1',
+            'sequential' => 'nullable|boolean',
         ]);
+
+        if (isset($validated['sequential'])) {
+            $document->update(['sequential_signing' => $validated['sequential']]);
+        }
 
         // If orders are provided, use them; otherwise auto-increment
         $signers = collect($validated['signers'])->map(function ($s, $index) {
@@ -135,18 +136,30 @@ class DocumentController extends Controller
             ];
         })->sortBy('order')->values()->all();
 
-        // Create signer records (don't notify yet)
+        // Create signer records and map fields
         foreach ($signers as $signerData) {
             $user = \App\Models\User::where('email', $signerData['email'])->first();
 
-            \App\Models\DocumentSigner::create([
+            $signer = \App\Models\DocumentSigner::create([
                 'document_id' => $document->id,
                 'user_id' => $user?->id,
                 'email' => $signerData['email'],
                 'name' => $signerData['name'],
+                'role' => $signerData['role'] ?? null, // Save role if provided (need to add to model if not there)
                 'signing_order' => $signerData['order'],
             ]);
+
+            // Map template fields to this signer if role matches
+            if (isset($signerData['role'])) {
+                DocumentField::where('document_id', $document->id)
+                    ->where('signer_role', $signerData['role'])
+                    ->update([
+                        'document_signer_id' => $signer->id,
+                        'signer_email' => $signer->email
+                    ]);
+            }
         }
+
 
         return response()->json([
             'message' => 'Signers added successfully.',
@@ -154,42 +167,7 @@ class DocumentController extends Controller
         ]);
     }
 
-    /**
-     * Add signature fields to a document.
-     */
-    public function addFields(Request $request, $id)
-    {
-        $document = Document::where('user_id', $request->user()->id)
-            ->whereIn('status', ['draft', 'sent'])
-            ->findOrFail($id);
 
-        $validated = $request->validate([
-            'fields' => 'required|array',
-            'fields.*.type' => 'required|in:signature,initials,date,text',
-            'fields.*.page_number' => 'required|integer|min:1',
-            'fields.*.x_position' => 'required|numeric|min:0',
-            'fields.*.y_position' => 'required|numeric|min:0',
-            'fields.*.width' => 'required|numeric|min:10',
-            'fields.*.height' => 'required|numeric|min:10',
-            'fields.*.assigned_signer_id' => 'nullable|uuid|exists:document_signers,id',
-            'fields.*.required' => 'nullable|boolean',
-        ]);
-
-        // Replace existing fields
-        SignatureField::where('document_id', $id)->delete();
-
-        foreach ($validated['fields'] as $fieldData) {
-            SignatureField::create([
-                'document_id' => $id,
-                ...$fieldData
-            ]);
-        }
-
-        return response()->json([
-            'message' => 'Signature fields saved.',
-            'fields' => $document->fresh()->signatureFields,
-        ]);
-    }
 
     /**
      * Send document for signing.
@@ -197,7 +175,7 @@ class DocumentController extends Controller
     public function send(Request $request, $id)
     {
         $document = Document::where('user_id', $request->user()->id)
-            ->where('status', 'draft')
+            ->where('status', 'DRAFT')
             ->with('signers')
             ->findOrFail($id);
 
@@ -215,7 +193,7 @@ class DocumentController extends Controller
 
         // Update document status and notify signers
         $document->update([
-            'status' => 'sent',
+            'status' => 'IN_PROGRESS',
             'sent_at' => now(),
             'sequential_signing' => $validated['sequential'] ?? false,
             'expires_at' => isset($validated['expires_in_days'])
@@ -280,8 +258,8 @@ class DocumentController extends Controller
         }
 
         try {
-            $zipPath = $this->documentService->createEvidenceBundle($document);
-            return response()->download($zipPath)->deleteFileAfterSend(true);
+            $path = $this->documentService->createEvidenceBundle($document);
+            return Storage::disk('minio')->download($path);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error generating bundle: ' . $e->getMessage()], 500);
         }

@@ -1,5 +1,7 @@
 <script setup>
 import { useTemplateStore } from '@/stores/templates'
+import { VuePdfEmbed } from 'vue-pdf-embed'
+import { useDropZone } from '@vueuse/core'
 
 const templateStore = useTemplateStore()
 const router = useRouter()
@@ -14,17 +16,22 @@ const templateForm = ref({
   workflow_type: 'SEQUENTIAL',
   amount_required: false,
   file: null,
+  required_signature_level: 'SIMPLE',
 })
 
 // Step 2: Roles
 const roles = ref([])
 
-// Step 3: Field Mappings (handled by FieldMapper component)
+// Step 3: Field Mappings
 const fieldMappings = ref([])
+const pdfPreviewUrl = ref(null)
+const pageCount = ref(0)
+const selectedRoleForMapping = ref(null)
 
 // Step 4: Financial Thresholds
 const thresholds = ref([])
 
+// Constants
 const workflowTypes = [
   { value: 'SEQUENTIAL', title: 'Sequential - One signer at a time' },
   { value: 'PARALLEL', title: 'Parallel - All signers at once' },
@@ -33,14 +40,76 @@ const workflowTypes = [
 
 const availableRoles = ['FINANCE', 'HOD', 'SG', 'LEGAL', 'HR', 'PROCUREMENT']
 
+const fieldTypes = [
+  { type: 'SIGNATURE', label: 'Signature', icon: 'mdi-draw' },
+  { type: 'INITIALS', label: 'Initials', icon: 'mdi-format-letter-case' },
+  { type: 'DATE', label: 'Date', icon: 'mdi-calendar' },
+  { type: 'TEXT', label: 'Text Box', icon: 'mdi-form-textbox' },
+  { type: 'CHECKBOX', label: 'Checkbox', icon: 'mdi-checkbox-marked' },
+]
+
+// Handlers
 const handleFileSelect = event => {
   const file = event.target.files?.[0]
   if (file && file.type === 'application/pdf') {
     templateForm.value.file = file
+    pdfPreviewUrl.value = URL.createObjectURL(file)
   }
   else {
     alert('Please select a PDF file')
   }
+}
+
+const handlePdfLoad = (pdf) => {
+   pageCount.value = pdf.numPages
+}
+
+const onDragStart = (event, type) => {
+   event.dataTransfer.setData('fieldType', type)
+}
+
+const onDrop = (event, pageNumber) => {
+   const type = event.dataTransfer.getData('fieldType')
+   if (!type) return
+   
+   if (!selectedRoleForMapping.value) {
+      alert('Please select a role to assign this field to first.')
+      return
+   }
+
+   const rect = event.target.getBoundingClientRect()
+   const x = event.clientX - rect.left
+   const y = event.clientY - rect.top
+   
+   // Convert to percentage
+   const xPercent = (x / rect.width) * 100
+   const yPercent = (y / rect.height) * 100
+
+   fieldMappings.value.push({
+      type,
+      role_name: selectedRoleForMapping.value, // We use role_name to map to roles
+      page_number: pageNumber,
+      x: xPercent,
+      y: yPercent,
+      width: 15, // Default width %
+      height: 5, // Default height %
+      required: true
+   })
+}
+
+const removeFieldMapping = (field) => {
+   const idx = fieldMappings.value.indexOf(field)
+   if (idx !== -1) fieldMappings.value.splice(idx, 1)
+}
+
+const getRoleColor = (roleName) => {
+   // Generate consistent color from string
+   let hash = 0;
+   for (let i = 0; i < roleName.length; i++) {
+       hash = roleName.charCodeAt(i) + ((hash << 5) - hash);
+   }
+   const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+   return '#' + '00000'.substring(0, 6 - c.length) + c + '40'; // 40 for transparency
 }
 
 const addRole = () => {
@@ -79,7 +148,9 @@ const canProceed = computed(() => {
     case 2:
       return roles.value.length > 0 && roles.value.every(r => r.role)
     case 3:
-      return true // Field mappings are optional
+      // Optional, but ideally check if all SIGN roles have at least one field? 
+      // For now, allow proceeding even without fields (maybe they add them later or use auto-placement)
+      return true 
     case 4:
       return !templateForm.value.amount_required || thresholds.value.length > 0
     default:
@@ -108,6 +179,7 @@ const handleCreate = async () => {
     formData.append('description', templateForm.value.description)
     formData.append('workflow_type', templateForm.value.workflow_type)
     formData.append('amount_required', templateForm.value.amount_required ? '1' : '0')
+    formData.append('required_signature_level', templateForm.value.required_signature_level)
     formData.append('file', templateForm.value.file)
 
     // Create template
@@ -118,9 +190,20 @@ const handleCreate = async () => {
       await templateStore.addRoles(template.id, roles.value)
     }
 
-    // Add field mappings
+    // Add field mappings (saveFields)
     if (fieldMappings.value.length > 0) {
-      await templateStore.addFieldMappings(template.id, fieldMappings.value)
+      const fieldsPayload = fieldMappings.value.map(f => ({
+          type: f.type.toLowerCase(), // backend expects lowercase? Checking validation... 'in:signature,initials,date,text'
+          signer_role: f.role_name,
+          page_number: f.page_number,
+          x_position: Number(f.x),
+          y_position: Number(f.y),
+          width: Number(f.width),
+          height: Number(f.height),
+          required: f.required,
+          label: f.type // Default label
+      }))
+      await templateStore.saveFields(template.id, fieldsPayload)
     }
 
     // Add thresholds
@@ -216,10 +299,17 @@ const handleCreate = async () => {
                 class="mt-4"
               />
 
-              <v-select
-                v-model="templateForm.workflow_type"
-                :items="workflowTypes"
                 label="Workflow Type"
+                variant="outlined"
+                class="mt-4"
+              />
+
+              <v-select
+                v-model="templateForm.required_signature_level"
+                :items="['SIMPLE', 'ADVANCED', 'QUALIFIED']"
+                label="Required Signature Level"
+                hint="Level of assurance required for signers"
+                persistent-hint
                 variant="outlined"
                 class="mt-4"
               />

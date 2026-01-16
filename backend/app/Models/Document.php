@@ -33,6 +33,11 @@ class Document extends Model
         'mime_type',
         'size',
         'metadata',
+        'jurisdiction',
+        'retention_period_days',
+        'is_legal_hold',
+        'legal_hold_reason',
+        'archived_at',
     ];
 
     protected $casts = [
@@ -44,6 +49,8 @@ class Document extends Model
         'sent_at' => 'datetime',
         'completed_at' => 'datetime',
         'voided_at' => 'datetime',
+        'archived_at' => 'datetime',
+        'is_legal_hold' => 'boolean',
     ];
 
     /**
@@ -98,11 +105,11 @@ class Document extends Model
     }
 
     /**
-     * Get signature fields for this document.
+     * Get fields for this document.
      */
-    public function signatureFields()
+    public function fields()
     {
-        return $this->hasMany(SignatureField::class);
+        return $this->hasMany(DocumentField::class);
     }
 
     /**
@@ -142,7 +149,7 @@ class Document extends Model
     public function markAsCompleted(): void
     {
         $this->update([
-            'status' => 'completed',
+            'status' => 'COMPLETED',
             'completed_at' => now(),
         ]);
     }

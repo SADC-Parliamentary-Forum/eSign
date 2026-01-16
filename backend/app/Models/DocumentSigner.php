@@ -26,6 +26,9 @@ class DocumentSigner extends Model
         'decline_reason',
         'ip_address',
         'user_agent',
+        'verified_at',
+        'verification_method',
+        'verification_data',
     ];
 
     protected $casts = [
@@ -34,6 +37,8 @@ class DocumentSigner extends Model
         'viewed_at' => 'datetime',
         'signed_at' => 'datetime',
         'declined_at' => 'datetime',
+        'verified_at' => 'datetime',
+        'verification_data' => 'array',
     ];
 
     protected $hidden = [
@@ -126,7 +131,7 @@ class DocumentSigner extends Model
     /**
      * Mark the signer as having signed.
      */
-    public function markAsSigned(string $ipAddress = null, string $userAgent = null): void
+    public function markAsSigned(?string $ipAddress = null, ?string $userAgent = null): void
     {
         $this->update([
             'status' => 'signed',
@@ -139,7 +144,7 @@ class DocumentSigner extends Model
     /**
      * Mark the signer as having declined.
      */
-    public function markAsDeclined(string $reason = null): void
+    public function markAsDeclined(?string $reason = null): void
     {
         $this->update([
             'status' => 'declined',

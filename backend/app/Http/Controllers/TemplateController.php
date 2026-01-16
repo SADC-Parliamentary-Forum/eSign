@@ -48,6 +48,7 @@ class TemplateController extends Controller
             'description' => 'nullable|string|max:1000',
             'file' => 'required|file|mimes:pdf|max:20480',
             'is_public' => 'nullable|boolean',
+            'required_signature_level' => 'nullable|in:SIMPLE,ADVANCED,QUALIFIED', // Add validation
         ]);
 
         try {
@@ -63,6 +64,7 @@ class TemplateController extends Controller
                 'file_path' => $path,
                 'file_hash' => $hash,
                 'is_public' => $validated['is_public'] ?? false,
+                'required_signature_level' => $validated['required_signature_level'] ?? 'SIMPLE', // Default SIMPLE
             ]);
 
             return response()->json($template, 201);

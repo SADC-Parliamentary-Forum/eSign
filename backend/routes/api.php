@@ -13,13 +13,14 @@ use App\Http\Controllers\UserSignatureController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\VerificationController;
-use App\Http\Controllers\EvidencePackageController;
+use App\Http\Controllers\DocumentFieldController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-*/
+// ...
+
+Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);
+Route::get('documents/{id}/fields', [DocumentFieldController::class, 'index']);
+Route::post('documents/{id}/fields', [DocumentFieldController::class, 'store']);
+Route::post('documents/{id}/send', [DocumentController::class, 'send']);
 
 // =============================================================================
 // Public Routes
@@ -106,7 +107,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('documents/pending', [DocumentController::class, 'pending']);
     Route::apiResource('documents', DocumentController::class)->except(['update', 'destroy']);
     Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);
-    Route::post('documents/{id}/fields', [DocumentController::class, 'addFields']);
+    Route::get('documents/{id}/fields', [DocumentFieldController::class, 'index']);
+    Route::post('documents/{id}/fields', [DocumentFieldController::class, 'store']);
     Route::post('documents/{id}/send', [DocumentController::class, 'send']);
     Route::get('documents/{id}/status', [DocumentController::class, 'status']);
     Route::get('documents/{id}/evidence', [DocumentController::class, 'downloadEvidence']);
@@ -151,5 +153,13 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::post('/documents/{id}/generate', [EvidencePackageController::class, 'generate']);
         Route::get('/documents/{id}/download', [EvidencePackageController::class, 'download']);
     });
+
+    // Delegations
+    Route::get('/delegations', [App\Http\Controllers\DelegationController::class, 'index']);
+    Route::post('/delegations', [App\Http\Controllers\DelegationController::class, 'store']);
+    Route::delete('/delegations/{id}', [App\Http\Controllers\DelegationController::class, 'destroy']);
+
+    // Compliance (Admin)
+    Route::post('/compliance/rules', [App\Http\Controllers\ComplianceController::class, 'store']); // Placeholder
 });
 

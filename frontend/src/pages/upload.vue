@@ -5,6 +5,7 @@ import { useTemplateStore } from '@/stores/templates'
 import TemplateSuggestion from '@/components/ai/TemplateSuggestion.vue'
 import SignatureLevelSelector from '@/components/signatures/SignatureLevelSelector.vue'
 
+const route = useRoute()
 const router = useRouter()
 const aiStore = useAIStore()
 const templateStore = useTemplateStore()
@@ -28,6 +29,35 @@ const appliedTemplate = ref(null)
 const amount = ref(null)
 const autoCalculatedRoles = ref([])
 
+onMounted(async () => {
+  if (route.query.templateId) {
+    loading.value = true
+    try {
+      await templateStore.fetchTemplate(route.query.templateId)
+      const template = templateStore.activeTemplate
+      if (template) {
+        appliedTemplate.value = template
+        title.value = `${template.name} - ${new Date().toLocaleDateString()}`
+        // Pre-populate signers from roles immediately
+        if (template.roles?.length > 0) {
+          signers.value = template.roles.map(role => ({
+            name: '',
+            email: '',
+            role: role.role,
+            action: role.action,
+            required: role.required,
+            signing_order: role.signing_order,
+          }))
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load template:', e)
+    } finally {
+      loading.value = false
+    }
+  }
+})
+
 // Step 2: Add Signers
 const signers = ref([{ name: '', email: '', role: '' }])
 const sequentialSigning = ref(false)
@@ -35,6 +65,7 @@ const sequentialSigning = ref(false)
 // Step 3: Send
 const sending = ref(false)
 const expiresInDays = ref(30)
+const loading = ref(false) // General loading state
 
 // Signature Level (Phase 10: Legal Defensibility)
 const signatureLevel = ref('SIMPLE')
@@ -52,40 +83,65 @@ function removeSigner(index) {
   }
 }
 
-const canProceedToStep2 = computed(() => file.value && title.value)
+const canProceedToStep2 = computed(() => (file.value || appliedTemplate.value) && title.value)
 const canProceedToStep3 = computed(() => signers.value.every(s => s.name && s.email))
 
 async function handleUpload() {
-  if (!file.value) return
+  if (!file.value && !appliedTemplate.value) return
 
   uploading.value = true
   error.value = ''
 
   const formData = new FormData()
-  formData.append('file', file.value[0] || file.value)
+  
+  if (file.value) {
+     formData.append('file', file.value[0] || file.value)
+  }
+  
   formData.append('title', title.value)
   formData.append('signature_level', signatureLevel.value)
+  
+  if (appliedTemplate.value) {
+     formData.append('template_id', appliedTemplate.value.id)
+  }
 
   try {
-    const res = await $api('/documents', {
-      method: 'POST',
-      body: formData,
-    })
+    // Note: $api handles FormData/JSON automatically but we need to ensure boundary if mixed? 
+    // Usually ofetch handles FormData correctly.
+    // If we only send JSON (template_id without file), we might need to change content-type or just send JSON object.
+    
+    let res;
+    if (file.value) {
+       res = await $api('/documents', { method: 'POST', body: formData })
+    } else {
+       // JSON payload for template
+       res = await $api('/documents', { 
+           method: 'POST', 
+           body: {
+               title: title.value,
+               signature_level: signatureLevel.value,
+               template_id: appliedTemplate.value.id
+           }
+       })
+    }
 
     documentId.value = res.id
     
-    // Analyze document for template suggestions
-    await analyzeForTemplates()
+    if (file.value && !appliedTemplate.value) {
+        // Only analyze if we uploaded a file and didn't start from template
+        await analyzeForTemplates()
+        if (aiStore.hasSuggestions) {
+          showTemplateSuggestions.value = true
+          return // Stop here, user picks template or skips
+        }
+    }
     
-    if (aiStore.hasSuggestions) {
-      showTemplateSuggestions.value = true
-    }
-    else {
-      step.value = 2
-    }
+    // Proceed to Step 2
+    step.value = 2
+
   }
   catch (e) {
-    error.value = e.message || 'Upload failed'
+    error.value = e.message || 'Creation failed'
   }
   finally {
     uploading.value = false
@@ -100,7 +156,6 @@ async function analyzeForTemplates() {
   }
   catch (e) {
     console.error('Failed to get AI suggestions:', e)
-    // Don't block the flow if AI fails
   }
   finally {
     analyzingDocument.value = false
@@ -125,6 +180,11 @@ async function applyTemplate(template) {
       required: role.required,
       signing_order: role.signing_order,
     }))
+  }
+
+  // Set signature level from template
+  if (fullTemplate.required_signature_level) {
+    signatureLevel.value = fullTemplate.required_signature_level
   }
   
   // Check if template requires financial amount
@@ -186,9 +246,12 @@ async function saveSigners() {
         signers: signers.value,
         template_id: appliedTemplate.value?.id,
         amount: amount.value,
+        sequential: sequentialSigning.value // Save this too
       },
     })
-    step.value = 3
+    
+    // Redirect to Prepare Mode
+    router.push(`/documents/${documentId.value}/prepare`)
   }
   catch (e) {
     error.value = e.message || 'Failed to add signers'

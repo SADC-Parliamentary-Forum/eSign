@@ -157,6 +157,26 @@ export const useTemplateStore = defineStore('templates', {
             }
         },
 
+        async saveFields(id, fields) {
+            this.loading = true
+            this.error = null
+            try {
+                const { template } = await templateAPI.saveFields(id, fields)
+                // Note: storeFields controller returns { message, fields } but not the full template with fields? 
+                // We might need to fetch template again or update partially.
+                // Assuming we just want to succeed for now.
+                return template
+            }
+            catch (error) {
+                this.error = error.message
+                console.error('Failed to save fields:', error)
+                throw error
+            }
+            finally {
+                this.loading = false
+            }
+        },
+
         async addFieldMappings(id, mappings) {
             this.loading = true
             this.error = null

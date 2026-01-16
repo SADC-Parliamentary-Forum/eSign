@@ -29,6 +29,19 @@ const getStatusIcon = status => {
   }
   return icons[status] || 'mdi-file'
 }
+
+const formatDate = date => {
+  if (!date) return ''
+  const d = new Date(date)
+  const now = new Date()
+  const diff = now - d
+  const days = Math.floor(diff / 86400000)
+  
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  return d.toLocaleDateString()
+}
 </script>
 
 <template>
@@ -111,6 +124,16 @@ const getStatusIcon = status => {
       </v-btn>
 
       <v-btn
+        v-if="template.status === 'ACTIVE'"
+        size="small"
+        color="primary"
+        variant="flat"
+        :to="`/upload?templateId=${template.id}`"
+      >
+        Use
+      </v-btn>
+
+      <v-btn
         v-if="template.status === 'DRAFT'"
         size="small"
         variant="text"
@@ -170,20 +193,7 @@ const getStatusIcon = status => {
   </v-card>
 </template>
 
-<script>
-function formatDate(date) {
-  if (!date) return ''
-  const d = new Date(date)
-  const now = new Date()
-  const diff = now - d
-  const days = Math.floor(diff / 86400000)
-  
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days} days ago`
-  return d.toLocaleDateString()
-}
-</script>
+
 
 <style scoped>
 .template-card {

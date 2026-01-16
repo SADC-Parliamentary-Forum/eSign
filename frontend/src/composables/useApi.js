@@ -18,7 +18,7 @@ export const useApi = createFetch({
           Authorization: `Bearer ${accessToken}`,
         }
       }
-      
+
       return { options }
     },
     afterFetch(ctx) {
@@ -32,8 +32,20 @@ export const useApi = createFetch({
       catch (error) {
         console.error(error)
       }
-      
+
       return { data: parsedData, response }
+    },
+    onFetchError(ctx) {
+      if (ctx.response && ctx.response.status === 401) {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('token')
+        localStorage.removeItem('userData')
+        localStorage.removeItem('userAbilityRules')
+
+        if (!window.location.pathname.includes('/login'))
+          window.location.href = '/login'
+      }
+      return ctx
     },
   },
 })

@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->foreignUuid('user_id')->constrained('users'); // Owner
             $table->string('title');
             $table->string('file_path');
-            $table->string('file_hash')->unique(); // SHA-256
+            $table->string('file_hash'); // SHA-256
             $table->string('status')->default('draft'); // draft, pending, signed, rejected
             $table->string('mime_type');
             $table->bigInteger('size');

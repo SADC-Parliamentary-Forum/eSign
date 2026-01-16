@@ -19,5 +19,10 @@ export default [
     to: { name: 'admin' },
     icon: { icon: 'ri-admin-line' },
   },
-]
+  {
+    title: 'Delegations',
+    to: { path: '/settings/delegations' },
+    icon: { icon: 'ri-user-follow-line' }
+  },
+];
 

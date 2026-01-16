@@ -37,7 +37,7 @@ class SigningWorkflowService
 
             // Update document status
             $document->update([
-                'status' => 'sent',
+                'status' => 'IN_PROGRESS',
                 'sent_at' => now(),
                 'sequential_signing' => $options['sequential'] ?? false,
                 'expires_at' => isset($options['expires_in_days'])
@@ -83,9 +83,7 @@ class SigningWorkflowService
             $signer->markAsSigned($ipAddress, $userAgent);
 
             // Update document status
-            if ($document->status === 'sent') {
-                $document->update(['status' => 'in_progress']);
-            }
+            // Document is already IN_PROGRESS (set during sendForSigning)
 
             // Notify document owner
             $this->notifyOwnerOfSignature($document, $signer);
@@ -107,7 +105,7 @@ class SigningWorkflowService
 
             $signer->markAsDeclined($reason);
 
-            $document->update(['status' => 'declined']);
+            $document->update(['status' => 'VOIDED']);
 
             // Notify document owner
             $this->notifyOwnerOfDecline($document, $signer, $reason);

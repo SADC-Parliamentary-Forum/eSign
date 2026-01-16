@@ -1,6 +1,9 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { useResponsive } from '@/composables/useResponsive'
+import InitiatorDashboard from '@/components/dashboards/InitiatorDashboard.vue'
+import SignerDashboard from '@/components/dashboards/SignerDashboard.vue'
+import ExecutiveDashboard from '@/components/dashboards/ExecutiveDashboard.vue'
 
 const router = useRouter()
 const { isMobile, spacing } = useResponsive()
@@ -16,6 +19,15 @@ const showDashboard = computed(() => {
   if (role === 'sg' || role === 'executive') return 'executive'
   if (role === 'finance' || role === 'approver' || role === 'signer') return 'signer'
   return 'initiator'
+})
+
+const dashboardComponent = computed(() => {
+  const dashboardMap = {
+    executive: ExecutiveDashboard,
+    signer: SignerDashboard,
+    initiator: InitiatorDashboard,
+  }
+  return dashboardMap[showDashboard.value] || InitiatorDashboard
 })
 </script>
 
@@ -70,27 +82,3 @@ const showDashboard = computed(() => {
     />
   </div>
 </template>
-
-<script>
-import InitiatorDashboard from '@/components/dashboards/InitiatorDashboard.vue'
-import SignerDashboard from '@/components/dashboards/SignerDashboard.vue'
-import ExecutiveDashboard from '@/components/dashboards/ExecutiveDashboard.vue'
-
-export default {
-  components: {
-    InitiatorDashboard,
-    SignerDashboard,
-    ExecutiveDashboard,
-  },
-  computed: {
-    dashboardComponent() {
-      const dashboardMap = {
-        executive: 'ExecutiveDashboard',
-        signer: 'SignerDashboard',
-        initiator: 'InitiatorDashboard',
-      }
-      return dashboardMap[this.showDashboard] || 'InitiatorDashboard'
-    },
-  },
-}
-</script>

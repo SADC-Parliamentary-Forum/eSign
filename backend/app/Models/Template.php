@@ -26,6 +26,8 @@ class Template extends Model
         'approved_by',
         'approved_at',
         'amount_required',
+        'required_signature_level',
+        'default_retention_days',
         'is_public',
     ];
 

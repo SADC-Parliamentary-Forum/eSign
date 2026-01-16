@@ -43,7 +43,7 @@ class DocumentService
             'title' => $metadata['title'] ?? $file->getClientOriginalName(),
             'file_path' => $storagePath,
             'file_hash' => $hash,
-            'status' => 'draft',
+            'status' => 'DRAFT',
             'mime_type' => $mimeType,
             'size' => filesize($finalPath),
             'metadata' => $metadata,
@@ -88,43 +88,48 @@ class DocumentService
     /**
      * Generate a ZIP bundle containing the Signed Document and Audit Trail
      */
+    /**
+     * Generate a ZIP bundle containing the Signed Document and Audit Trail
+     */
     public function createEvidenceBundle(Document $document)
     {
-        $zipFileName = 'evidence_bundle_' . $document->id . '.zip';
-        $zipPath = storage_path('app/' . $zipFileName);
+        $zipFileName = 'evidence_' . $document->id . '.zip';
+        $tempDir = storage_path('app/temp/' . Str::uuid());
+        mkdir($tempDir, 0755, true);
 
-        $zip = new \ZipArchive;
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
+        try {
+            // 1. Get the Signed Document (or current document file)
+            $documentContent = Storage::disk('minio')->get($document->file_path);
+            file_put_contents($tempDir . '/document.pdf', $documentContent);
 
-            // 1. Add the Document
-            $fileContent = Storage::disk('minio')->get($document->file_path);
-            $zip->addFromString('document.pdf', $fileContent);
+            // 2. Generate Audit Trail PDF
+            $pdfContent = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.audit_trail', [
+                'document' => $document->load(['user', 'signers', 'workflowLogs'])
+            ])->output();
+            file_put_contents($tempDir . '/audit_trail.pdf', $pdfContent);
 
-            // 2. Generate Audit Trail
-            $auditLogs = \App\Models\AuditLog::where('resource_id', $document->id)
-                ->orWhere('details->document_id', $document->id)
-                ->with('user')
-                ->orderBy('created_at', 'asc')
-                ->get();
-
-            $auditContent = "Audit Trail for Document: " . $document->title . " (" . $document->id . ")\n";
-            $auditContent .= "Generated: " . now() . "\n\n";
-            $auditContent .= str_pad("Time", 25) . str_pad("User", 30) . str_pad("Event", 20) . "IP Address\n";
-            $auditContent .= str_repeat("-", 100) . "\n";
-
-            foreach ($auditLogs as $log) {
-                $user = $log->user ? $log->user->name : 'System';
-                $auditContent .= str_pad($log->created_at, 25) .
-                    str_pad($user, 30) .
-                    str_pad($log->event, 20) .
-                    $log->ip_address . "\n";
+            // 3. Create ZIP
+            $zipPath = $tempDir . '/' . $zipFileName;
+            $zip = new \ZipArchive;
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
+                $zip->addFile($tempDir . '/document.pdf', 'Signed_Document.pdf');
+                $zip->addFile($tempDir . '/audit_trail.pdf', 'Audit_Trail.pdf');
+                $zip->close();
             }
 
-            $zip->addFromString('audit_trail.txt', $auditContent);
-            $zip->close();
-        }
+            // 4. Store ZIP in MinIO
+            $storagePath = 'evidence/' . date('Y/m') . '/' . $zipFileName;
+            Storage::disk('minio')->put($storagePath, file_get_contents($zipPath));
 
-        return $zipPath;
+            return $storagePath;
+
+        } finally {
+            // Cleanup
+            @unlink($tempDir . '/document.pdf');
+            @unlink($tempDir . '/audit_trail.pdf');
+            @unlink($tempDir . '/' . $zipFileName);
+            @rmdir($tempDir);
+        }
     }
 
     /**
@@ -150,15 +155,16 @@ class DocumentService
             'title' => $metadata['title'] ?? $template->name,
             'file_path' => $newPath,
             'file_hash' => $hash,
-            'status' => 'draft',
+            'status' => 'DRAFT',
             'mime_type' => 'application/pdf',
             'size' => strlen($fileContent),
             'metadata' => $metadata,
+            'signature_level' => $template->required_signature_level ?? ($metadata['signature_level'] ?? 'SIMPLE'),
         ]);
 
-        // Copy template fields to document signature fields
+        // Copy template fields to document fields
         foreach ($template->fields as $templateField) {
-            \App\Models\SignatureField::create([
+            \App\Models\DocumentField::create([
                 'document_id' => $document->id,
                 'type' => $templateField->type,
                 'page_number' => $templateField->page_number,
@@ -167,6 +173,7 @@ class DocumentService
                 'width' => $templateField->width,
                 'height' => $templateField->height,
                 'required' => $templateField->required,
+                'signer_role' => $templateField->signer_role,
             ]);
         }
 
