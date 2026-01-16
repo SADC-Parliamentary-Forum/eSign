@@ -32,7 +32,7 @@ return new class extends Migration {
 
             // Void tracking
             $table->timestamp('voided_at')->nullable()->after('completed_at');
-            $table->foreignId('voided_by')->nullable()->constrained('users')->after('voided_at');
+            $table->foreignUuid('voided_by')->nullable()->constrained('users')->after('voided_at');
             $table->text('void_reason')->nullable()->after('voided_by');
 
             $table->index('status');

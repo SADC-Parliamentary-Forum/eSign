@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('document_signers', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('document_id')->constrained('documents')->onDelete('cascade');
-            $table->foreignId('user_id')->nullable()->constrained('users'); // Null if guest signer
+            $table->foreignUuid('user_id')->nullable()->constrained('users'); // Null if guest signer
             $table->string('email'); // For notifications
             $table->string('name');
             $table->integer('signing_order')->default(1); // For sequential signing

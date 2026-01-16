@@ -24,9 +24,9 @@ return new class extends Migration {
             $table->integer('version')->default(1)->after('workflow_type');
 
             // Governance tracking
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->after('version');
+            $table->foreignUuid('reviewed_by')->nullable()->constrained('users')->after('version');
             $table->timestamp('reviewed_at')->nullable()->after('reviewed_by');
-            $table->foreignId('approved_by')->nullable()->constrained('users')->after('reviewed_at');
+            $table->foreignUuid('approved_by')->nullable()->constrained('users')->after('reviewed_at');
             $table->timestamp('approved_at')->nullable()->after('approved_by');
 
             // Financial threshold requirement

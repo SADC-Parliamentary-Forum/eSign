@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('templates', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('user_id')->constrained('users'); // Creator
+            $table->foreignUuid('user_id')->constrained('users'); // Creator
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('file_path'); // Template PDF

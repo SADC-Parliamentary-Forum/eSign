@@ -22,11 +22,10 @@ return new class extends Migration {
         });
 
         Schema::table('document_signers', function (Blueprint $table) {
-            $table->string('verification_method')->nullable()->after('declined_reason');
+            $table->string('verification_method')->nullable()->after('user_agent');
             $table->timestamp('verification_completed_at')->nullable()->after('verification_method');
             $table->json('verification_metadata')->nullable()->after('verification_completed_at');
-            $table->string('ip_address', 45)->nullable()->after('verification_metadata');
-            $table->json('device_fingerprint')->nullable()->after('ip_address');
+            $table->json('device_fingerprint')->nullable()->after('verification_metadata');
             $table->json('geolocation')->nullable()->after('device_fingerprint');
         });
     }
@@ -51,7 +50,6 @@ return new class extends Migration {
                 'verification_method',
                 'verification_completed_at',
                 'verification_metadata',
-                'ip_address',
                 'device_fingerprint',
                 'geolocation',
             ]);

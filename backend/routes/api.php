@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // -------------------------------------------------------------------------
     // Documents
     // -------------------------------------------------------------------------
+    Route::get('documents/stats', [App\Http\Controllers\DocumentStatsController::class, 'index']);
     Route::get('documents/pending', [DocumentController::class, 'pending']);
     Route::apiResource('documents', DocumentController::class)->except(['update', 'destroy']);
     Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);

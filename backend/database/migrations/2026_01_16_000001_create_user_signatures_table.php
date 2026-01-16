@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('user_signatures', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
             $table->enum('type', ['signature', 'initials'])->default('signature');
             $table->string('name')->nullable(); // "My Work Signature"
             $table->text('image_data'); // Base64 or path to stored image

@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('documents', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('user_id')->constrained('users'); // Owner
+            $table->foreignUuid('user_id')->constrained('users'); // Owner
             $table->string('title');
             $table->string('file_path');
             $table->string('file_hash')->unique(); // SHA-256

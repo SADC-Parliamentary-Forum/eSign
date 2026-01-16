@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->uuid('id')->primary();
             $table->foreignUuid('workflow_id')->constrained('workflows')->onDelete('cascade');
             $table->string('role')->comment('Role name for this step');
-            $table->foreignId('assigned_user_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignUuid('assigned_user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->integer('signing_order')->default(1);
             $table->enum('status', ['PENDING', 'SIGNED', 'DECLINED'])->default('PENDING');
             $table->timestamp('signed_at')->nullable();

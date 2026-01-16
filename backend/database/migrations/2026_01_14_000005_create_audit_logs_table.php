@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('event'); // e.g., 'login', 'document_viewed', 'contract_created'
             $table->string('resource_type')->nullable(); // 'document', 'user'
             $table->uuid('resource_id')->nullable();

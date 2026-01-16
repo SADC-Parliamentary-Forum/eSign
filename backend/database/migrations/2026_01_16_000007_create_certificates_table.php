@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('certificates', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('document_signer_id')->constrained()->onDelete('cascade');
+            $table->foreignUuid('document_signer_id')->constrained()->onDelete('cascade');
             $table->enum('certificate_type', ['SELF_SIGNED', 'CA_ISSUED', 'QUALIFIED'])->default('SELF_SIGNED');
             $table->string('serial_number')->unique();
             $table->string('issuer');

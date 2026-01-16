@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('identity_verifications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('document_signer_id')->constrained()->onDelete('cascade');
+            $table->foreignUuid('document_signer_id')->constrained()->onDelete('cascade');
             $table->enum('verification_type', ['EMAIL', 'SMS', 'OTP', 'DEVICE', 'ID_DOCUMENT']);
             $table->enum('status', ['PENDING', 'VERIFIED', 'FAILED', 'EXPIRED'])->default('PENDING');
             $table->string('verification_token')->nullable();
