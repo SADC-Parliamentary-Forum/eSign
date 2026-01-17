@@ -50,7 +50,7 @@ async function handleLogin() {
         <img 
           src="/sadc-logo.jpg" 
           alt="SADC Parliamentary Forum" 
-          style="max-width: 120px; height: auto; margin-bottom: 16px;"
+          style="max-width: 70px; height: auto; margin-bottom: 12px;"
         >
         <h4 class="text-h4 mb-1">
           Welcome to SADC PF eSign! 👋🏻

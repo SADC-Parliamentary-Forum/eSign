@@ -53,6 +53,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
+    Route::put('/auth/password', [AuthController::class, 'updatePassword']);
     Route::post('/auth/mfa/send', [MfaController::class, 'send']);
     Route::post('/auth/mfa/verify', [MfaController::class, 'verify']);
     Route::post('/auth/magic/generate', [MagicLinkController::class, 'generate']);
@@ -104,6 +106,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Documents
     // -------------------------------------------------------------------------
     Route::get('documents/stats', [App\Http\Controllers\DocumentStatsController::class, 'index']);
+    Route::post('documents/bulk-delete', [App\Http\Controllers\DocumentController::class, 'bulkDestroy']);
+    Route::get('documents/activity', [App\Http\Controllers\DocumentActivityController::class, 'index']);
     Route::get('documents/pending', [DocumentController::class, 'pending']);
     Route::apiResource('documents', DocumentController::class)->except(['update', 'destroy']);
     Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);
@@ -112,6 +116,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('documents/{id}/send', [DocumentController::class, 'send']);
     Route::get('documents/{id}/status', [DocumentController::class, 'status']);
     Route::get('documents/{id}/evidence', [DocumentController::class, 'downloadEvidence']);
+    Route::get('documents/{id}/pdf', [DocumentController::class, 'streamPdf']);
 
     // -------------------------------------------------------------------------
     // Signing (for authenticated users viewing their assigned documents)
@@ -148,11 +153,12 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // -------------------------------------------------------------------------
     // Evidence Packages (Phase 10: Legal Defensibility)
     // -------------------------------------------------------------------------
-    Route::prefix('evidence')->group(function () {
-        Route::get('/documents/{id}', [EvidencePackageController::class, 'show']);
-        Route::post('/documents/{id}/generate', [EvidencePackageController::class, 'generate']);
-        Route::get('/documents/{id}/download', [EvidencePackageController::class, 'download']);
-    });
+    // TODO: Implement EvidencePackageController
+    // Route::prefix('evidence')->group(function () {
+    //     Route::get('/documents/{id}', [EvidencePackageController::class, 'show']);
+    //     Route::post('/documents/{id}/generate', [EvidencePackageController::class, 'generate']);
+    //     Route::get('/documents/{id}/download', [EvidencePackageController::class, 'download']);
+    // });
 
     // Delegations
     Route::get('/delegations', [App\Http\Controllers\DelegationController::class, 'index']);
@@ -160,6 +166,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::delete('/delegations/{id}', [App\Http\Controllers\DelegationController::class, 'destroy']);
 
     // Compliance (Admin)
-    Route::post('/compliance/rules', [App\Http\Controllers\ComplianceController::class, 'store']); // Placeholder
+    // TODO: Implement ComplianceController
+    // Route::post('/compliance/rules', [App\Http\Controllers\ComplianceController::class, 'store']);
 });
 

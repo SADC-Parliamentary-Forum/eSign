@@ -47,5 +47,25 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    return { token, user, isAuthenticated, role, login, clearAuth }
+    async function fetchUser() {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/me`, {
+                headers: {
+                    'Authorization': `Bearer ${token.value}`,
+                    'Accept': 'application/json'
+                }
+            })
+            if (response.ok) {
+                const userData = await response.json()
+                // Update user state without changing token
+                user.value = userData
+                localStorage.setItem('user', JSON.stringify(userData))
+                return userData
+            }
+        } catch (error) {
+            console.error('Failed to fetch user:', error)
+        }
+    }
+
+    return { token, user, isAuthenticated, role, login, clearAuth, fetchUser }
 })

@@ -37,10 +37,10 @@ const dashboardComponent = computed(() => {
     <v-card v-if="isMobile" class="mb-4" variant="tonal" color="primary">
       <v-card-text>
         <div class="text-h6 font-weight-bold">
-          Welcome, {{ user.name }}
+          Welcome back, {{ user.name }}! 👋
         </div>
-        <div class="text-caption">
-          {{ user.email }}
+        <div class="text-caption mt-1 text-medium-emphasis">
+          Securely sign, send, and manage documents with SADC PF eSign
         </div>
       </v-card-text>
     </v-card>
@@ -50,10 +50,10 @@ const dashboardComponent = computed(() => {
       <div class="d-flex align-center justify-space-between">
         <div>
           <div class="text-h6 font-weight-bold">
-            Welcome back, {{ user.name }}!
+            Welcome back, {{ user.name }}! 👋
           </div>
-          <div class="text-body-2">
-            Here's what's happening with your documents today.
+          <div class="text-caption mt-1 text-medium-emphasis">
+            Securely sign, send, and manage documents with SADC PF eSign
           </div>
         </div>
         <v-btn

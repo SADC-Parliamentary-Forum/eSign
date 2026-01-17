@@ -25,6 +25,81 @@ class DocumentController extends Controller
     }
 
     /**
+     * List user documents.
+     */
+    public function index(Request $request)
+    {
+        $query = Document::where('user_id', $request->user()->id);
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        $sortBy = $request->input('sort', 'updated_at');
+        $sortOrder = $request->input('order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
+
+        $limit = $request->input('limit', 10);
+
+        return response()->json(
+            $query->with('signers')->paginate($limit)
+        );
+    }
+
+    /**
+     * Get document statistics for dashboard.
+     */
+    public function stats(Request $request)
+    {
+        $userId = $request->user()->id;
+
+        $drafts = Document::where('user_id', $userId)->where('status', 'DRAFT')->count();
+        $inProgress = Document::where('user_id', $userId)->where('status', 'IN_PROGRESS')->count();
+        $completed = Document::where('user_id', $userId)->where('status', 'COMPLETED')->count();
+        $declined = Document::where('user_id', $userId)->where('status', 'DECLINED')->count();
+        $total = $drafts + $inProgress + $completed + $declined;
+
+        $completionRate = $total > 0 ? round(($completed / $total) * 100) : 0;
+
+        // Calculate average signing time for completed documents
+        $avgSigningTime = '0h';
+        $completedDocs = Document::where('user_id', $userId)
+            ->where('status', 'COMPLETED')
+            ->whereNotNull('completed_at')
+            ->get();
+
+        if ($completedDocs->count() > 0) {
+            $totalHours = 0;
+            foreach ($completedDocs as $doc) {
+                $created = new \DateTime($doc->created_at);
+                $completed = new \DateTime($doc->completed_at);
+                $diff = $created->diff($completed);
+                $totalHours += ($diff->days * 24) + $diff->h;
+            }
+            $avgHours = $totalHours / $completedDocs->count();
+            if ($avgHours < 24) {
+                $avgSigningTime = round($avgHours, 1) . 'h';
+            } else {
+                $avgSigningTime = round($avgHours / 24, 1) . 'd';
+            }
+        }
+
+        return response()->json([
+            'drafts' => $drafts,
+            'awaitingSignatures' => $inProgress,
+            'completed' => $completed,
+            'declined' => $declined,
+            'total' => $total,
+            'completionRate' => $completionRate,
+            'avgSigningTime' => $avgSigningTime,
+        ]);
+    }
+
+    /**
      * Create a new document.
      */
     public function store(Request $request)
@@ -61,14 +136,38 @@ class DocumentController extends Controller
                 }
             }
 
-            $document = Document::create([
+            if (!$path) {
+                throw new \Exception('Failed to store file or find template.');
+            }
+
+            $size = 0;
+            if (isset($file)) {
+                $size = (int) $file->getSize();
+            } elseif (isset($template)) {
+                $size = (int) Storage::disk('minio')->size($template->file_path);
+            }
+
+            $mimeType = 'application/pdf';
+            if (isset($file)) {
+                $mimeType = $file->getMimeType();
+            } elseif (isset($template)) {
+                /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+                $disk = Storage::disk('minio');
+                $mimeType = $disk->mimeType($template->file_path);
+            }
+
+            $createData = [
                 'user_id' => $request->user()->id,
                 'title' => $validated['title'],
                 'file_path' => $path,
                 'file_hash' => $hash,
+                'size' => $size,
+                'mime_type' => $mimeType,
                 'status' => 'DRAFT',
                 'signature_level' => isset($template) ? $template->required_signature_level : ($validated['signature_level'] ?? 'SIMPLE'),
-            ]);
+            ];
+
+            $document = Document::create($createData);
 
             // If created from template, copy fields
             if (isset($template) && $template->fields) {
@@ -103,7 +202,32 @@ class DocumentController extends Controller
         $document = Document::with(['signatures', 'signers', 'fields', 'workflowLogs'])
             ->findOrFail($id);
 
-        // ...
+        // Check authorization (owner or assigned signer)
+        $user = $request->user();
+        $isOwner = $document->user_id === $user->id;
+        $isSigner = $document->signers()->where('user_id', $user->id)->exists() ||
+            $document->signers()->where('email', $user->email)->exists();
+
+        if (!$isOwner && !$isSigner) {
+            abort(403, 'Unauthorized access to this document.');
+        }
+
+        // Generate signed URL for PDF access
+        try {
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('minio');
+            $document->pdf_url = $disk->temporaryUrl(
+                $document->file_path,
+                now()->addHours(2)
+            );
+        } catch (\Exception $e) {
+            // Fallback for local storage or misconfigured minio
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('minio');
+            $document->pdf_url = $disk->url($document->file_path);
+        }
+
+        return response()->json($document);
     }
 
     /**
@@ -259,9 +383,111 @@ class DocumentController extends Controller
 
         try {
             $path = $this->documentService->createEvidenceBundle($document);
-            return Storage::disk('minio')->download($path);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('minio');
+            return $disk->download($path);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error generating bundle: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Stream PDF file for viewing.
+     * This proxies the file from MinIO to avoid CORS/internal URL issues.
+     */
+    public function streamPdf(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+
+        // Check authorization
+        $user = $request->user();
+        $isOwner = $document->user_id === $user->id;
+        $isSigner = $document->signers()->where('user_id', $user->id)->exists() ||
+            $document->signers()->where('email', $user->email)->exists();
+
+        if (!$isOwner && !$isSigner) {
+            abort(403, 'Unauthorized access to this document.');
+        }
+
+        try {
+            $mimeType = $document->mime_type ?: 'application/pdf';
+            $path = $document->file_path;
+
+            return response()->stream(function () use ($path) {
+                $stream = Storage::disk('minio')->readStream($path);
+                fpassthru($stream);
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }, 200, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json(['message' => 'Error loading document: ' . $e->getMessage()], 500);
+        }
+    }
+    /**
+     * Delete a document.
+     */
+    public function destroy(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+
+        if ($request->user()->cannot('delete', $document)) {
+            abort(403, 'Unauthorized');
+        }
+
+        try {
+            // Delete file from storage
+            if ($document->file_path && Storage::disk('minio')->exists($document->file_path)) {
+                Storage::disk('minio')->delete($document->file_path);
+            }
+
+            $document->delete();
+
+            return response()->json(['message' => 'Document deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to delete document: ' . $e->getMessage()], 500);
+        }
+    }
+    /**
+     * Bulk delete documents.
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:documents,id'
+        ]);
+
+        $ids = $validated['ids'];
+        $count = 0;
+        $errors = 0;
+
+        foreach ($ids as $id) {
+            $document = Document::find($id);
+            if ($document && $request->user()->can('delete', $document)) {
+                try {
+                    if ($document->file_path && Storage::disk('minio')->exists($document->file_path)) {
+                        Storage::disk('minio')->delete($document->file_path);
+                    }
+                    $document->delete();
+                    $count++;
+                } catch (\Exception $e) {
+                    $errors++;
+                }
+            } else {
+                $errors++;
+            }
+        }
+
+        return response()->json([
+            'message' => "Deleted {$count} documents.",
+            'deleted_count' => $count,
+            'errors' => $errors
+        ]);
+    }
 }
+

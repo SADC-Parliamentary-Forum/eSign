@@ -1,6 +1,6 @@
 <script setup>
 import { useTemplateStore } from '@/stores/templates'
-import { VuePdfEmbed } from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed'
 import { useDropZone } from '@vueuse/core'
 
 const templateStore = useTemplateStore()
@@ -299,6 +299,12 @@ const handleCreate = async () => {
                 class="mt-4"
               />
 
+              <!-- Workflow Type Selection -->
+              <v-select
+                v-model="templateForm.workflow_type"
+                :items="workflowTypes"
+                item-title="title"
+                item-value="value"
                 label="Workflow Type"
                 variant="outlined"
                 class="mt-4"

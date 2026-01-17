@@ -69,6 +69,10 @@ export const useWorkflowStore = defineStore('workflows', {
                 return this.activeWorkflow
             }
             catch (error) {
+                if (error.response?.status === 404) {
+                    this.activeWorkflow = null
+                    return null
+                }
                 this.error = error.message
                 console.error('Failed to fetch document workflow:', error)
                 throw error

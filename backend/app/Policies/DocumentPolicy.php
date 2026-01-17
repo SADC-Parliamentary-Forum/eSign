@@ -37,6 +37,22 @@ class DocumentPolicy
     }
 
     /**
+     * Determine whether the user can update the model.
+     */
+    public function update(User $user, Document $document): bool
+    {
+        return $user->id === $document->user_id;
+    }
+
+    /**
+     * Determine whether the user can delete the model.
+     */
+    public function delete(User $user, Document $document): bool
+    {
+        return $user->id === $document->user_id;
+    }
+
+    /**
      * Determine whether the user can sign the document.
      */
     public function sign(User $user, Document $document): bool

@@ -12,22 +12,16 @@ const userProfileList = [
   {
     type: 'navItem',
     icon: 'ri-user-line',
-    title: 'Profile',
-    href: '#',
+    title: 'My Profile',
+    to: '/profile',
   },
   {
     type: 'navItem',
-    icon: 'ri-settings-4-line',
-    title: 'Settings',
-    href: '#',
+    icon: 'ri-file-list-line',
+    title: 'My Documents',
+    to: '/documents',
   },
   { type: 'divider' },
-  {
-    type: 'navItem',
-    icon: 'ri-question-line',
-    title: 'FAQ',
-    href: '#',
-  },
 ]
 
 function handleLogout() {
@@ -84,7 +78,7 @@ function handleLogout() {
             >
               <VListItem
                 v-if="item.type === 'navItem'"
-                :href="item.href"
+                :to="item.to"
                 class="px-4"
               >
                 <template #prepend>

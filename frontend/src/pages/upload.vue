@@ -1,4 +1,10 @@
 <script setup>
+/**
+ * Upload Page - Simplified
+ * 
+ * Single purpose: Upload document and redirect to prepare page
+ * Signers and fields are now managed in the prepare page
+ */
 import { useRouter } from 'vue-router'
 import { useAIStore } from '@/stores/ai'
 import { useTemplateStore } from '@/stores/templates'
@@ -10,140 +16,90 @@ const router = useRouter()
 const aiStore = useAIStore()
 const templateStore = useTemplateStore()
 
-// Steps
-const step = ref(1)
-
-// Step 1: Document Upload
+// Form state
 const title = ref('')
 const file = ref(null)
 const uploading = ref(false)
-const documentId = ref(null)
-const analyzingDocument = ref(false)
+const error = ref('')
+const signatureLevel = ref('SIMPLE')
 
 // AI Template Suggestions
 const showTemplateSuggestions = ref(false)
-const selectedTemplate = ref(null)
+const analyzingDocument = ref(false)
 const appliedTemplate = ref(null)
 
-// Template-based fields
-const amount = ref(null)
-const autoCalculatedRoles = ref([])
-
+// Load template if provided in query
 onMounted(async () => {
   if (route.query.templateId) {
-    loading.value = true
     try {
       await templateStore.fetchTemplate(route.query.templateId)
       const template = templateStore.activeTemplate
       if (template) {
         appliedTemplate.value = template
         title.value = `${template.name} - ${new Date().toLocaleDateString()}`
-        // Pre-populate signers from roles immediately
-        if (template.roles?.length > 0) {
-          signers.value = template.roles.map(role => ({
-            name: '',
-            email: '',
-            role: role.role,
-            action: role.action,
-            required: role.required,
-            signing_order: role.signing_order,
-          }))
-        }
+        signatureLevel.value = template.required_signature_level || 'SIMPLE'
       }
     } catch (e) {
       console.error('Failed to load template:', e)
-    } finally {
-      loading.value = false
     }
   }
 })
 
-// Step 2: Add Signers
-const signers = ref([{ name: '', email: '', role: '' }])
-const sequentialSigning = ref(false)
-
-// Step 3: Send
-const sending = ref(false)
-const expiresInDays = ref(30)
-const loading = ref(false) // General loading state
-
-// Signature Level (Phase 10: Legal Defensibility)
-const signatureLevel = ref('SIMPLE')
-
-const error = ref('')
-const success = ref('')
-
-function addSigner() {
-  signers.value.push({ name: '', email: '', role: '' })
-}
-
-function removeSigner(index) {
-  if (signers.value.length > 1) {
-    signers.value.splice(index, 1)
-  }
-}
-
-const canProceedToStep2 = computed(() => (file.value || appliedTemplate.value) && title.value)
-const canProceedToStep3 = computed(() => signers.value.every(s => s.name && s.email))
+const canUpload = computed(() => {
+  return (file.value || appliedTemplate.value) && title.value.trim()
+})
 
 async function handleUpload() {
-  if (!file.value && !appliedTemplate.value) return
+  if (!canUpload.value) return
 
   uploading.value = true
   error.value = ''
 
-  const formData = new FormData()
-  
-  if (file.value) {
-     formData.append('file', file.value[0] || file.value)
-  }
-  
-  formData.append('title', title.value)
-  formData.append('signature_level', signatureLevel.value)
-  
-  if (appliedTemplate.value) {
-     formData.append('template_id', appliedTemplate.value.id)
-  }
-
   try {
-    // Note: $api handles FormData/JSON automatically but we need to ensure boundary if mixed? 
-    // Usually ofetch handles FormData correctly.
-    // If we only send JSON (template_id without file), we might need to change content-type or just send JSON object.
-    
-    let res;
+    let res
+
     if (file.value) {
-       res = await $api('/documents', { method: 'POST', body: formData })
-    } else {
-       // JSON payload for template
-       res = await $api('/documents', { 
-           method: 'POST', 
-           body: {
-               title: title.value,
-               signature_level: signatureLevel.value,
-               template_id: appliedTemplate.value.id
-           }
-       })
-    }
+      // File upload
+      const formData = new FormData()
+      formData.append('file', file.value[0] || file.value)
+      formData.append('title', title.value)
+      formData.append('signature_level', signatureLevel.value)
+      
+      if (appliedTemplate.value) {
+        formData.append('template_id', appliedTemplate.value.id)
+      }
 
-    documentId.value = res.id
-    
-    if (file.value && !appliedTemplate.value) {
-        // Only analyze if we uploaded a file and didn't start from template
-        await analyzeForTemplates()
-        if (aiStore.hasSuggestions) {
-          showTemplateSuggestions.value = true
-          return // Stop here, user picks template or skips
+      res = await $api('/documents', { method: 'POST', body: formData })
+    } else if (appliedTemplate.value) {
+      // Template-only creation
+      res = await $api('/documents', {
+        method: 'POST',
+        body: {
+          title: title.value,
+          signature_level: signatureLevel.value,
+          template_id: appliedTemplate.value.id
         }
+      })
     }
-    
-    // Proceed to Step 2
-    step.value = 2
 
-  }
-  catch (e) {
-    error.value = e.message || 'Creation failed'
-  }
-  finally {
+    // Check for AI template suggestions (only for fresh file uploads)
+    if (file.value && !appliedTemplate.value) {
+      await analyzeForTemplates()
+      if (aiStore.hasSuggestions) {
+        showTemplateSuggestions.value = true
+        // Store documentId for later
+        sessionStorage.setItem('pendingDocumentId', res.id)
+        return
+      }
+    }
+
+    // Success - redirect to prepare page (standalone route)
+    router.push(`/prepare/${res.id}`)
+
+  } catch (e) {
+    error.value = e.message || 'Upload failed. Please try again.'
+    console.error('Upload error:', e)
+  } finally {
     uploading.value = false
   }
 }
@@ -153,448 +109,239 @@ async function analyzeForTemplates() {
   try {
     const fileToAnalyze = file.value[0] || file.value
     await aiStore.suggestTemplates(fileToAnalyze)
-  }
-  catch (e) {
-    console.error('Failed to get AI suggestions:', e)
-  }
-  finally {
+  } catch (e) {
+    console.error('AI analysis failed:', e)
+  } finally {
     analyzingDocument.value = false
   }
 }
 
 async function applyTemplate(template) {
-  selectedTemplate.value = template
   appliedTemplate.value = template
   
-  // Load template details
+  // Load full template details
   await templateStore.fetchTemplate(template.id)
   const fullTemplate = templateStore.activeTemplate
   
-  // Pre-populate signers based on template roles
-  if (fullTemplate.roles?.length > 0) {
-    signers.value = fullTemplate.roles.map(role => ({
-      name: '',
-      email: '',
-      role: role.role,
-      action: role.action,
-      required: role.required,
-      signing_order: role.signing_order,
-    }))
-  }
-
-  // Set signature level from template
-  if (fullTemplate.required_signature_level) {
+  if (fullTemplate?.required_signature_level) {
     signatureLevel.value = fullTemplate.required_signature_level
   }
   
-  // Check if template requires financial amount
-  if (fullTemplate.amount_required) {
-    // Show amount input before proceeding
-    return
-  }
-  
   showTemplateSuggestions.value = false
-  step.value = 2
+  
+  // Continue to prepare page
+  const documentId = sessionStorage.getItem('pendingDocumentId')
+  if (documentId) {
+    sessionStorage.removeItem('pendingDocumentId')
+    router.push(`/documents/${documentId}/prepare`)
+  }
 }
 
 function skipTemplates() {
   aiStore.clearSuggestions()
   showTemplateSuggestions.value = false
-  step.value = 2
-}
-
-async function calculateRolesFromAmount() {
-  if (!appliedTemplate.value || !amount.value) return
   
-  try {
-    const response = await $api(`/templates/${appliedTemplate.value.id}/threshold-matrix`)
-    const thresholds = response.thresholds || []
-    
-    // Find matching threshold
-    const matchingThreshold = thresholds.find(t =>
-      amount.value >= t.min_amount && 
-      (t.max_amount === null || amount.value <= t.max_amount),
-    )
-    
-    if (matchingThreshold) {
-      autoCalculatedRoles.value = matchingThreshold.required_roles
-      
-      // Update signers to include required roles
-      const requiredRoles = matchingThreshold.required_roles
-      signers.value = requiredRoles.map((role, index) => ({
-        name: '',
-        email: '',
-        role,
-        action: 'SIGN',
-        required: true,
-        signing_order: index + 1,
-      }))
-    }
-  }
-  catch (e) {
-    console.error('Failed to calculate roles:', e)
+  const documentId = sessionStorage.getItem('pendingDocumentId')
+  if (documentId) {
+    sessionStorage.removeItem('pendingDocumentId')
+    router.push(`/documents/${documentId}/prepare`)
   }
 }
 
-async function saveSigners() {
-  if (!canProceedToStep3.value) return
-
-  try {
-    await $api(`/documents/${documentId.value}/signers`, {
-      method: 'POST',
-      body: { 
-        signers: signers.value,
-        template_id: appliedTemplate.value?.id,
-        amount: amount.value,
-        sequential: sequentialSigning.value // Save this too
-      },
-    })
-    
-    // Redirect to Prepare Mode
-    router.push(`/documents/${documentId.value}/prepare`)
-  }
-  catch (e) {
-    error.value = e.message || 'Failed to add signers'
-  }
-}
-
-async function sendDocument() {
-  sending.value = true
-  error.value = ''
-
-  try {
-    await $api(`/documents/${documentId.value}/send`, {
-      method: 'POST',
-      body: {
-        sequential: sequentialSigning.value,
-        expires_in_days: expiresInDays.value,
-      },
-    })
-
-    success.value = 'Document sent for signing!'
-    setTimeout(() => router.push('/'), 1500)
-  }
-  catch (e) {
-    error.value = e.message || 'Failed to send document'
-  }
-  finally {
-    sending.value = false
+function onFileChange(files) {
+  file.value = files
+  
+  // Auto-generate title from filename (always overwrite to match file)
+  if (files && (files.length > 0 || files.name)) {
+    const f = Array.isArray(files) ? files[0] : files
+    const filename = f.name
+    title.value = filename.replace(/\.[^/.]+$/, '') // Remove extension
   }
 }
 </script>
 
 <template>
-  <v-row justify="center">
-    <v-col cols="12" md="8" lg="6">
-      <!-- Stepper Header -->
-      <v-card class="mb-6">
-        <v-card-text class="pa-4">
-          <div class="d-flex justify-space-between align-center">
-            <div v-for="(s, i) in ['Upload', 'Add Signers', 'Send']" :key="i" class="text-center flex-grow-1">
-              <v-avatar 
-                :color="step > i + 1 ? 'success' : step === i + 1 ? 'primary' : 'grey'" 
-                size="32"
-                class="mb-1"
+  <v-container class="py-8">
+    <v-row justify="center">
+      <v-col cols="12" md="8" lg="6">
+        <!-- Header -->
+        <div class="text-center mb-8">
+          <v-icon icon="ri-upload-cloud-2-line" size="64" color="primary" class="mb-4" />
+          <h1 class="text-h4 font-weight-bold mb-2">Upload Document</h1>
+          <p class="text-body-1 text-medium-emphasis">
+            Upload a PDF or Word document to prepare for signing
+          </p>
+        </div>
+
+        <!-- Main Upload Card -->
+        <v-card elevation="2" class="mb-6">
+          <v-card-text class="pa-6">
+            <v-form @submit.prevent="handleUpload">
+              <!-- File Upload -->
+              <v-file-input
+                :model-value="file"
+                @update:model-value="onFileChange"
+                label="Select Document"
+                placeholder="Choose PDF or Word file"
+                variant="outlined"
+                prepend-icon=""
+                prepend-inner-icon="ri-file-text-line"
+                accept=".pdf,.doc,.docx"
+                show-size
+                class="mb-4"
+                hint="Supported formats: PDF, DOC, DOCX (max 20MB)"
+                persistent-hint
               >
-                <v-icon v-if="step > i + 1" icon="mdi-check" size="18" />
-                <span v-else>{{ i + 1 }}</span>
-              </v-avatar>
-              <div class="text-caption" :class="step === i + 1 ? 'font-weight-bold' : 'text-medium-emphasis'">
-                {{ s }}
-              </div>
-            </div>
-          </div>
-        </v-card-text>
-      </v-card>
+                <template #selection="{ fileNames }">
+                  <v-chip
+                    v-for="fileName in fileNames"
+                    :key="fileName"
+                    color="primary"
+                    variant="outlined"
+                  >
+                    {{ fileName }}
+                  </v-chip>
+                </template>
+              </v-file-input>
 
-      <!-- Step 1: Upload -->
-      <v-card v-if="step === 1">
-        <v-card-item>
-          <v-card-title class="text-h5">
-            Upload Document
-          </v-card-title>
-          <v-card-subtitle>Add a document for signing</v-card-subtitle>
-        </v-card-item>
+              <!-- Title Input -->
+              <v-text-field
+                v-model="title"
+                label="Document Title"
+                placeholder="e.g. Employment Contract"
+                variant="outlined"
+                prepend-inner-icon="ri-text"
+                class="mb-4"
+                :rules="[v => !!v || 'Title is required']"
+              />
 
-        <v-card-text>
-          <v-form @submit.prevent="handleUpload">
-            <v-row>
-              <v-col cols="12">
-                <v-text-field
-                  v-model="title"
-                  label="Document Title"
-                  placeholder="e.g. Service Agreement"
-                  variant="outlined"
-                  required
-                />
-              </v-col>
+              <!-- Template Badge (if applied) -->
+              <v-alert 
+                v-if="appliedTemplate" 
+                type="success" 
+                variant="tonal" 
+                class="mb-4"
+                closable
+                @click:close="appliedTemplate = null"
+              >
+                <div class="d-flex align-center">
+                  <v-icon icon="ri-file-check-line" class="mr-2" />
+                  <div>
+                    <div class="font-weight-bold">Template Applied</div>
+                    <div class="text-body-2">{{ appliedTemplate.name }}</div>
+                  </div>
+                </div>
+              </v-alert>
 
-              <v-col cols="12">
-                <v-file-input
-                  v-model="file"
-                  label="Document File"
-                  placeholder="Select PDF or DOCX"
-                  prepend-icon=""
-                  prepend-inner-icon="mdi-file-upload"
-                  accept=".pdf,.doc,.docx"
-                  variant="outlined"
-                  show-size
-                />
-              </v-col>
+              <!-- Signature Level (collapsed by default) -->
+              <v-expansion-panels variant="accordion" class="mb-6">
+                <v-expansion-panel>
+                  <v-expansion-panel-title>
+                    <v-icon icon="ri-shield-check-line" class="mr-2" />
+                    Signature Security Level
+                    <v-chip size="x-small" class="ml-2" color="primary" variant="tonal">
+                      {{ signatureLevel }}
+                    </v-chip>
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
+                    <SignatureLevelSelector v-model="signatureLevel" />
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
 
-              <v-col cols="12">
-                <v-alert v-if="error" type="error" variant="tonal" closable class="mb-4">
-                  {{ error }}
-                </v-alert>
-              </v-col>
+              <!-- Error Alert -->
+              <v-alert 
+                v-if="error" 
+                type="error" 
+                variant="tonal" 
+                closable 
+                class="mb-4"
+                @click:close="error = ''"
+              >
+                {{ error }}
+              </v-alert>
 
-              <v-col cols="12" class="d-flex gap-4 justify-end">
+              <!-- Actions -->
+              <div class="d-flex gap-4 justify-end">
                 <v-btn variant="outlined" color="secondary" to="/">
                   Cancel
                 </v-btn>
-                <v-btn type="submit" :loading="uploading" :disabled="!canProceedToStep2">
-                  Continue
-                  <v-icon icon="mdi-arrow-right" class="ms-1" />
-                </v-btn>
-              </v-col>
-            </v-row>
-          </v-form>
-        </v-card-text>
-      </v-card>
-
-      <!-- AI Template Suggestions -->
-      <v-card v-if="showTemplateSuggestions" class="mt-4">
-        <v-card-item>
-          <template #prepend>
-            <v-avatar color="purple">
-              <v-icon>mdi-robot</v-icon>
-            </v-avatar>
-          </template>
-          
-          <v-card-title>AI Template Suggestions</v-card-title>
-          <v-card-subtitle>
-            We found {{ aiStore.suggestions.length }} matching template(s)
-          </v-card-subtitle>
-        </v-card-item>
-
-        <v-card-text>
-          <v-alert type="info" variant="tonal" class="mb-4">
-            <v-icon icon="mdi-lightbulb" class="mr-2" />
-            Apply a template to automatically configure roles and signing order
-          </v-alert>
-
-          <v-progress-linear v-if="analyzingDocument" indeterminate class="mb-4" />
-
-          <template v-else>
-            <template-suggestion
-              v-for="suggestion in aiStore.suggestions.slice(0, 3)"
-              :key="suggestion.template.id"
-              :suggestion="suggestion"
-              class="mb-3"
-              @apply="applyTemplate"
-            />
-
-            <v-btn
-              block
-              variant="outlined"
-              @click="skipTemplates"
-            >
-              Skip - Configure Manually
-            </v-btn>
-          </template>
-        </v-card-text>
-      </v-card>
-
-      <!-- Amount Input (if template requires it) -->
-      <v-card v-if="appliedTemplate?.amount_required && !step > 1" class="mt-4">
-        <v-card-title>Financial Information Required</v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model.number="amount"
-            label="Document Amount"
-            type="number"
-            prefix="$"
-            variant="outlined"
-            @update:model-value="calculateRolesFromAmount"
-          />
-
-          <v-alert v-if="autoCalculatedRoles.length > 0" type="success" variant="tonal" class="mt-4">
-            <div class="font-weight-bold mb-2">
-              Required Approvers (based on ${{ amount?.toLocaleString() }}):
-            </div>
-            <v-chip
-              v-for="role in autoCalculatedRoles"
-              :key="role"
-              class="mr-2"
-              color="success"
-              size="small"
-            >
-              {{ role }}
-            </v-chip>
-          </v-alert>
-
-          <v-btn
-            block
-            color="primary"
-            class="mt-4"
-            :disabled="!amount"
-            @click="() => { showTemplateSuggestions = false; step = 2 }"
-          >
-            Continue with Calculated Roles
-          </v-btn>
-        </v-card-text>
-      </v-card>
-
-      <!-- Step 2: Add Signers -->
-      <v-card v-if="step === 2">
-        <v-card-item>
-          <v-card-title class="text-h5">
-            Add Signers
-          </v-card-title>
-          <v-card-subtitle>Who needs to sign this document?</v-card-subtitle>
-        </v-card-item>
-
-        <v-card-text>
-          <v-alert v-if="appliedTemplate" type="info" variant="tonal" class="mb-4">
-            <v-icon icon="mdi-file-check" class="mr-2" />
-            Template Applied: <strong>{{ appliedTemplate.name }}</strong>
-          </v-alert>
-
-          <div v-for="(signer, i) in signers" :key="i" class="mb-3">
-            <v-row align="center">
-              <v-col cols="12" sm="4">
-                <v-text-field
-                  v-model="signer.name"
-                  label="Name"
-                  variant="outlined"
-                  density="compact"
-                />
-              </v-col>
-              <v-col cols="12" sm="4">
-                <v-text-field
-                  v-model="signer.email"
-                  label="Email"
-                  type="email"
-                  variant="outlined"
-                  density="compact"
-                />
-              </v-col>
-              <v-col cols="12" sm="3">
-                <v-chip
-                  v-if="signer.role"
-                  :color="signer.required ? 'primary' : 'grey'"
-                  size="small"
-                >
-                  {{ signer.role }}
-                </v-chip>
-                <span v-else class="text-caption text-medium-emphasis">No role</span>
-              </v-col>
-              <v-col cols="12" sm="1">
                 <v-btn
-                  icon="mdi-delete"
-                  variant="text"
-                  color="error"
-                  size="small"
-                  @click="removeSigner(i)"
-                  :disabled="signers.length === 1"
+                  type="submit"
+                  color="primary"
+                  size="large"
+                  :loading="uploading"
+                  :disabled="!canUpload"
+                >
+                  <v-icon icon="ri-arrow-right-line" class="mr-2" />
+                  Continue to Prepare
+                </v-btn>
+              </div>
+            </v-form>
+          </v-card-text>
+        </v-card>
+
+        <!-- AI Template Suggestions Dialog -->
+        <v-dialog v-model="showTemplateSuggestions" max-width="600" persistent>
+          <v-card>
+            <v-card-title class="d-flex align-center bg-purple text-white">
+              <v-avatar color="purple-lighten-3" class="mr-3">
+                <v-icon icon="ri-robot-line" />
+              </v-avatar>
+              AI Template Suggestions
+            </v-card-title>
+
+            <v-card-text class="pt-4">
+              <v-alert type="info" variant="tonal" class="mb-4">
+                <v-icon icon="ri-lightbulb-line" class="mr-2" />
+                We found templates that match your document. Apply one to auto-configure fields.
+              </v-alert>
+
+              <v-progress-linear v-if="analyzingDocument" indeterminate class="mb-4" />
+
+              <template v-if="!analyzingDocument && aiStore.suggestions?.length > 0">
+                <TemplateSuggestion
+                  v-for="suggestion in aiStore.suggestions.slice(0, 3)"
+                  :key="suggestion.template.id"
+                  :suggestion="suggestion"
+                  class="mb-3"
+                  @apply="applyTemplate"
                 />
-              </v-col>
-            </v-row>
-          </div>
-
-          <v-btn variant="text" prepend-icon="mdi-plus" @click="addSigner" class="mb-4">
-            Add Another Signer
-          </v-btn>
-
-          <v-switch
-            v-model="sequentialSigning"
-            label="Require sequential signing (in order)"
-            color="primary"
-            class="mb-4"
-          />
-
-          <v-alert v-if="error" type="error" variant="tonal" closable class="mb-4">
-            {{ error }}
-          </v-alert>
-
-          <div class="d-flex gap-4 justify-end">
-            <v-btn variant="outlined" @click="step = 1">
-              Back
-            </v-btn>
-            <v-btn :disabled="!canProceedToStep3" @click="saveSigners">
-              Continue
-              <v-icon icon="mdi-arrow-right" class="ms-1" />
-            </v-btn>
-          </div>
-        </v-card-text>
-      </v-card>
-
-      <!-- Step 3: Send -->
-      <v-card v-if="step === 3">
-        <v-card-item>
-          <v-card-title class="text-h5">
-            Send for Signing
-          </v-card-title>
-          <v-card-subtitle>Review and send to signers</v-card-subtitle>
-        </v-card-item>
-
-        <v-card-text>
-          <v-alert type="info" variant="tonal" class="mb-4">
-            <div class="font-weight-bold mb-1">
-              {{ title }}
-            </div>
-            <div class="text-body-2">
-              {{ signers.length }} signer(s) • {{ sequentialSigning ? 'Sequential' : 'Parallel' }} signing
-              <span v-if="amount"> • Amount: ${{ amount.toLocaleString() }}</span>
-            </div>
-          </v-alert>
-
-          <v-list density="compact" class="mb-4">
-            <v-list-item
-              v-for="(signer, i) in signers"
-              :key="i"
-              :title="signer.name"
-              :subtitle="signer.email"
-            >
-              <template #prepend>
-                <v-avatar color="primary" variant="tonal" size="36">
-                  {{ i + 1 }}
-                </v-avatar>
               </template>
-              <template #append>
-                <v-chip v-if="signer.role" size="small">
-                  {{ signer.role }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </v-list>
+            </v-card-text>
 
-          <v-text-field
-            v-model.number="expiresInDays"
-            label="Expires in (days)"
-            type="number"
-            variant="outlined"
-            class="mb-4"
-          />
+            <v-divider />
 
-          <v-alert v-if="error" type="error" variant="tonal" closable class="mb-4">
-            {{ error }}
-          </v-alert>
-          <v-alert v-if="success" type="success" variant="tonal" class="mb-4">
-            {{ success }}
-          </v-alert>
+            <v-card-actions class="pa-4">
+              <v-btn block variant="outlined" @click="skipTemplates">
+                Skip - Configure Manually
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
 
-          <div class="d-flex gap-4 justify-end">
-            <v-btn variant="outlined" @click="step = 2">
-              Back
-            </v-btn>
-            <v-btn color="success" :loading="sending" @click="sendDocument">
-              <v-icon icon="mdi-send" class="me-1" />
-              Send for Signing
-            </v-btn>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-col>
-  </v-row>
+        <!-- Help Section -->
+        <v-card variant="tonal" color="info" class="mt-4">
+          <v-card-text>
+            <div class="d-flex align-start">
+              <v-icon icon="ri-information-line" class="mr-3 mt-1" />
+              <div>
+                <div class="font-weight-bold mb-1">What happens next?</div>
+                <ul class="text-body-2 pl-4 mb-0">
+                  <li>Your document will open in preview mode</li>
+                  <li>Add signers by their email addresses</li>
+                  <li>Draw signature fields directly on the PDF</li>
+                  <li>Submit to notify all parties</li>
+                </ul>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
+
+<style scoped>
+/* Simple, clean styles */
+</style>

@@ -1,0 +1,1295 @@
+<script setup>
+/**
+ * Document Prepare Page - Redesigned
+ * Beautiful, intuitive document preparation experience
+ * - Responsive 3-panel layout
+ * - Streamlined signer management
+ * - Elegant field placement
+ */
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import VuePdfEmbed from 'vue-pdf-embed'
+import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
+
+const route = useRoute()
+const router = useRouter()
+const { mobile, smAndDown, mdAndDown } = useDisplay()
+
+// Use blank layout to remove app sidebar
+definePage({
+  meta: {
+    layout: 'blank',
+  },
+})
+
+// Document state
+const document = ref(null)
+const loading = ref(true)
+const saving = ref(false)
+const error = ref('')
+
+// PDF state
+const pdfSource = ref(null)
+const pageCount = ref(0)
+
+// Signers state
+const signers = ref([])
+const selectedSigner = ref(null)
+
+// Fields state
+const fields = ref([])
+const selectedFieldId = ref(null)
+
+// Drawing state
+const isDrawing = ref(false)
+const drawStart = ref({ x: 0, y: 0, page: 1 })
+const drawCurrent = ref({ x: 0, y: 0 })
+
+// Field type popup
+const showFieldTypePopup = ref(false)
+const pendingField = ref(null)
+
+// Submit dialog
+const showSubmitDialog = ref(false)
+const sequentialSigning = ref(false)
+const expiresInDays = ref(30)
+
+// Mobile drawer states
+const showLeftDrawer = ref(false)
+const showRightDrawer = ref(false)
+
+// New signer form
+const showAddSignerForm = ref(false)
+const newSignerName = ref('')
+const newSignerEmail = ref('')
+
+// Color palette for signers
+const signerColors = [
+  { bg: '#E3F2FD', border: '#1976D2', text: '#1976D2' },
+  { bg: '#F3E5F5', border: '#7B1FA2', text: '#7B1FA2' },
+  { bg: '#E8F5E9', border: '#388E3C', text: '#388E3C' },
+  { bg: '#FFF3E0', border: '#F57C00', text: '#F57C00' },
+  { bg: '#FCE4EC', border: '#C2185B', text: '#C2185B' },
+  { bg: '#E0F7FA', border: '#0097A7', text: '#0097A7' },
+]
+
+// Field types
+const fieldTypes = [
+  { type: 'SIGNATURE', icon: 'ri-pen-nib-line', label: 'Signature', desc: 'Full signature' },
+  { type: 'INITIALS', icon: 'ri-font-color', label: 'Initials', desc: 'Quick initials' },
+  { type: 'DATE', icon: 'ri-calendar-line', label: 'Date', desc: 'Auto-fill date' },
+  { type: 'TEXT', icon: 'ri-text', label: 'Text', desc: 'Custom text' },
+  { type: 'CHECKBOX', icon: 'ri-checkbox-line', label: 'Checkbox', desc: 'Yes/No option' },
+]
+
+// Responsive PDF width
+const pdfWidth = computed(() => {
+  if (mobile.value) return 350
+  if (smAndDown.value) return 500
+  if (mdAndDown.value) return 600
+  return 700
+})
+
+// Validation computed
+const validation = computed(() => {
+  const issues = []
+  
+  if (signers.value.length === 0) {
+    issues.push('Add at least one signer')
+  }
+  
+  signers.value.forEach(signer => {
+    const signerFields = fields.value.filter(f => f.signer_email === signer.email)
+    if (signerFields.length === 0) {
+      issues.push(`${signer.name} needs signature fields`)
+    }
+  })
+  
+  return {
+    isValid: issues.length === 0,
+    issues
+  }
+})
+
+// Progress indicator
+const progressSteps = computed(() => [
+  { label: 'Add Signers', done: signers.value.length > 0, icon: 'ri-user-add-line' },
+  { label: 'Place Fields', done: fields.value.length > 0, icon: 'ri-pen-nib-line' },
+  { label: 'Submit', done: false, icon: 'ri-send-plane-line' },
+])
+
+onMounted(async () => {
+  await fetchDocument()
+})
+
+async function fetchDocument() {
+  try {
+    loading.value = true
+    const res = await $api(`/documents/${route.params.id}`)
+    document.value = res
+    
+    // Fetch PDF with auth token and create blob URL
+    await loadPdfBlob(route.params.id)
+    
+    // Load existing signers if any
+    if (res.signers?.length > 0) {
+      signers.value = res.signers.map((s, i) => ({
+        ...s,
+        color: signerColors[i % signerColors.length]
+      }))
+      if (signers.value.length > 0) {
+        selectedSigner.value = signers.value[0]
+      }
+    }
+    
+    // Load existing fields if any
+    if (res.fields?.length > 0) {
+      fields.value = res.fields.map(f => ({
+        ...f,
+        signer_color: signers.value.find(s => s.email === f.signer_email)?.color
+      }))
+    }
+  } catch (e) {
+    error.value = 'Failed to load document: ' + (e.message || 'Unknown error')
+    console.error('Failed to load document', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadPdfBlob(documentId) {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`/api/documents/${documentId}/pdf`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/pdf'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load PDF: ${response.statusText}`)
+    }
+    
+    const blob = await response.blob()
+    pdfSource.value = URL.createObjectURL(blob)
+  } catch (e) {
+    console.error('Failed to load PDF blob:', e)
+    error.value = 'Failed to load PDF preview: ' + e.message
+  }
+}
+
+// Cleanup blob URL on unmount
+onUnmounted(() => {
+  if (pdfSource.value && pdfSource.value.startsWith('blob:')) {
+    URL.revokeObjectURL(pdfSource.value)
+  }
+})
+
+function handleDocumentLoad(pdf) {
+  pageCount.value = pdf.numPages
+}
+
+// Signer management
+function addSigner() {
+  if (!newSignerName.value || !newSignerEmail.value) return
+  
+  const newSigner = {
+    id: crypto.randomUUID(),
+    name: newSignerName.value,
+    email: newSignerEmail.value,
+    color: signerColors[signers.value.length % signerColors.length]
+  }
+  
+  signers.value.push(newSigner)
+  selectedSigner.value = newSigner
+  
+  // Reset form
+  newSignerName.value = ''
+  newSignerEmail.value = ''
+  showAddSignerForm.value = false
+}
+
+function removeSigner(index) {
+  const removed = signers.value.splice(index, 1)[0]
+  
+  // Remove orphaned fields
+  fields.value = fields.value.filter(f => f.signer_email !== removed.email)
+  
+  // If removed signer was selected, select first remaining
+  if (selectedSigner.value?.id === removed.id) {
+    selectedSigner.value = signers.value[0] || null
+  }
+}
+
+function selectSigner(signer) {
+  selectedSigner.value = signer
+}
+
+// Drawing handlers
+function startDrawing(e, page) {
+  if (!selectedSigner.value) return
+  
+  const target = e.currentTarget
+  const rect = target.getBoundingClientRect()
+  const x = ((e.clientX - rect.left) / rect.width) * 100
+  const y = ((e.clientY - rect.top) / rect.height) * 100
+  
+  isDrawing.value = true
+  drawStart.value = { x, y, page }
+  drawCurrent.value = { x, y }
+}
+
+function onDrawing(e, page) {
+  if (!isDrawing.value || page !== drawStart.value.page) return
+  
+  const target = e.currentTarget
+  const rect = target.getBoundingClientRect()
+  const x = ((e.clientX - rect.left) / rect.width) * 100
+  const y = ((e.clientY - rect.top) / rect.height) * 100
+  
+  drawCurrent.value = { x, y }
+}
+
+function endDrawing(e) {
+  if (!isDrawing.value) return
+  
+  isDrawing.value = false
+  
+  const minX = Math.min(drawStart.value.x, drawCurrent.value.x)
+  const minY = Math.min(drawStart.value.y, drawCurrent.value.y)
+  const width = Math.abs(drawCurrent.value.x - drawStart.value.x)
+  const height = Math.abs(drawCurrent.value.y - drawStart.value.y)
+  
+  // Minimum size check
+  if (width < 3 || height < 2) return
+  
+  pendingField.value = {
+    x: minX,
+    y: minY,
+    width,
+    height,
+    page: drawStart.value.page
+  }
+  
+  showFieldTypePopup.value = true
+}
+
+function selectFieldType(type) {
+  if (!pendingField.value || !selectedSigner.value) return
+  
+  const newField = {
+    id: crypto.randomUUID(),
+    document_id: document.value?.id,
+    type,
+    page_number: pendingField.value.page,
+    x: pendingField.value.x,
+    y: pendingField.value.y,
+    width: pendingField.value.width,
+    height: pendingField.value.height,
+    signer_email: selectedSigner.value.email,
+    document_signer_id: selectedSigner.value.id,
+    signer_color: selectedSigner.value.color,
+    required: true
+  }
+  
+  fields.value.push(newField)
+  pendingField.value = null
+  showFieldTypePopup.value = false
+}
+
+function cancelFieldType() {
+  pendingField.value = null
+  showFieldTypePopup.value = false
+}
+
+function selectField(field) {
+  selectedFieldId.value = field.id
+}
+
+function deleteField(fieldId) {
+  fields.value = fields.value.filter(f => f.id !== fieldId)
+  selectedFieldId.value = null
+}
+
+function getFieldsByPage(page) {
+  return fields.value.filter(f => f.page_number === page)
+}
+
+function getFieldColor(field) {
+  return field.signer_color || { bg: '#FFF9C4', border: '#FBC02D', text: '#F57F17' }
+}
+
+function getFieldTypeIcon(type) {
+  return fieldTypes.find(t => t.type === type)?.icon || 'ri-question-line'
+}
+
+// Drawing preview computed
+const drawingRect = computed(() => {
+  if (!isDrawing.value) return null
+  
+  const minX = Math.min(drawStart.value.x, drawCurrent.value.x)
+  const minY = Math.min(drawStart.value.y, drawCurrent.value.y)
+  const width = Math.abs(drawCurrent.value.x - drawStart.value.x)
+  const height = Math.abs(drawCurrent.value.y - drawStart.value.y)
+  
+  return {
+    left: minX + '%',
+    top: minY + '%',
+    width: width + '%',
+    height: height + '%',
+    page: drawStart.value.page
+  }
+})
+
+// Submit flow
+function openSubmitDialog() {
+  if (!validation.value.isValid) {
+    error.value = validation.value.issues.join('. ')
+    return
+  }
+  showSubmitDialog.value = true
+}
+
+async function submitDocument() {
+  saving.value = true
+  error.value = ''
+  
+  try {
+    // 1. Save or update signers
+    const signerPayload = signers.value.map((s, i) => ({
+      name: s.name,
+      email: s.email,
+      role: s.role || null,
+      order: i + 1
+    }))
+    
+    await $api(`/documents/${document.value.id}/signers`, {
+      method: 'POST',
+      body: { 
+        signers: signerPayload,
+        sequential: sequentialSigning.value
+      }
+    })
+    
+    // 2. Save fields
+    const fieldPayload = fields.value.map(f => ({
+      type: f.type,
+      page_number: f.page_number,
+      x: Number(f.x),
+      y: Number(f.y),
+      width: Number(f.width),
+      height: Number(f.height),
+      signer_email: f.signer_email,
+      document_signer_id: f.document_signer_id,
+      required: f.required
+    }))
+    
+    await $api(`/documents/${document.value.id}/fields`, {
+      method: 'POST',
+      body: { fields: fieldPayload }
+    })
+    
+    // 3. Send document
+    await $api(`/documents/${document.value.id}/send`, {
+      method: 'POST',
+      body: {
+        sequential: sequentialSigning.value,
+        expires_in_days: expiresInDays.value
+      }
+    })
+    
+    // Success - redirect to dashboard
+    router.push('/')
+    
+  } catch (e) {
+    error.value = e.message || 'Failed to send document'
+    console.error('Submit error:', e)
+  } finally {
+    saving.value = false
+  }
+}
+
+// Keyboard shortcuts
+function handleKeydown(e) {
+  if (e.key === 'Delete' && selectedFieldId.value) {
+    deleteField(selectedFieldId.value)
+  }
+  if (e.key === 'Escape') {
+    if (showFieldTypePopup.value) {
+      cancelFieldType()
+    } else {
+      selectedFieldId.value = null
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+</script>
+
+<template>
+  <div class="prepare-page">
+    <!-- Top Header Bar -->
+    <header class="header-bar">
+      <div class="header-left">
+        <v-btn 
+          icon="ri-home-line" 
+          variant="text" 
+          size="small"
+          @click="router.push('/')"
+          title="Back to Dashboard"
+        />
+        <v-divider vertical class="mx-2" />
+        <div class="document-info">
+          <span v-if="document" class="document-title">{{ document.title }}</span>
+          <v-skeleton-loader v-else type="text" width="150" />
+        </div>
+      </div>
+      
+      <div class="header-center d-none d-md-flex">
+        <!-- Progress Steps -->
+        <div class="progress-steps">
+          <div 
+            v-for="(step, i) in progressSteps" 
+            :key="i"
+            class="progress-step"
+            :class="{ 'step-done': step.done }"
+          >
+            <v-icon :icon="step.icon" size="18" />
+            <span class="step-label">{{ step.label }}</span>
+            <v-icon v-if="i < progressSteps.length - 1" icon="ri-arrow-right-s-line" size="16" class="step-arrow" />
+          </div>
+        </div>
+      </div>
+      
+      <div class="header-right">
+        <!-- Mobile menu buttons -->
+        <v-btn 
+          v-if="smAndDown"
+          icon="ri-group-line" 
+          variant="text"
+          size="small"
+          :badge="signers.length || undefined"
+          @click="showLeftDrawer = true"
+        />
+        <v-btn 
+          v-if="smAndDown"
+          icon="ri-palette-line" 
+          variant="text"
+          size="small"
+          @click="showRightDrawer = true"
+        />
+        
+        <v-btn
+          color="primary"
+          variant="elevated"
+          size="small"
+          :disabled="!validation.isValid"
+          @click="openSubmitDialog"
+          class="submit-btn"
+        >
+          <v-icon icon="ri-send-plane-line" class="mr-1" size="18" />
+          <span class="d-none d-sm-inline">Submit</span>
+        </v-btn>
+      </div>
+    </header>
+
+    <!-- Error Alert -->
+    <v-alert v-if="error" type="error" variant="tonal" closable class="mx-4 mt-2" @click:close="error = ''">
+      {{ error }}
+    </v-alert>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Left Sidebar: Signers (Desktop) -->
+      <aside v-if="!smAndDown" class="left-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Signers</span>
+          <v-chip size="x-small" color="primary" variant="flat">{{ signers.length }}</v-chip>
+        </div>
+        
+        <!-- Add Signer Button - Always visible at top -->
+        <v-btn 
+          v-if="!showAddSignerForm"
+          block 
+          color="primary" 
+          variant="tonal"
+          size="small"
+          prepend-icon="ri-user-add-line"
+          class="mb-3"
+          @click="showAddSignerForm = true"
+        >
+          Add Signer
+        </v-btn>
+        
+        <!-- Inline Add Signer Form -->
+        <v-expand-transition>
+          <div v-if="showAddSignerForm" class="add-signer-form mb-3">
+            <v-text-field
+              v-model="newSignerName"
+              label="Name"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mb-2"
+              autofocus
+            />
+            <v-text-field
+              v-model="newSignerEmail"
+              label="Email"
+              type="email"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mb-2"
+              @keyup.enter="addSigner"
+            />
+            <div class="d-flex gap-2">
+              <v-btn size="small" variant="text" @click="showAddSignerForm = false">Cancel</v-btn>
+              <v-btn size="small" color="primary" @click="addSigner" :disabled="!newSignerName || !newSignerEmail">Add</v-btn>
+            </div>
+          </div>
+        </v-expand-transition>
+        
+        <!-- Signers List -->
+        <div class="signers-list">
+          <div
+            v-for="(signer, index) in signers"
+            :key="signer.id"
+            class="signer-item"
+            :class="{ 'signer-selected': selectedSigner?.id === signer.id }"
+            :style="{ borderLeftColor: signer.color.border }"
+            @click="selectSigner(signer)"
+          >
+            <v-avatar size="28" :color="signer.color.border" class="mr-2">
+              <span class="text-white text-caption">{{ signer.name.charAt(0) }}</span>
+            </v-avatar>
+            <div class="signer-info">
+              <div class="signer-name">{{ signer.name }}</div>
+              <div class="signer-email">{{ signer.email }}</div>
+            </div>
+            <v-btn 
+              icon="ri-close-line" 
+              size="x-small" 
+              variant="text" 
+              @click.stop="removeSigner(index)"
+            />
+          </div>
+          
+          <div v-if="signers.length === 0" class="empty-state">
+            <v-icon icon="ri-user-add-line" size="32" class="mb-2" />
+            <div class="text-caption">Add your first signer above</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center: PDF Canvas -->
+      <main class="pdf-area">
+        <div v-if="loading" class="loading-state">
+          <v-progress-circular indeterminate size="48" color="primary" />
+          <div class="text-caption mt-3">Loading document...</div>
+        </div>
+
+        <div v-else-if="pdfSource" class="pdf-scroll">
+          <!-- Hidden loader for page count -->
+          <div style="display: none;">
+            <VuePdfEmbed
+              v-if="pageCount === 0"
+              :source="pdfSource"
+              @loaded="handleDocumentLoad"
+            />
+          </div>
+
+          <div 
+            v-for="page in pageCount" 
+            :key="page" 
+            class="pdf-page-wrapper"
+          >
+            <div class="pdf-page" :style="{ width: pdfWidth + 'px' }">
+              <VuePdfEmbed 
+                :source="pdfSource" 
+                :page="page"
+                :width="pdfWidth"
+              />
+              
+              <!-- Field Overlay -->
+              <div 
+                class="field-overlay"
+                :class="{ 'draw-cursor': selectedSigner }"
+                @mousedown="startDrawing($event, page)"
+                @mousemove="onDrawing($event, page)"
+                @mouseup="endDrawing"
+                @mouseleave="() => { if (isDrawing) isDrawing = false }"
+              >
+                <!-- Placed Fields -->
+                <div
+                  v-for="field in getFieldsByPage(page)"
+                  :key="field.id"
+                  class="field-box"
+                  :class="{ 'field-selected': selectedFieldId === field.id }"
+                  :style="{
+                    left: field.x + '%',
+                    top: field.y + '%',
+                    width: field.width + '%',
+                    height: field.height + '%',
+                    backgroundColor: getFieldColor(field).bg,
+                    borderColor: getFieldColor(field).border,
+                    color: getFieldColor(field).text
+                  }"
+                  @click.stop="selectField(field)"
+                >
+                  <v-icon :icon="getFieldTypeIcon(field.type)" size="14" />
+                  <v-btn
+                    v-if="selectedFieldId === field.id"
+                    icon="ri-delete-bin-line"
+                    size="x-small"
+                    color="error"
+                    variant="flat"
+                    class="delete-btn"
+                    @click.stop="deleteField(field.id)"
+                  />
+                </div>
+                
+                <!-- Drawing Preview -->
+                <div
+                  v-if="drawingRect && drawingRect.page === page"
+                  class="drawing-preview"
+                  :style="{
+                    left: drawingRect.left,
+                    top: drawingRect.top,
+                    width: drawingRect.width,
+                    height: drawingRect.height,
+                    borderColor: selectedSigner?.color?.border || '#1976D2'
+                  }"
+                />
+              </div>
+            </div>
+            <div class="page-indicator">{{ page }} / {{ pageCount }}</div>
+          </div>
+        </div>
+        
+        <!-- No signer hint -->
+        <v-fade-transition>
+          <div v-if="!selectedSigner && signers.length === 0 && !loading && pdfSource" class="hint-overlay">
+            <v-card class="hint-card" max-width="300">
+              <v-card-text class="text-center">
+                <v-icon icon="ri-hand-coin-line" size="48" color="primary" class="mb-3" />
+                <div class="text-h6 mb-2">Let's Get Started!</div>
+                <div class="text-body-2 text-medium-emphasis">
+                  Add a signer first, then draw signature fields on the document.
+                </div>
+              </v-card-text>
+            </v-card>
+          </div>
+        </v-fade-transition>
+      </main>
+
+      <!-- Right Sidebar: Field Types (Desktop) -->
+      <aside v-if="!smAndDown" class="right-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Field Types</span>
+        </div>
+        
+        <div class="field-types-hint">
+          {{ selectedSigner ? `Draw on PDF to add fields for ${selectedSigner.name}` : 'Select a signer first' }}
+        </div>
+        
+        <div class="field-types-list">
+          <div
+            v-for="type in fieldTypes"
+            :key="type.type"
+            class="field-type-item"
+            :class="{ 'disabled': !selectedSigner }"
+          >
+            <v-icon :icon="type.icon" size="20" class="field-type-icon" />
+            <div class="field-type-info">
+              <div class="field-type-label">{{ type.label }}</div>
+              <div class="field-type-desc">{{ type.desc }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <v-divider class="my-3" />
+        
+        <div class="summary-section">
+          <div class="summary-title">Summary</div>
+          <div class="summary-item">
+            <v-icon icon="ri-group-line" size="16" />
+            <span>{{ signers.length }} signer(s)</span>
+          </div>
+          <div class="summary-item">
+            <v-icon icon="ri-pen-nib-line" size="16" />
+            <span>{{ fields.length }} field(s)</span>
+          </div>
+          <div class="summary-item">
+            <v-icon icon="ri-pages-line" size="16" />
+            <span>{{ pageCount }} page(s)</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Mobile Left Drawer -->
+    <v-navigation-drawer v-model="showLeftDrawer" temporary location="left" width="280">
+      <div class="pa-4">
+        <div class="sidebar-header mb-3">
+          <span class="sidebar-title">Signers</span>
+          <v-chip size="x-small" color="primary" variant="flat">{{ signers.length }}</v-chip>
+        </div>
+        
+        <v-btn 
+          v-if="!showAddSignerForm"
+          block 
+          color="primary" 
+          variant="tonal"
+          prepend-icon="mdi-account-plus"
+          class="mb-3"
+          @click="showAddSignerForm = true"
+        >
+          Add Signer
+        </v-btn>
+        
+        <v-expand-transition>
+          <div v-if="showAddSignerForm" class="add-signer-form mb-3">
+            <v-text-field v-model="newSignerName" label="Name" variant="outlined" density="compact" hide-details class="mb-2" />
+            <v-text-field v-model="newSignerEmail" label="Email" type="email" variant="outlined" density="compact" hide-details class="mb-2" />
+            <div class="d-flex gap-2">
+              <v-btn size="small" variant="text" @click="showAddSignerForm = false">Cancel</v-btn>
+              <v-btn size="small" color="primary" @click="addSigner">Add</v-btn>
+            </div>
+          </div>
+        </v-expand-transition>
+        
+        <div class="signers-list">
+          <div
+            v-for="(signer, index) in signers"
+            :key="signer.id"
+            class="signer-item"
+            :class="{ 'signer-selected': selectedSigner?.id === signer.id }"
+            :style="{ borderLeftColor: signer.color.border }"
+            @click="selectSigner(signer); showLeftDrawer = false"
+          >
+            <v-avatar size="28" :color="signer.color.border" class="mr-2">
+              <span class="text-white text-caption">{{ signer.name.charAt(0) }}</span>
+            </v-avatar>
+            <div class="signer-info">
+              <div class="signer-name">{{ signer.name }}</div>
+              <div class="signer-email">{{ signer.email }}</div>
+            </div>
+            <v-btn icon="mdi-close" size="x-small" variant="text" @click.stop="removeSigner(index)" />
+          </div>
+        </div>
+      </div>
+    </v-navigation-drawer>
+
+    <!-- Mobile Right Drawer -->
+    <v-navigation-drawer v-model="showRightDrawer" temporary location="right" width="250">
+      <div class="pa-4">
+        <div class="sidebar-header mb-3">
+          <span class="sidebar-title">Field Types</span>
+        </div>
+        
+        <div class="field-types-list">
+          <div v-for="type in fieldTypes" :key="type.type" class="field-type-item" :class="{ 'disabled': !selectedSigner }">
+            <v-icon :icon="type.icon" size="20" class="field-type-icon" />
+            <div class="field-type-info">
+              <div class="field-type-label">{{ type.label }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <v-divider class="my-3" />
+        
+        <div class="summary-section">
+          <div class="summary-item"><v-icon icon="mdi-account-multiple" size="16" /><span>{{ signers.length }} signer(s)</span></div>
+          <div class="summary-item"><v-icon icon="mdi-draw" size="16" /><span>{{ fields.length }} field(s)</span></div>
+        </div>
+      </div>
+    </v-navigation-drawer>
+
+    <!-- Field Type Selection Dialog -->
+    <v-dialog v-model="showFieldTypePopup" max-width="320" persistent>
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center pa-4">
+          <v-icon icon="ri-shape-2-line" class="mr-2" color="primary" />
+          Choose Field Type
+        </v-card-title>
+        
+        <v-divider />
+
+        <v-list density="compact">
+          <v-list-item
+            v-for="type in fieldTypes"
+            :key="type.type"
+            :prepend-icon="type.icon"
+            :title="type.label"
+            :subtitle="type.desc"
+            @click="selectFieldType(type.type)"
+          />
+        </v-list>
+
+        <v-divider />
+
+        <v-card-actions>
+          <v-btn block variant="text" @click="cancelFieldType">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Submit Confirmation Dialog -->
+    <v-dialog v-model="showSubmitDialog" max-width="450" persistent>
+      <v-card rounded="lg">
+        <v-card-title class="bg-primary text-white pa-4">
+          <v-icon icon="ri-send-plane-line" class="mr-2" />
+          Send for Signing
+        </v-card-title>
+        
+        <v-card-text class="pa-4">
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            <strong>{{ document?.title }}</strong><br>
+            <span class="text-caption">{{ signers.length }} signer(s) • {{ fields.length }} field(s)</span>
+          </v-alert>
+
+          <div class="text-subtitle-2 mb-2">Recipients:</div>
+          <v-chip
+            v-for="signer in signers"
+            :key="signer.id"
+            size="small"
+            class="mr-1 mb-1"
+            :style="{ borderColor: signer.color.border }"
+            variant="outlined"
+          >
+            {{ signer.name }}
+          </v-chip>
+          
+          <v-divider class="my-4" />
+
+          <v-switch
+            v-model="sequentialSigning"
+            label="Sequential signing (in order)"
+            color="primary"
+            hide-details
+            density="compact"
+            class="mb-3"
+          />
+
+          <v-text-field
+            v-model.number="expiresInDays"
+            label="Expires in (days)"
+            type="number"
+            variant="outlined"
+            density="compact"
+            :min="1"
+            :max="365"
+          />
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="text" @click="showSubmitDialog = false">Cancel</v-btn>
+          <v-spacer />
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="saving"
+            @click="submitDocument"
+          >
+            <v-icon icon="ri-send-plane-line" class="mr-1" />
+            Send Now
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </div>
+</template>
+
+<style scoped>
+.prepare-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+
+/* Header Bar */
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: white;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.document-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.document-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.progress-steps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: #666;
+  background: #f0f0f0;
+  transition: all 0.2s;
+}
+
+.progress-step.step-done {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.step-arrow {
+  opacity: 0.4;
+  margin: 0 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.submit-btn {
+  font-weight: 600;
+}
+
+/* Main Content */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebars */
+.left-sidebar,
+.right-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: white;
+  border-right: 1px solid rgba(0,0,0,0.06);
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.right-sidebar {
+  border-right: none;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  width: 180px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+/* Add Signer Form */
+.add-signer-form {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+/* Signers List */
+.signers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signer-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.signer-item:hover {
+  background: #f5f5f5;
+}
+
+.signer-item.signer-selected {
+  background: #e3f2fd;
+}
+
+.signer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.signer-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signer-email {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px 8px;
+  color: #999;
+}
+
+/* Field Types */
+.field-types-hint {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.field-types-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-type-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.field-type-item:not(.disabled):hover {
+  background: #e3f2fd;
+}
+
+.field-type-item.disabled {
+  opacity: 0.4;
+}
+
+.field-type-icon {
+  color: #1976d2;
+}
+
+.field-type-info {
+  flex: 1;
+}
+
+.field-type-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.field-type-desc {
+  font-size: 10px;
+  color: #888;
+}
+
+/* Summary */
+.summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* PDF Area */
+.pdf-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pdf-page-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pdf-page {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  overflow: hidden;
+  position: relative;
+}
+
+.page-indicator {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
+  background: rgba(255,255,255,0.9);
+  padding: 2px 12px;
+  border-radius: 10px;
+}
+
+/* Field Overlay */
+.field-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+.field-overlay.draw-cursor {
+  cursor: crosshair;
+}
+
+.field-box {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.field-box:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.field-box.field-selected {
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.4);
+}
+
+.delete-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+}
+
+.drawing-preview {
+  position: absolute;
+  border: 2px dashed;
+  background: rgba(25, 118, 210, 0.1);
+  pointer-events: none;
+  border-radius: 4px;
+}
+
+/* Hint Overlay */
+.hint-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.03);
+  pointer-events: none;
+}
+
+.hint-card {
+  pointer-events: auto;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+  .left-sidebar,
+  .right-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .header-bar {
+    padding: 6px 12px;
+  }
+  
+  .pdf-scroll {
+    padding: 12px;
+  }
+}
+</style>

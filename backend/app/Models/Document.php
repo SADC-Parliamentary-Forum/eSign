@@ -19,6 +19,7 @@ class Document extends Model
         'document_type',
         'amount',
         'file_path',
+        'original_file_path',
         'file_signed',
         'file_hash',
         'status',

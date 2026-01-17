@@ -1,5 +1,5 @@
 <script setup>
-import { VuePdfEmbed } from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed'
 import { useRoute, useRouter } from 'vue-router'
 import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
