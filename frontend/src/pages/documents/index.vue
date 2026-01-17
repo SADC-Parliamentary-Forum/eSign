@@ -97,9 +97,39 @@ async function loadDocuments() {
   }
 }
 
-async function deleteDocument(id) {
-  if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) return
-  
+// UI State
+const confirmDialog = ref({
+  show: false,
+  title: '',
+  message: '',
+  confirmText: 'Delete',
+  confirmColor: 'error',
+  onConfirm: null
+})
+
+const snackbar = ref({
+  show: false,
+  text: '',
+  color: 'success'
+})
+
+function showSnackbar(text, color = 'success') {
+  snackbar.value = { show: true, text, color }
+}
+
+function deleteDocument(id) {
+  confirmDialog.value = {
+    show: true,
+    title: 'Delete Document',
+    message: 'Are you sure you want to delete this document? This action cannot be undone.',
+    confirmText: 'Delete',
+    confirmColor: 'error',
+    onConfirm: () => performDeleteDocument(id)
+  }
+}
+
+async function performDeleteDocument(id) {
+  confirmDialog.value.show = false
   deleteLoading.value = id
   try {
     await $api(`/documents/${id}`, { method: 'DELETE' })
@@ -107,18 +137,30 @@ async function deleteDocument(id) {
     documents.value = documents.value.filter(d => d.id !== id)
     totalDocuments.value--
     selected.value = selected.value.filter(sid => sid !== id)
+    showSnackbar('Document deleted successfully')
   } catch (e) {
     console.error('Delete failed:', e)
-    alert('Failed to delete document: ' + (e.message || 'Unknown error'))
+    showSnackbar('Failed to delete document: ' + (e.message || 'Unknown error'), 'error')
   } finally {
     deleteLoading.value = null
   }
 }
 
-async function bulkDelete() {
+function bulkDelete() {
   if (selected.value.length === 0) return
-  if (!confirm(`Are you sure you want to delete ${selected.value.length} document(s)?`)) return
+  
+  confirmDialog.value = {
+    show: true,
+    title: 'Delete Documents',
+    message: `Are you sure you want to delete ${selected.value.length} document(s)?`,
+    confirmText: 'Delete All',
+    confirmColor: 'error',
+    onConfirm: () => performBulkDelete()
+  }
+}
 
+async function performBulkDelete() {
+  confirmDialog.value.show = false
   bulkDeleteLoading.value = true
   try {
     await $api('/documents/bulk-delete', {
@@ -129,9 +171,10 @@ async function bulkDelete() {
     // Reload to refresh state
     await loadDocuments()
     selected.value = []
+    showSnackbar('Documents deleted successfully')
   } catch (e) {
     console.error('Bulk delete failed:', e)
-    alert('Failed to delete documents: ' + (e.message || 'Unknown error'))
+    showSnackbar('Failed to delete documents: ' + (e.message || 'Unknown error'), 'error')
   } finally {
     bulkDeleteLoading.value = false
   }
@@ -146,6 +189,52 @@ function toggleSelectAll() {
 }
 
 const pageCount = computed(() => Math.ceil(totalDocuments.value / itemsPerPage.value))
+
+function getStatusColor(status) {
+  switch (status) {
+    case 'COMPLETED': return 'success'
+    case 'IN_PROGRESS': return 'info'
+    case 'DRAFT': return 'grey'
+    case 'DECLINED': return 'error'
+    case 'EXPIRED': return 'error'
+    default: return 'grey'
+  }
+}
+
+function getStatusIcon(status) {
+  switch (status) {
+    case 'COMPLETED': return 'ri-checkbox-circle-line'
+    case 'IN_PROGRESS': return 'ri-time-line'
+    case 'DRAFT': return 'ri-pencil-line'
+    case 'DECLINED': return 'ri-close-circle-line'
+    case 'EXPIRED': return 'ri-error-warning-line'
+    default: return 'ri-file-line'
+  }
+}
+
+function formatDate(dateString) {
+  if (!dateString) return ''
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function formatRelativeDate(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffInSeconds = Math.floor((now - date) / 1000)
+  
+  if (diffInSeconds < 60) return 'just now'
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
+  return formatDate(dateString)
+}
 </script>
 
 <template>
@@ -361,6 +450,51 @@ const pageCount = computed(() => Math.ceil(totalDocuments.value / itemsPerPage.v
         />
       </div>
     </template>
+    
+    <!-- Confirm Dialog -->
+    <v-dialog v-model="confirmDialog.show" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6 pt-4 px-4">
+          {{ confirmDialog.title }}
+        </v-card-title>
+        <v-card-text class="px-4 py-2">
+          {{ confirmDialog.message }}
+        </v-card-text>
+        <v-card-actions class="px-4 pb-4">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="confirmDialog.show = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            :color="confirmDialog.confirmColor"
+            variant="elevated"
+            @click="confirmDialog.onConfirm()"
+          >
+            {{ confirmDialog.confirmText }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Snackbar -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      timeout="3000"
+      location="top"
+    >
+      {{ snackbar.text }}
+      <template #actions>
+        <v-btn
+          variant="text"
+          icon="ri-close-line"
+          @click="snackbar.show = false"
+        />
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 

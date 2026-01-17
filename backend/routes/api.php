@@ -109,7 +109,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('documents/bulk-delete', [App\Http\Controllers\DocumentController::class, 'bulkDestroy']);
     Route::get('documents/activity', [App\Http\Controllers\DocumentActivityController::class, 'index']);
     Route::get('documents/pending', [DocumentController::class, 'pending']);
-    Route::apiResource('documents', DocumentController::class)->except(['update', 'destroy']);
+    Route::apiResource('documents', DocumentController::class)->except(['update']);
     Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);
     Route::get('documents/{id}/fields', [DocumentFieldController::class, 'index']);
     Route::post('documents/{id}/fields', [DocumentFieldController::class, 'store']);

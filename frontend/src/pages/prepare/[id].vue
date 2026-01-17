@@ -364,7 +364,8 @@ async function submitDocument() {
       order: i + 1
     }))
     
-    await $api(`/documents/${document.value.id}/signers`, {
+    // The API returns the created signers with their real DB IDs
+    const signersResponse = await $api(`/documents/${document.value.id}/signers`, {
       method: 'POST',
       body: { 
         signers: signerPayload,
@@ -372,18 +373,45 @@ async function submitDocument() {
       }
     })
     
-    // 2. Save fields
-    const fieldPayload = fields.value.map(f => ({
-      type: f.type,
-      page_number: f.page_number,
-      x: Number(f.x),
-      y: Number(f.y),
-      width: Number(f.width),
-      height: Number(f.height),
-      signer_email: f.signer_email,
-      document_signer_id: f.document_signer_id,
-      required: f.required
-    }))
+    // 2. Map fields to the real signer IDs
+    // We match signers by email to find the correct DB ID
+    const dbSigners = signersResponse.signers || []
+    
+    const fieldPayload = fields.value.map(f => {
+      // Find the signer for this field
+      // We look for a signer in our local list that matches the field's assigned signer
+      const localSigner = signers.value.find(s => s.id === f.document_signer_id)
+      
+      let realSignerId = null
+      let realSignerEmail = f.signer_email
+      
+      if (localSigner) {
+        // If we found the local signer, find the corresponding DB signer by email
+        const dbSigner = dbSigners.find(ds => ds.email === localSigner.email)
+        if (dbSigner) {
+          realSignerId = dbSigner.id
+          realSignerEmail = dbSigner.email
+        }
+      } else if (f.signer_email) {
+        // Fallback: try to match by email directly
+        const dbSigner = dbSigners.find(ds => ds.email === f.signer_email)
+        if (dbSigner) {
+          realSignerId = dbSigner.id
+        }
+      }
+
+      return {
+        type: f.type,
+        page_number: f.page_number,
+        x: Number(f.x),
+        y: Number(f.y),
+        width: Number(f.width),
+        height: Number(f.height),
+        signer_email: realSignerEmail, // Ensure email is consistent
+        document_signer_id: realSignerId, // Use the REAL DB ID
+        required: f.required
+      }
+    })
     
     await $api(`/documents/${document.value.id}/fields`, {
       method: 'POST',
