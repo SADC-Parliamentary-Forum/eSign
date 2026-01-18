@@ -44,6 +44,11 @@ Route::prefix('sign/{token}')->middleware('throttle:30,1')->group(function () {
     Route::post('/decline', [SignerController::class, 'decline']);
 });
 
+// Verification (Public Signed Route)
+Route::get('/verification/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('verification.verify');
+
 // =============================================================================
 // Protected Routes
 // =============================================================================

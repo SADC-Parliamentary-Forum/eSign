@@ -111,6 +111,7 @@ async function handleLogin() {
                 type="submit"
                 :loading="loading"
               >
+                Login
               </VBtn>
             </VCol>
 

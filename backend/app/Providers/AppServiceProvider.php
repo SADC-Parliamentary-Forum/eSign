@@ -19,6 +19,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        \Illuminate\Auth\Notifications\VerifyEmail::createUrlUsing(function ($notifiable) {
+            $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+
+            $verifyUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'verification.verify',
+                \Carbon\Carbon::now()->addMinutes(config('auth.verification.expire', 60)),
+                [
+                    'id' => $notifiable->getKey(),
+                    'hash' => sha1($notifiable->getEmailForVerification()),
+                ]
+            );
+
+            // Parse the generated signed URL to extract signature and expires
+            $parsed = parse_url($verifyUrl);
+            parse_str($parsed['query'] ?? '', $queryParams);
+
+            return $frontendUrl . '/auth/verify-email?id=' . $notifiable->getKey() .
+                '&hash=' . sha1($notifiable->getEmailForVerification()) .
+                '&expires=' . ($queryParams['expires'] ?? '') .
+                '&signature=' . ($queryParams['signature'] ?? '');
+        });
     }
 }
