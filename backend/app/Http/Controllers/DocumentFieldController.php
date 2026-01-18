@@ -21,7 +21,7 @@ class DocumentFieldController extends Controller
             abort(403);
         }
 
-        return response()->json($document->fields);
+        return response()->json($document->fields()->with('signature')->get());
     }
 
     /**

@@ -1,6 +1,7 @@
 <script setup>
 import VuePdfEmbed from 'vue-pdf-embed'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
@@ -8,20 +9,21 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 const route = useRoute()
 const router = useRouter()
 const workflowStore = useWorkflowStore()
+const authStore = useAuthStore()
 
 // --- State ---
 const document = ref(null)
 const signers = ref([])
 const fields = ref([])
 const loading = ref(true)
-const pdfSource = ref(null)
+const pdfSource = ref(null) // Will be a Blob URL
 const pageCount = ref(0)
 const workflow = ref(null)
 
-// Field values (user input)
+// Field values
 const fieldValues = ref({}) 
-// Format: { [fieldId]: { value: '...', type: '...' } }
 
+// ... (keep signature dialog state)
 // Signature Dialog & Canvas
 const showSignatureDialog = ref(false)
 const activeFieldId = ref(null)
@@ -43,14 +45,13 @@ const canceling = ref(false)
 const risks = ref([])
 const analyzing = ref(false)
 
-// User Info
-const currentUserEmail = ref(null)
-const currentUser = ref(null)
-
 // Helpers
 const snackbar = ref({ show: false, text: '', color: 'success' })
 
 // --- Computed ---
+const currentUser = computed(() => authStore.user)
+const currentUserEmail = computed(() => authStore.user?.email)
+
 const myFields = computed(() => {
   if (!currentUser.value) return []
   return fields.value.filter(f => 
@@ -90,14 +91,9 @@ const canCancelWorkflow = computed(() => {
 
 // --- Hooks ---
 onMounted(async () => {
-  // Mock current user - replace with actual Auth Store usage
-  try {
-    const authRes = await $api('/auth/me')
-    currentUser.value = authRes
-    currentUserEmail.value = authRes?.email
-  } catch (e) {
-    // Fallback or redirect to login
-    currentUser.value = { email: 'demo@example.com', id: 'uuid' }
+  if (!authStore.isAuthenticated) {
+     // Try to restore session or redirect
+     // For now, assume auth middleware handles this or layout redirects
   }
 
   await Promise.all([
@@ -120,20 +116,60 @@ onMounted(async () => {
 
 async function fetchDocument() {
   try {
+    // 1. Fetch metadata
     const res = await $api(`/documents/${route.params.id}`)
     document.value = res
-    pdfSource.value = `/storage/${res.file_path}` 
     signers.value = res.signers || []
+
+    // 2. Fetch PDF securely as Blob
+    await fetchPdfBlob(route.params.id)
+
   } catch (e) {
     console.error('Failed to load document', e)
     showSnackbar('Failed to load document', 'error')
   }
 }
 
+async function fetchPdfBlob(id) {
+    try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/${id}/pdf`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/pdf'
+            }
+        })
+        
+        if (!response.ok) throw new Error('Failed to fetch PDF')
+        
+        const blob = await response.blob()
+        pdfSource.value = URL.createObjectURL(blob)
+    } catch (e) {
+        console.error('PDF Load Error', e)
+        showSnackbar('Could not load PDF file', 'error')
+    }
+}
+
 async function fetchFields() {
   try {
     const res = await $api(`/documents/${route.params.id}/fields`)
     fields.value = res
+    
+    // Populate existing values
+    res.forEach(f => {
+       if (f.signature && f.signature.signature_data) {
+           fieldValues.value[f.id] = { 
+               value: f.signature.signature_data, 
+               type: 'SIGNATURE' // or INITIALS
+           }
+       } else if (f.text_value) {
+           fieldValues.value[f.id] = {
+               value: f.text_value,
+               type: f.type
+           }
+       }
+    })
+
   } catch (e) {
     console.error('Failed to load fields', e)
   }
@@ -375,55 +411,164 @@ async function cancelWorkflow() {
 function showSnackbar(text, color) {
   snackbar.value = { show: true, text, color }
 }
+
+const statusColor = computed(() => {
+  const map = {
+    'DRAFT': 'grey',
+    'IN_PROGRESS': 'info',
+    'COMPLETED': 'success',
+    'ARCHIVED': 'secondary'
+  }
+  return map[document.value?.status] || 'primary'
+})
+
+function isMyField(field) {
+  return canSign.value && (
+    field.signer_email === currentUser.value?.email || 
+    field.document_signer_id === currentUser.value?.id
+  )
+}
+
+function getFieldColor(field) {
+  const isMine = isMyField(field)
+  const isFilled = !!fieldValues.value[field.id]
+  
+  if (isFilled) return 'rgba(76, 175, 80, 0.1)' // Green tint
+  if (isMine) return 'rgba(255, 193, 7, 0.15)' // Amber tint for action
+  return 'transparent'
+}
+
+function getFieldBorder(field) {
+  const isMine = isMyField(field)
+  const isFilled = !!fieldValues.value[field.id]
+
+  if (isFilled) return '1px solid #4CAF50'
+  if (isMine) return '1px dashed #FFC107'
+  return 'none'
+}
+
+function getFieldValueModel(field) {
+  // Ensure we have a reactive object for v-model
+  if (!fieldValues.value[field.id]) {
+     fieldValues.value[field.id] = { value: '', type: 'TEXT' }
+  }
+  return fieldValues.value[field.id]
+}
 </script>
 
 <template>
-  <div class="h-100 d-flex flex-column">
-    <!-- Header -->
-    <v-toolbar density="compact" color="surface" elevation="1" class="px-4">
-      <v-btn icon="mdi-arrow-left" @click="$router.push('/')" />
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
-        {{ document?.title }}
-      </v-toolbar-title>
-      <v-spacer />
-      <div v-if="canSign" class="d-flex align-center">
-         <span class="text-caption mr-2">{{ completionPercentage }}% Completed</span>
-         <v-progress-linear :model-value="completionPercentage" color="success" width="100" class="mr-4" />
-         <v-btn color="success" @click="finishSigning" :disabled="completionPercentage < 100">
-            Finish Signing
-         </v-btn>
+  <div class="h-100 d-flex flex-column bg-background">
+    <!-- Premium Header -->
+    <v-toolbar color="surface" elevation="1" height="72" class="border-b">
+      <div class="px-6 w-100 d-flex align-center fill-height">
+        <!-- Back Button -->
+        <v-btn icon="mdi-arrow-left" variant="text" class="me-2" @click="$router.push('/')" />
+        
+        <!-- Title & Info Section -->
+        <div class="d-flex flex-column justify-center overflow-hidden" style="max-width: 50%;">
+          <div class="d-flex align-center">
+             <span class="text-h6 font-weight-bold text-high-emphasis text-truncate me-3" :title="document?.title">
+               {{ document?.title || 'Loading...' }}
+             </span>
+             <v-chip 
+               v-if="document?.status"
+               size="small" 
+               :color="statusColor" 
+               variant="flat" 
+               class="font-weight-bold text-uppercase px-2"
+               style="height: 20px; font-size: 10px;"
+             >
+               {{ document?.status?.replace('_', ' ') }}
+             </v-chip>
+          </div>
+          <div class="d-flex align-center text-caption text-medium-emphasis mt-1">
+              <v-icon size="14" start icon="mdi-account-group-outline" class="me-1" />
+              {{ signers.length }} Participants
+              <span class="mx-2">•</span>
+              Created {{ new Date(document?.created_at).toLocaleDateString() }}
+          </div>
+        </div>
+
+        <v-spacer />
+
+        <!-- Actions Section -->
+        <div v-if="canSign" class="d-flex align-center">
+           <!-- Progress Indicator -->
+           <div class="d-none d-md-flex align-center me-6 bg-grey-lighten-5 px-3 py-1 rounded">
+              <div class="d-flex flex-column align-end me-3">
+                 <span class="text-[10px] text-uppercase font-weight-bold text-medium-emphasis">Your Progress</span>
+                 <span class="text-caption font-weight-bold text-primary">{{ completionPercentage }}% Complete</span>
+              </div>
+              <v-progress-circular
+                 :model-value="completionPercentage"
+                 color="primary"
+                 size="28"
+                 width="4"
+                 bg-color="grey-lighten-2"
+              >
+                 <v-icon v-if="completionPercentage === 100" icon="mdi-check" size="14" color="primary" />
+              </v-progress-circular>
+           </div>
+           
+           <!-- Primary Action -->
+           <v-btn 
+              color="primary" 
+              variant="flat"
+              height="44"
+              class="px-6 font-weight-bold text-none"
+              elevation="2"
+              prepend-icon="mdi-fountain-pen-tip"
+              @click="finishSigning" 
+           >
+              Finish Signing
+           </v-btn>
+        </div>
       </div>
     </v-toolbar>
 
-    <div class="d-flex flex-grow-1 overflow-hidden">
-      <!-- PDF Content Area -->
-      <div class="main-content flex-grow-1 bg-grey-lighten-3 overflow-auto pa-8 text-center">
-        <div v-if="loading" class="d-flex justify-center mt-10">
-           <v-progress-circular indeterminate />
+    <!-- Main Workspace -->
+    <div class="d-flex flex-grow-1 overflow-hidden positions-relative">
+      
+      <!-- Document Canvas (The Desk) -->
+      <div class="flex-grow-1 bg-grey-lighten-4 overflow-auto d-flex justify-center pa-8 position-relative">
+        
+        <!-- Loading State -->
+        <div v-if="loading" class="d-flex flex-column align-center justify-center h-50">
+           <v-progress-circular indeterminate color="primary" size="64" />
+           <span class="mt-4 text-subtitle-2 text-medium-emphasis">Loading secure document...</span>
         </div>
 
-        <div v-else-if="pdfSource" class="pdf-wrapper d-inline-block">
+        <!-- The Paper -->
+        <div v-else-if="pdfSource" class="pdf-container d-flex flex-column align-center gap-4 pb-16">
+           <!-- Hidden Loader to get Page Count -->
+           <VuePdfEmbed
+              v-if="pageCount === 0"
+              :source="pdfSource"
+              class="d-none"
+              @loaded="handleDocumentLoad"
+           />
+
            <div 
              v-for="page in pageCount" 
              :key="page" 
-             class="pdf-page mb-4 elevation-2 position-relative bg-white"
-             style="width: 800px; min-height: 1000px;"
+             class="pdf-page elevation-4 position-relative bg-white rounded-lg overflow-hidden"
+             :style="{ width: '650px', minHeight: '840px' }"
            >
               <VuePdfEmbed 
                 :source="pdfSource" 
                 :page="page"
-                width="800"
-                @loaded="handleDocumentLoad"
+                width="650"
               />
               
-              <!-- Fields Overlay -->
+              <!-- Fields Overlay layer -->
               <div class="fields-overlay position-absolute top-0 left-0 w-100 h-100">
                  <div
                    v-for="field in fields.filter(f => f.page_number === page)"
                    :key="field.id"
-                   class="field-marker position-absolute d-flex align-center justify-center"
+                   class="field-marker position-absolute d-flex align-center justify-center rounded transition-swing"
                    :class="{ 
-                      'interactive': canSign && (field.signer_email === currentUser?.email),
+                      'interactive elevation-2': canSign && (field.signer_email === currentUser?.email),
+                      'readonly': !(canSign && (field.signer_email === currentUser?.email)),
                       'filled': fieldValues[field.id]
                    }"
                    :style="{
@@ -431,30 +576,33 @@ function showSnackbar(text, color) {
                       top: field.y + '%',
                       width: field.width + '%',
                       height: field.height + '%',
-                      backgroundColor: fieldValues[field.id] ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 235, 59, 0.2)',
-                      border: '1px solid ' + (fieldValues[field.id] ? 'green' : 'orange')
+                      backgroundColor: getFieldColor(field),
+                      border: getFieldBorder(field)
                    }"
                    @click="onFieldClick(field)"
                  >
-                    <!-- Field Content -->
-                    <div v-if="field.type === 'SIGNATURE'" class="w-100 h-100 d-flex align-center justify-center">
-                       <img v-if="fieldValues[field.id]" :src="fieldValues[field.id].value" class="w-100 h-100 object-contain" />
-                       <span v-else class="text-caption text-uppercase">Sign Here</span>
-                    </div>
+                    <!-- Field Content (Signature, Text, Date) -->
+                    <template v-if="field.type === 'SIGNATURE' || field.type === 'INITIALS'">
+                        <div v-if="fieldValues[field.id]" class="w-100 h-100 p-1">
+                            <img :src="fieldValues[field.id].value" class="w-100 h-100 object-contain" />
+                        </div>
+                        <div v-else class="text-center">
+                            <v-icon :icon="field.type === 'INITIALS' ? 'mdi-alphabetical' : 'mdi-draw'" size="small" />
+                            <div class="text-[10px] font-weight-bold text-uppercase mt-1">{{ field.type }}</div>
+                        </div>
+                    </template>
 
-                    <div v-else-if="field.type === 'TEXT'" class="w-100 h-100">
-                       <input 
-                         v-if="canSign && field.signer_email === currentUser?.email"
-                         :value="fieldValues[field.id]?.value"
-                         @input="e => fieldValues[field.id] = { value: e.target.value, type: 'TEXT' }"
-                         class="w-100 h-100 px-1 text-body-2"
-                         style="background: transparent; outline: none; border: none;"
-                         placeholder="Text..."
-                       />
-                       <span v-else class="text-body-2">{{ fieldValues[field.id]?.value }}</span>
-                    </div>
+                    <!-- Text Input -->
+                    <input 
+                       v-else-if="field.type === 'TEXT'"
+                       v-model="getFieldValueModel(field).value"
+                       class="w-100 h-100 px-2 text-body-2 bg-transparent outline-none"
+                       :disabled="!isMyField(field)"
+                       placeholder="Enter text..."
+                    />
 
-                    <div v-else-if="field.type === 'DATE'" class="w-100 h-100 d-flex align-center justify-center text-caption">
+                    <!-- Date -->
+                    <div v-else-if="field.type === 'DATE'" class="text-body-2 font-weight-medium">
                        {{ fieldValues[field.id]?.value || 'Date' }}
                     </div>
                  </div>
@@ -463,217 +611,190 @@ function showSnackbar(text, color) {
         </div>
       </div>
 
-      <!-- Right Sidebar -->
-      <div class="sidebar border-s bg-surface" style="width: 320px; overflow-y: auto;">
-         <div class="pa-4">
-            <h3 class="text-h6 mb-4">Document Info</h3>
-            <v-chip size="small" :color="document?.status === 'COMPLETED' ? 'success' : 'info'" class="mb-4">
-               {{ document?.status }}
-            </v-chip>
+      <!-- Right Sidebar (Info & Tools) -->
+      <div 
+        class="sidebar bg-surface border-s d-none d-md-flex flex-column" 
+        style="width: 260px; min-width: 260px;"
+      >
+         <div class="pa-4 flex-grow-1 overflow-y-auto">
+            <div class="text-overline mb-2 text-medium-emphasis">Workflow Timeline</div>
+            <workflow-timeline v-if="workflow" :steps="workflow.steps" class="mb-6" />
             
-            <workflow-timeline v-if="workflow" :steps="workflow.steps" />
-            
-            <v-divider class="my-4" />
-            
-            <!-- Actions -->
-            <div class="d-flex flex-column gap-2">
-              <!-- Evidence Download -->
+            <div v-if="risks.length > 0">
+               <v-divider class="my-4" />
+               <div class="text-overline mb-2 text-warning">Risk Analysis</div>
+               <v-alert
+                  v-for="(risk, i) in risks" :key="i"
+                  type="warning" variant="tonal" density="compact" class="mb-2 text-caption"
+                  :icon="false"
+               >
+                  <strong>{{ risk.term }}</strong>: {{ risk.message }}
+               </v-alert>
+            </div>
+         </div>
+
+         <!-- Sidebar Footer Actions -->
+         <div class="pa-4 bg-grey-lighten-5 border-t">
               <v-btn
-                v-if="document?.status === 'COMPLETED' || document?.status === 'ARCHIVED'"
                 block
-                prepend-icon="mdi-shield-check"
+                variant="outlined"
+                color="primary"
+                class="mb-2"
+                prepend-icon="mdi-robot"
+                :loading="analyzing"
+                @click="analyzeDocument"
+              >
+                Run AI Analysis
+              </v-btn>
+
+              <v-btn
+                v-if="document?.status === 'COMPLETED'"
+                block
+                variant="tonal"
                 color="secondary"
-                variant="flat"
+                prepend-icon="mdi-download"
                 :href="`/api/documents/${document.id}/evidence`"
                 target="_blank"
-                class="mb-2"
               >
                 Download Evidence
               </v-btn>
 
-              <!-- AI Scan -->
-               <v-btn
-                 block
-                 prepend-icon="mdi-robot"
-                 color="primary"
-                 variant="outlined"
-                 :loading="analyzing"
-                 @click="analyzeDocument"
-                 class="mb-2"
-               >
-                 AI Risk Scan
-               </v-btn>
-
-               <!-- Cancel Workflow -->
                <v-btn
                  v-if="canCancelWorkflow && workflow?.status !== 'COMPLETED'"
                  block
-                 prepend-icon="mdi-cancel"
+                 variant="text"
                  color="error"
-                 variant="outlined"
+                 class="mt-2"
                  @click="showCancelDialog = true"
                >
                  Cancel Workflow
                </v-btn>
-            </div>
-            
-            <!-- AI Risks Display -->
-            <v-expand-transition>
-               <v-alert v-if="risks.length > 0" type="warning" variant="tonal" class="mt-4" closable >
-                 <div class="text-subtitle-2 mb-1">Risk Analysis:</div>
-                 <ul class="text-caption ms-4">
-                   <li v-for="(risk, i) in risks" :key="i">
-                     <strong>{{ risk.term }}:</strong> {{ risk.message }}
-                   </li>
-                 </ul>
-               </v-alert>
-            </v-expand-transition>
-
          </div>
       </div>
     </div>
 
-    <!-- Sign Dialog -->
+    <!-- Dialogs (Keep existing) -->
     <v-dialog v-model="showSignatureDialog" max-width="500">
-       <v-card title="Sign Document">
-          <v-card-text>
-             <!-- Saved Signature Toggle -->
-             <div v-if="savedSignatures.length > 0" class="mb-4">
-                 <v-switch v-model="useSaved" label="Use saved signature" color="primary" hide-details />
-                 <v-select
-                   v-if="useSaved"
-                   v-model="selectedSignatureId"
-                   :items="savedSignatures"
-                   item-title="name"
-                   item-value="id"
-                   label="Select signature"
-                   variant="outlined"
-                   density="compact"
-                   class="mt-2"
-                 />
-             </div>
+       <v-card class="rounded-lg">
+          <v-card-title class="d-flex justify-space-between align-center p-4 border-b">
+             <span>Adopt Your Signature</span>
+             <v-btn icon="mdi-close" variant="text" size="small" @click="showSignatureDialog = false" />
+          </v-card-title>
+          
+          <v-card-text class="pa-4">
+             <v-tabs v-model="useSaved" density="compact" color="primary" class="mb-4">
+                <v-tab :value="false">Draw</v-tab>
+                <v-tab :value="true" v-if="savedSignatures.length > 0">Saved</v-tab>
+             </v-tabs>
 
-             <!-- Canvas -->
-             <div v-if="!useSaved" class="border rounded pa-2 bg-white">
-                <canvas 
-                   ref="signatureCanvas" 
-                   width="450" 
-                   height="200" 
-                   class="canvas"
-                   @mousedown="startDrawing"
-                   @mousemove="draw"
-                   @mouseup="stopDrawing"
-                   @mouseleave="stopDrawing"
-                />
-             </div>
-             
-             <div v-if="!useSaved" class="d-flex justify-end mt-2">
-                 <v-btn size="small" variant="text" @click="clearCanvas">Clear</v-btn>
-             </div>
+             <v-window v-model="useSaved">
+                <v-window-item :value="false">
+                   <div class="border rounded bg-grey-lighten-5 pa-2 mb-2 d-flex justify-center position-relative">
+                      <canvas 
+                         ref="signatureCanvas" 
+                         width="400" 
+                         height="200" 
+                         class="cursor-crosshair bg-white elevation-1 rounded"
+                         @mousedown="startDrawing"
+                         @mousemove="draw"
+                         @mouseup="stopDrawing"
+                         @mouseleave="stopDrawing"
+                      />
+                      <div class="position-absolute bottom-0 right-0 ma-4">
+                         <v-btn size="x-small" variant="text" color="error" @click="clearCanvas">Clear</v-btn>
+                      </div>
+                   </div>
+                   <div class="text-caption text-center text-medium-emphasis">Draw your signature above</div>
+                </v-window-item>
+
+                <v-window-item :value="true">
+                   <v-list selectable bg-color="transparent">
+                      <v-list-item
+                        v-for="sig in savedSignatures"
+                        :key="sig.id"
+                        :value="sig.id"
+                        color="primary"
+                        class="border mb-2 rounded bg-white"
+                        @click="selectedSignatureId = sig.id"
+                        :variant="selectedSignatureId === sig.id ? 'tonal' : 'text'"
+                      >
+                         <img :src="sig.image_data" height="60" class="d-block mx-auto" />
+                      </v-list-item>
+                   </v-list>
+                </v-window-item>
+             </v-window>
           </v-card-text>
-          <v-card-actions>
+
+          <v-card-actions class="pa-4 border-t bg-grey-lighten-5">
              <v-spacer />
-             <v-btn text @click="showSignatureDialog = false">Cancel</v-btn>
-             <v-btn color="primary" @click="saveSignature">Apply</v-btn>
+             <v-btn variant="text" @click="showSignatureDialog = false">Cancel</v-btn>
+             <v-btn color="primary" variant="flat" class="px-6" @click="saveSignature">
+                Sign Document
+             </v-btn>
           </v-card-actions>
        </v-card>
     </v-dialog>
 
-    <!-- Identity Verification Dialog -->
-    <v-dialog v-model="showVerificationDialog" max-width="450" persistent>
-       <v-card>
-          <v-card-title class="text-h6 bg-primary text-white">
-             Identity Verification Required
-          </v-card-title>
-          <v-card-text class="pt-4">
-             <div class="mb-4">
-                This document requires <strong>{{ document?.signature_level }}</strong> signature assurance.
-                Please verify your identity via email OTP before proceeding.
-             </div>
+    <!-- Keeps other dialogs same structure but clean up classes if needed -->
+    <v-dialog v-model="showVerificationDialog" max-width="400">
+        <!-- ... (Keep logic, just verify classes) -->
+        <v-card class="rounded-lg">
+           <v-card-title class="bg-primary text-white text-center py-4">Verify Identity</v-card-title>
+           <v-card-text class="text-center pa-6">
+              <div v-if="verificationStep === 'INIT'">
+                 <v-avatar color="primary-lighten-4" size="80" class="mb-4">
+                    <v-icon color="primary" size="40">mdi-shield-lock</v-icon>
+                 </v-avatar>
+                 <p class="text-body-1 mb-6">We need to send a verification code to<br/><strong>{{ currentUserEmail }}</strong></p>
+                 <v-btn block color="primary" size="large" @click="sendOtp" :loading="verifying">Send Code</v-btn>
+              </div>
+              <div v-else>
+                 <v-otp-input v-model="otpCode" length="6" class="mb-6 justify-center" />
+                 <v-btn block color="primary" size="large" @click="verifyOtp" :loading="verifying" :disabled="otpCode.length < 6">Verify</v-btn>
+                 <v-btn variant="text" size="small" class="mt-4" @click="verificationStep = 'INIT'">Resend</v-btn>
+              </div>
+           </v-card-text>
+        </v-card>
+    </v-dialog>
 
-             <div v-if="verificationStep === 'INIT'" class="text-center">
-                <v-icon size="64" color="primary" class="mb-4">mdi-email-check</v-icon>
-                <p>We will send a one-time code to <strong>{{ currentUserEmail }}</strong>.</p>
-                <v-btn color="primary" class="mt-4" @click="sendOtp" :loading="verifying">
-                   Send Verification Code
-                </v-btn>
-             </div>
-
-             <div v-else-if="verificationStep === 'OTP'">
-                <p class="mb-2">Enter the 6-digit code sent to your email:</p>
-                <v-otp-input v-model="otpCode" length="6" class="mb-4" />
-                
-                <div class="d-flex justify-center">
-                   <v-btn color="primary" @click="verifyOtp" :loading="verifying" :disabled="otpCode.length < 6">
-                      Verify Identity
-                   </v-btn>
-                </div>
-                <div class="text-center mt-4">
-                   <v-btn variant="text" size="small" @click="verificationStep = 'INIT'">Resend Code</v-btn>
-                </div>
-             </div>
-          </v-card-text>
-       </v-card>
+    <v-dialog v-model="showCancelDialog" max-width="500">
+        <v-card class="rounded-lg">
+            <v-card-title class="pa-4 border-b">Cancel Workflow</v-card-title>
+            <v-card-text class="pa-4">
+                <v-alert type="warning" variant="tonal" class="mb-4" icon="mdi-alert">
+                    This action is permanent. All progress will be lost.
+                </v-alert>
+                <v-textarea v-model="cancelReason" label="Reason" variant="outlined" auto-grow rows="3" />
+            </v-card-text>
+            <v-card-actions class="pa-4 border-t bg-grey-lighten-5">
+                <v-spacer/>
+                <v-btn variant="text" @click="showCancelDialog = false">Keep Workflow</v-btn>
+                <v-btn color="error" variant="flat" @click="cancelWorkflow" :loading="canceling">Confirm Cancel</v-btn>
+            </v-card-actions>
+        </v-card>
     </v-dialog>
     
-    <!-- Cancellation Dialog -->
-    <v-dialog v-model="showCancelDialog" max-width="500">
-      <v-card>
-        <v-card-title>Cancel Workflow</v-card-title>
-        <v-card-text>
-          <v-alert type="warning" variant="tonal" class="mb-4">
-            This will cancel the entire workflow. This action cannot be undone.
-          </v-alert>
-
-          <v-textarea
-            v-model="cancelReason"
-            label="Reason for cancellation"
-            placeholder="Please provide a reason..."
-            variant="outlined"
-            rows="3"
-            required
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showCancelDialog = false">
-            Close
-          </v-btn>
-          <v-btn
-            color="error"
-            :loading="canceling"
-            :disabled="!cancelReason.trim()"
-            @click="cancelWorkflow"
-          >
-            Confirm
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-      {{ snackbar.text }}
-      <template #actions>
-        <v-btn variant="text" @click="snackbar.show = false">
-          Close
-        </v-btn>
-      </template>
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" location="top center">
+       {{ snackbar.text }}
     </v-snackbar>
   </div>
 </template>
 
 <style scoped>
-.field-marker.interactive {
-  cursor: pointer;
+.interactive:hover {
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
+  border-color: rgb(var(--v-theme-primary)) !important;
+  transform: translateY(-1px);
 }
-.field-marker.interactive:hover {
-  background-color: rgba(255, 235, 59, 0.4) !important;
+.cursor-crosshair {
+    cursor: crosshair;
 }
-.canvas {
-  cursor: crosshair;
+/* Hide scrollbar for sidebar but allow scroll */
+.sidebar ::-webkit-scrollbar {
+  width: 4px;
 }
-/* Ensure PDF wrapper scales nicely */
-.pdf-page canvas {
-  display: block;
+.sidebar ::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 4px;
 }
 </style>

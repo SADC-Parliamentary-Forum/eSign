@@ -46,4 +46,9 @@ class DocumentField extends Model
     {
         return $this->belongsTo(DocumentSigner::class, 'document_signer_id');
     }
+
+    public function signature()
+    {
+        return $this->belongsTo(Signature::class);
+    }
 }

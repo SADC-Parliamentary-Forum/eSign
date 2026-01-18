@@ -6,142 +6,110 @@ const props = defineProps({
   },
 })
 
-const getStepColor = status => {
-  switch (status) {
-    case 'SIGNED':
-      return 'success'
-    case 'DECLINED':
-      return 'error'
-    case 'PENDING':
-      return 'grey'
-    default:
-      return 'grey'
+const getStatusConfig = status => {
+  const map = {
+    'SIGNED': { color: 'success', icon: 'mdi-check', text: 'Signed' },
+    'DECLINED': { color: 'error', icon: 'mdi-close', text: 'Declined' },
+    'PENDING': { color: 'grey-lighten-1', icon: 'mdi-clock-outline', text: 'Pending' },
+    'NOTIFIED': { color: 'info', icon: 'mdi-email-check-outline', text: 'Notified' },
+    'VIEWED': { color: 'warning', icon: 'mdi-eye-outline', text: 'Viewed' },
+    'IN_PROGRESS': { color: 'primary', icon: 'mdi-pencil', text: 'Signing...' }
   }
-}
-
-const getStepIcon = status => {
-  switch (status) {
-    case 'SIGNED':
-      return 'mdi-check-circle'
-    case 'DECLINED':
-      return 'mdi-close-circle'
-    case 'PENDING':
-      return 'mdi-clock-outline'
-    default:
-      return 'mdi-circle-outline'
-  }
+  return map[status] || map['PENDING']
 }
 
 const formatDate = date => {
   if (!date) return ''
   return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-   minute: '2-digit',
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   })
 }
 
-const isCurrentStep = step => {
-  return step.status === 'PENDING' && !props.steps.find((s, index) => {
-    const stepIndex = props.steps.indexOf(step)
-    return index < stepIndex && s.status === 'PENDING'
-  })
+const getInitials = name => {
+    return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '?'
 }
 </script>
 
 <template>
-  <v-timeline align="start" density="compact">
-    <v-timeline-item
-      v-for="(step, index) in steps"
-      :key="step.id"
-      :dot-color="getStepColor(step.status)"
-      :icon="getStepIcon(step.status)"
-      size="small"
-      :class="{ 'current-step': isCurrentStep(step) }"
-    >
-      <template #opposite>
-        <div class="text-caption text-medium-emphasis">
-          {{ formatDate(step.signed_at || step.declined_at || step.created_at) }}
-        </div>
-      </template>
-
-      <v-card
-        variant="outlined"
-        :class="{ 'current-step-card': isCurrentStep(step) }"
+  <div class="timeline-container pl-2">
+      <div 
+        v-for="(step, index) in steps" 
+        :key="step.id"
+        class="timeline-item position-relative d-flex pb-6"
       >
-        <v-card-title class="text-subtitle-1 d-flex align-center">
-          {{ step.role }}
-          
-          <v-spacer />
-          
-          <v-chip
-            :color="getStepColor(step.status)"
-            size="small"
-            variant="flat"
-          >
-            {{ step.status }}
-          </v-chip>
-        </v-card-title>
+          <!-- Line -->
+          <div 
+            v-if="index !== steps.length - 1" 
+            class="timeline-line position-absolute bg-grey-lighten-2"
+            style="left: 15px; top: 32px; bottom: 0; width: 2px;"
+          ></div>
 
-        <v-card-subtitle v-if="step.assignedUser">
-          <v-icon
-            icon="mdi-account"
-            size="x-small"
-            class="mr-1"
-          />
-          {{ step.assignedUser.name }}
-          <span v-if="step.assignedUser.email" class="text-caption">
-            ({{ step.assignedUser.email }})
-          </span>
-        </v-card-subtitle>
+          <!-- Avatar/Dot -->
+          <div class="me-3 position-relative z-index-1">
+             <v-avatar 
+                :color="getStatusConfig(step.status).color" 
+                size="32" 
+                variant="tonal"
+                class="border"
+                :class="step.status === 'IN_PROGRESS' ? 'ring-pulse' : ''"
+             >
+                <span v-if="step.status === 'SIGNED'" class="text-caption font-weight-bold">
+                    <v-icon icon="mdi-check" size="16" />
+                </span>
+                <span v-else class="text-caption font-weight-bold">
+                    {{ getInitials(step.assignedUser?.name) }}
+                </span>
+             </v-avatar>
+             
+             <!-- Status Icon Badge -->
+             <div 
+                class="status-badge position-absolute bg-surface rounded-circle border d-flex align-center justify-center"
+                style="bottom: -4px; right: -4px; width: 16px; height: 16px;"
+                :class="`text-${getStatusConfig(step.status).color}`"
+             >
+               <v-icon :icon="getStatusConfig(step.status).icon" size="10" />
+             </div>
+          </div>
 
-        <v-card-text v-if="step.status === 'DECLINED' && step.decline_reason">
-          <v-alert
-            type="error"
-            variant="tonal"
-            density="compact"
-          >
-            <div class="text-caption">
-              <strong>Decline Reason:</strong>
-              {{ step.decline_reason }}
-            </div>
-          </v-alert>
-        </v-card-text>
+          <!-- Content -->
+          <div class="d-flex flex-column pt-1 flex-grow-1" style="min-width: 0;">
+             <div class="d-flex justify-space-between align-start">
+                 <span class="text-subtitle-2 font-weight-bold text-truncate" :title="step.assignedUser?.name">
+                     {{ step.assignedUser?.name || 'Unknown' }}
+                 </span>
+                 <span v-if="step.signed_at" class="text-[10px] text-medium-emphasis mt-1 text-no-wrap ms-2">
+                     {{ formatDate(step.signed_at) }}
+                 </span>
+             </div>
+             
+             <div class="d-flex align-center justify-space-between mt-1">
+                 <span class="text-caption text-medium-emphasis">{{ step.role }}</span>
+                 <span 
+                    class="text-[10px] text-uppercase font-weight-bold"
+                    :class="`text-${getStatusConfig(step.status).color}`"
+                 >
+                    {{ getStatusConfig(step.status).text }}
+                 </span>
+             </div>
 
-        <v-card-text v-if="isCurrentStep(step)">
-          <v-alert
-            type="info"
-            variant="tonal"
-            density="compact"
-          >
-            <div class="text-caption">
-              <v-icon icon="mdi-information" size="x-small" class="mr-1" />
-              Waiting for signature
-            </div>
-          </v-alert>
-        </v-card-text>
-      </v-card>
-    </v-timeline-item>
-  </v-timeline>
+             <!-- Decline Reason -->
+             <div v-if="step.status === 'DECLINED' && step.decline_reason" class="mt-2 text-caption text-error bg-error-lighten-5 pa-2 rounded">
+                 "{{ step.decline_reason }}"
+             </div>
+          </div>
+      </div>
+  </div>
 </template>
 
 <style scoped>
-.current-step {
-  animation: pulse 2s infinite;
+.ring-pulse {
+  box-shadow: 0 0 0 0 rgba(var(--v-theme-primary), 0.7);
+  animation: pulse-primary 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
 }
 
-.current-step-card {
-  border-color: rgb(var(--v-theme-primary));
-  border-width: 2px;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
+@keyframes pulse-primary {
+  to {
+    box-shadow: 0 0 0 10px rgba(var(--v-theme-primary), 0);
   }
 }
 </style>

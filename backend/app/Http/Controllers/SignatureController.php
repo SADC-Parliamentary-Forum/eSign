@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\Document;
 use App\Models\Signature;
 use App\Models\DocumentField;
+use App\Models\DocumentSigner;
+use App\Services\DelegationService;
 use Illuminate\Support\Facades\DB;
 
 class SignatureController extends Controller
