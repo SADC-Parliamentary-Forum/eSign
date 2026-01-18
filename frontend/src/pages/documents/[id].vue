@@ -106,6 +106,13 @@ onMounted(async () => {
     fetchWorkflow(),
     fetchSavedSignatures(),
   ])
+
+  // Redirect to prepare if draft and owner
+  if (document.value?.status === 'DRAFT' && document.value?.user_id === currentUser.value?.id) {
+     router.replace(`/prepare/${document.value.id}`)
+     return
+  }
+
   loading.value = false
 })
 
@@ -136,7 +143,27 @@ async function fetchWorkflow() {
   try {
     await workflowStore.fetchDocumentWorkflow(route.params.id)
     workflow.value = workflowStore.activeWorkflow
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    // If workflow not found (404), construct virtual workflow from signers
+    if (document.value && document.value.signers) {
+        console.log('Constructing virtual workflow from signers')
+        workflow.value = {
+            id: 'virtual',
+            steps: document.value.signers.map(s => ({
+                id: s.id,
+                role: s.role || 'Signer',
+                status: (s.status || 'PENDING').toUpperCase(),
+                assignedUser: {
+                    name: s.name,
+                    email: s.email
+                },
+                signed_at: s.signed_at,
+                declined_at: s.declined_at,
+                created_at: s.created_at || document.value.created_at
+            }))
+        }
+    }
+  }
 }
 
 async function fetchSavedSignatures() {

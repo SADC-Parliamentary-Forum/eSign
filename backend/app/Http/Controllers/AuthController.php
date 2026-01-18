@@ -61,6 +61,8 @@ class AuthController extends Controller
             'phone_number' => $validated['phone_number'] ?? null,
         ]);
 
+        $user->sendEmailVerificationNotification();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -130,5 +132,18 @@ class AuthController extends Controller
         ]);
 
         return response()->json(['message' => 'Password updated successfully']);
+    }
+    /**
+     * Resend verification email
+     */
+    public function resendVerification(Request $request)
+    {
+        if ($request->user()->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return response()->json(['message' => 'Verification link sent.']);
     }
 }

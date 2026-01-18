@@ -97,7 +97,7 @@ class DocumentSigner extends Model
         $document = $this->document;
 
         // Document not in signable state
-        if (!in_array($document->status, ['sent', 'in_progress'])) {
+        if (!in_array(strtoupper($document->status), ['SENT', 'IN_PROGRESS'])) {
             return false;
         }
 

@@ -155,6 +155,18 @@ const filteredDocuments = computed(() => {
     d.status?.toLowerCase().includes(query)
   )
 })
+const deleteDraft = async (id) => {
+  if (!confirm('Are you sure you want to delete this draft?')) return
+  
+  try {
+    await $api(`/documents/${id}`, { method: 'DELETE' })
+    // Remove locally
+    documents.value.drafts = documents.value.drafts.filter(d => d.id !== id)
+    stats.value.drafts--
+  } catch (error) {
+    console.error('Failed to delete draft:', error)
+  }
+}
 </script>
 
 <template>
@@ -405,6 +417,7 @@ const filteredDocuments = computed(() => {
                       icon="mdi-delete-outline"
                       variant="text"
                       color="error"
+                      @click="deleteDraft(doc.id)"
                     />
                   </v-card-actions>
                 </v-card>

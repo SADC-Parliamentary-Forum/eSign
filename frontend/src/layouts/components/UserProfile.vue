@@ -3,6 +3,7 @@ import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import NotificationMenu from '@/components/common/NotificationMenu.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -31,6 +32,8 @@ function handleLogout() {
 </script>
 
 <template>
+  <NotificationMenu class="me-2" />
+
   <VBadge
     dot
     bordered

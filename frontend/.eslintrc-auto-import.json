@@ -373,6 +373,7 @@
     "useRealTimeNotifications": true,
     "useResponsive": true,
     "useSessionTimeout": true,
-    "workflowAPI": true
+    "workflowAPI": true,
+    "useToast": true
   }
 }

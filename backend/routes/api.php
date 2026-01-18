@@ -14,6 +14,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\DocumentFieldController;
+use App\Http\Controllers\NotificationController;
 
 // ...
 
@@ -58,6 +59,16 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/auth/mfa/send', [MfaController::class, 'send']);
     Route::post('/auth/mfa/verify', [MfaController::class, 'verify']);
     Route::post('/auth/magic/generate', [MagicLinkController::class, 'generate']);
+    Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])
+        ->middleware(['throttle:60,1'])
+        ->name('verification.send');
+
+    // -------------------------------------------------------------------------
+    // Notifications
+    // -------------------------------------------------------------------------
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 
     // -------------------------------------------------------------------------
     // User Management
@@ -143,7 +154,12 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // -------------------------------------------------------------------------
     Route::prefix('verification')->group(function () {
         Route::post('/signers/{signerId}/email', [VerificationController::class, 'createEmailVerification']);
-        Route::post('/email/verify', [VerificationController::class, 'verifyEmail']);
+
+        // Use GET for email links, named 'verification.verify' for Laravel compatibility
+        Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
+            ->middleware(['signed', 'throttle:6,1'])
+            ->name('verification.verify');
+
         Route::post('/signers/{signerId}/otp', [VerificationController::class, 'createOTPVerification']);
         Route::post('/signers/{signerId}/otp/verify', [VerificationController::class, 'verifyOTP']);
         Route::post('/signers/{signerId}/device', [VerificationController::class, 'createDeviceVerification']);

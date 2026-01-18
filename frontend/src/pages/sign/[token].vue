@@ -9,9 +9,11 @@
 import VuePdfEmbed from 'vue-pdf-embed'
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth' // Import auth store
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore() // Initialize auth store
 
 const token = computed(() => route.params.token)
 
@@ -57,6 +59,22 @@ const registering = ref(false)
 // Quick sign mode (use saved signature directly)
 const quickSignMode = ref(false)
 
+// Signature Mode
+const signatureMode = ref('draw') // 'draw' | 'upload'
+const uploadedSignature = ref(null)
+const saveToProfile = ref(false)
+
+function handleFileUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    uploadedSignature.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
 onMounted(async () => {
   await fetchDocument()
   await fetchSavedSignatures()
@@ -78,6 +96,38 @@ async function fetchDocument() {
     signer.value = data.signer
     fields.value = data.fields || []
     requiresAccount.value = data.requires_account
+    const requiresVerification = data.requires_verification
+
+    // Enforce Authentication
+    if (requiresAccount.value) {
+      if (!authStore.isAuthenticated) {
+        // Redirect to login with return URL
+        const returnUrl = encodeURIComponent(route.fullPath)
+        window.location.href = `/auth/login?returnUrl=${returnUrl}`
+        return
+      }
+
+      // Enforce Email Match
+      if (authStore.user?.email !== signer.value.email) {
+        error.value = `You are logged in as ${authStore.user?.email}, but this document was sent to ${signer.value.email}. Please log out and log in with the correct account.`
+        return
+      }
+
+      // Enforce Email Verification
+      // Note: We need to rely on the backend provided user object or fetch it fresh
+      if (requiresVerification && !authStore.user?.email_verified_at) {
+        // Try fetching fresh user data to be sure
+        await authStore.fetchUser()
+        if (!authStore.user?.email_verified_at) {
+           // Redirect to verification page (assuming /auth/verify-email exists or similar)
+           // For now, let's show an error instructing them to verify
+           error.value = 'Your email address is not verified. Please check your email inbox for a verification link.'
+           // Ideally: router.push('/auth/verify-email')
+           return
+        }
+      }
+    }
+
     pdfSource.value = data.pdf_url || `/storage/${data.document.file_path}`
 
     // Mark as viewed
@@ -220,8 +270,9 @@ async function register() {
 }
 
 // Submit signature
+// Submit signature
 async function submitSignature() {
-  if (requiresAccount.value) {
+  if (requiresAccount.value && !authStore.isAuthenticated) {
     showRegister.value = true
     return
   }
@@ -255,6 +306,9 @@ async function submitSignature() {
         return
       }
     }
+  } else if (signatureMode.value === 'upload' && uploadedSignature.value) {
+    // Using uploaded signature
+    signatureData = uploadedSignature.value
   } else if (canvas.value) {
     // Using drawn signature
     signatureData = canvas.value.toDataURL('image/png')
@@ -278,7 +332,8 @@ async function submitSignature() {
       },
       body: JSON.stringify({ 
         signature_data: signatureData,
-        user_signature_id: userSignatureId
+        user_signature_id: userSignatureId,
+        save_to_profile: saveToProfile.value
       })
     })
     const data = await res.json()
@@ -377,7 +432,7 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             </v-avatar>
           </template>
           <v-card-title class="text-h5">Document Signing Request</v-card-title>
-          <v-card-subtitle class="text-white-darken-1">
+          <v-card-subtitle class="text-white">
             You've been asked to sign a document
           </v-card-subtitle>
         </v-card-item>
@@ -593,27 +648,56 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             </div>
           </div>
 
-          <!-- Draw Signature (if not using saved) -->
+          <!-- Draw/Upload Signature (if not using saved) -->
           <div v-if="!useSavedSignature">
-            <h4 class="text-subtitle-1 font-weight-medium mb-2">Draw Your Signature</h4>
-            <p class="text-body-2 text-medium-emphasis mb-3">
-              Sign in the box below using your mouse or finger
-            </p>
-            
-            <div class="canvas-wrapper mb-4">
-              <canvas 
-                ref="canvas" 
-                width="540" 
-                height="150"
-                @mousedown="startDrawing"
-                @mousemove="draw"
-                @mouseup="stopDrawing"
-                @mouseleave="stopDrawing"
-                @touchstart="startDrawing"
-                @touchmove="draw"
-                @touchend="stopDrawing"
-              />
+            <v-tabs v-model="signatureMode" density="compact" color="primary" class="mb-4">
+              <v-tab value="draw">Draw</v-tab>
+              <v-tab value="upload">Upload Image</v-tab>
+            </v-tabs>
+
+            <div v-if="signatureMode === 'draw'">
+              <p class="text-body-2 text-medium-emphasis mb-3">
+                Sign in the box below using your mouse or finger
+              </p>
+              
+              <div class="canvas-wrapper mb-4">
+                <canvas 
+                  ref="canvas" 
+                  width="540" 
+                  height="150"
+                  @mousedown="startDrawing"
+                  @mousemove="draw"
+                  @mouseup="stopDrawing"
+                  @mouseleave="stopDrawing"
+                  @touchstart="startDrawing"
+                  @touchmove="draw"
+                  @touchend="stopDrawing"
+                />
+              </div>
             </div>
+
+            <div v-else class="upload-section pa-4 border rounded mb-4 text-center">
+              <v-file-input
+                label="Upload Signature Image"
+                accept="image/*"
+                prepend-icon="mdi-camera"
+                variant="outlined"
+                @change="handleFileUpload"
+              />
+              <div v-if="uploadedSignature" class="mt-4">
+                <img :src="uploadedSignature" alt="Uploaded Signature" style="max-height: 100px; max-width: 100%; border: 1px dashed #ccc; padding: 5px;" />
+              </div>
+            </div>
+
+            <v-checkbox
+              v-if="authStore.isAuthenticated"
+              v-model="saveToProfile"
+              label="Save this signature to my profile for future use"
+              density="compact"
+              color="primary"
+              hide-details
+              class="mb-4"
+            />
           </div>
 
           <v-alert v-if="error" type="error" variant="tonal" class="mb-4">

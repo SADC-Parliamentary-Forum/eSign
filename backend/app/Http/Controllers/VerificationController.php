@@ -11,6 +11,51 @@ use Carbon\Carbon;
 class VerificationController extends Controller
 {
     /**
+     * Send email verification link.
+     */
+    public function createEmailVerification(Request $request, $signerId)
+    {
+        // ... (Implementation or stub)
+        return response()->json(['message' => 'Not implemented yet, use standard auth verification.']);
+    }
+
+    /**
+     * Verify email (Standard Laravel Verification).
+     */
+    public function verify(Request $request)
+    {
+        $user = \App\Models\User::find($request->route('id'));
+
+        if (!$user) {
+            return response()->json(['message' => 'Invalid user.'], 400);
+        }
+
+        if (!hash_equals((string) $request->route('hash'), sha1($user->getEmailForVerification()))) {
+            return response()->json(['message' => 'Invalid hash.'], 400);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new \Illuminate\Auth\Events\Verified($user));
+        }
+
+        return response()->json(['message' => 'Email verified successfully.']);
+    }
+
+    /**
+     * API Endpoint to verify email (if using POST code or similar)
+     */
+    public function verifyEmail(Request $request)
+    {
+        // This seems to be a duplicate or alternative to verify()
+        // For now, let's just alias it or implement if needed.
+        return $this->verify($request);
+    }
+
+    /**
      * Send OTP to signer's email.
      */
     public function createOTPVerification(Request $request, $signerId)

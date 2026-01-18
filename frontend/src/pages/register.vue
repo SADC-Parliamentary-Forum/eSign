@@ -2,6 +2,7 @@
 // Auth Logic
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
+import { ref } from 'vue'
 
 definePage({
   meta: {
@@ -11,32 +12,45 @@ definePage({
 })
 
 const form = ref({
+  name: '',
   email: '',
   password: '',
-  remember: false,
+  password_confirmation: '',
 })
 
 const isPasswordVisible = ref(false)
-
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const error = ref('')
 const loading = ref(false)
 
-async function handleLogin() {
+async function handleRegister() {
+  if (form.value.password !== form.value.password_confirmation) {
+      error.value = 'Passwords do not match'
+      return
+  }
+
   loading.value = true
   error.value = ''
   
-  const success = await authStore.login(form.value.email, form.value.password)
-  
-  if (success) {
-    const returnUrl = route.query.returnUrl || '/'
-    router.push(returnUrl)
-  } else {
-    error.value = 'Invalid email or password'
+  try {
+    const success = await authStore.register({
+        name: form.value.name,
+        email: form.value.email,
+        password: form.value.password,
+        password_confirmation: form.value.password_confirmation
+    })
+    
+    if (success) {
+        const returnUrl = route.query.returnUrl || '/'
+        router.push(returnUrl)
+    }
+  } catch (e) {
+    error.value = e.message || 'Registration failed'
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 </script>
 
@@ -47,7 +61,6 @@ async function handleLogin() {
       :max-width="500"
       class="mt-12 mt-sm-0 pa-5 pa-lg-7"
     >
-      <!-- Logo -->
       <VCardText class="text-center mb-4">
         <img 
           src="/sadc-logo.jpg" 
@@ -55,23 +68,32 @@ async function handleLogin() {
           style="max-width: 70px; height: auto; margin-bottom: 12px;"
         >
         <h4 class="text-h4 mb-1">
-          Welcome to SADC PF eSign! 👋🏻
+          Create an Account 🚀
         </h4>
         <p class="mb-0">
-          Please sign-in to your account
+          Sign up to get started with SADC PF eSign
         </p>
       </VCardText>
 
       <VCardText>
         <VAlert v-if="error" type="error" class="mb-4">{{ error }}</VAlert>
         
-        <VForm @submit.prevent="handleLogin">
+        <VForm @submit.prevent="handleRegister">
           <VRow>
+            <!-- name -->
+            <VCol cols="12">
+              <VTextField
+                v-model="form.name"
+                autofocus
+                label="Full Name"
+                placeholder="John Doe"
+              />
+            </VCol>
+
             <!-- email -->
             <VCol cols="12">
               <VTextField
                 v-model="form.email"
-                autofocus
                 label="Email"
                 type="email"
                 placeholder="johndoe@email.com"
@@ -85,43 +107,40 @@ async function handleLogin() {
                 label="Password"
                 placeholder="············"
                 :type="isPasswordVisible ? 'text' : 'password'"
-                autocomplete="password"
                 :append-inner-icon="isPasswordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
                 @click:append-inner="isPasswordVisible = !isPasswordVisible"
               />
+            </VCol>
 
-              <!-- remember me checkbox -->
-              <div class="d-flex align-center justify-space-between flex-wrap my-6 gap-x-2">
-                <VCheckbox
-                  v-model="form.remember"
-                  label="Remember me"
-                />
+            <!-- confirm password -->
+            <VCol cols="12">
+              <VTextField
+                v-model="form.password_confirmation"
+                label="Confirm Password"
+                placeholder="············"
+                :type="isPasswordVisible ? 'text' : 'password'"
+              />
+            </VCol>
 
-                <a
-                  class="text-primary"
-                  href="javascript:void(0)"
-                >
-                  Forgot Password?
-                </a>
-              </div>
-
-              <!-- login button -->
+            <!-- register button -->
+            <VCol cols="12">
               <VBtn
                 block
                 type="submit"
                 :loading="loading"
               >
+                Register
               </VBtn>
             </VCol>
 
-            <!-- create account link -->
+            <!-- login link -->
             <VCol cols="12" class="text-center text-base">
-              <span>New on our platform?</span>
+              <span>Already have an account?</span>
               <RouterLink
                 class="text-primary ms-2"
-                :to="{ path: '/register', query: route.query }"
+                :to="{ path: '/login', query: route.query }"
               >
-                Create an account
+                Sign in instead
               </RouterLink>
             </VCol>
           </VRow>

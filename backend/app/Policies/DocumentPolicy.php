@@ -23,7 +23,12 @@ class DocumentPolicy
         }
 
         // Signers (if implemented) should view
-        // if ($document->signatures()->where('user_email', $user->email)->exists()) { return true; }
+        if (
+            $document->signers()->where('email', $user->email)->exists() ||
+            $document->signers()->where('user_id', $user->id)->exists()
+        ) {
+            return true;
+        }
 
         return false;
     }

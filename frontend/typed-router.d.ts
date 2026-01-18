@@ -27,6 +27,7 @@ declare module 'vue-router/auto-routes' {
     'login': RouteRecordInfo<'login', '/login', Record<never, never>, Record<never, never>>,
     'prepare-id': RouteRecordInfo<'prepare-id', '/prepare/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     'profile': RouteRecordInfo<'profile', '/profile', Record<never, never>, Record<never, never>>,
+    'register': RouteRecordInfo<'register', '/register', Record<never, never>, Record<never, never>>,
     'second-page': RouteRecordInfo<'second-page', '/second-page', Record<never, never>, Record<never, never>>,
     'settings-delegations': RouteRecordInfo<'settings-delegations', '/settings/delegations', Record<never, never>, Record<never, never>>,
     'sign-token': RouteRecordInfo<'sign-token', '/sign/:token', { token: ParamValue<true> }, { token: ParamValue<false> }>,

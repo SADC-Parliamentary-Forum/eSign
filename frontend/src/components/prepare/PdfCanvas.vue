@@ -158,6 +158,33 @@ function deleteField(fieldId) {
   selectedFieldId.value = null
 }
 
+function duplicateFieldToAllPages(field) {
+  if (pageCount.value <= 1) return
+
+  const newFields = []
+  
+  for (let i = 1; i <= pageCount.value; i++) {
+    // Skip the page the original field is on
+    if (i === field.page_number) continue
+    
+    // Check if a field already exists at this approximate position for this signer on this page
+    // to avoid double-duplication if clicked multiple times (optional, but good UX)
+    // For now, we'll just simple duplicate.
+    
+    const newField = {
+      ...field,
+      id: crypto.randomUUID(),
+      page_number: i,
+    }
+    newFields.push(newField)
+  }
+  
+  const updatedFields = [...props.fields, ...newFields]
+  emit('update:fields', updatedFields)
+  
+  // Optional: Show a small toast/snackbar here if we had one
+}
+
 function getFieldsByPage(page) {
   return props.fields.filter(f => f.page_number === page)
 }
@@ -257,6 +284,18 @@ const drawingRect = computed(() => {
             </span>
           </div>
           
+          <!-- Duplicate Button -->
+          <v-btn
+            v-if="selectedFieldId === field.id && !disabled"
+            icon="mdi-content-copy"
+            size="x-small"
+            color="secondary"
+            variant="flat"
+            class="duplicate-btn"
+            title="Duplicate to all pages"
+            @click.stop="duplicateFieldToAllPages(field)"
+          />
+
           <!-- Delete Button -->
           <v-btn
             v-if="selectedFieldId === field.id && !disabled"
@@ -401,6 +440,13 @@ const drawingRect = computed(() => {
   position: absolute;
   top: -8px;
   right: -8px;
+  z-index: 20;
+}
+
+.duplicate-btn {
+  position: absolute;
+  top: -8px;
+  right: 24px; /* Positioned to the left of delete button */
   z-index: 20;
 }
 

@@ -50,16 +50,51 @@ class WorkflowController extends Controller
         // Authorization: User must be owner or signer
         $user = $request->user();
         $isOwner = $document->user_id === $user->id;
-        $isSigner = $document->workflow && $document->workflow->steps()
-            ->where('assigned_user_id', $user->id)
-            ->exists();
+
+        // Check if user is a signer directly on the document (handles both workflow and ad-hoc)
+        $isSigner = $document->signers()->where('email', $user->email)->exists();
 
         if (!$isOwner && !$isSigner) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         if (!$document->workflow) {
-            return response()->json(['message' => 'No workflow found for this document'], 404);
+            // Construct virtual workflow from signers for ad-hoc documents
+            $document->load('signers');
+
+            if ($document->signers->isEmpty()) {
+                return response()->json(['message' => 'No workflow found for this document'], 404);
+            }
+
+            // Create a virtual workflow object
+            $virtualWorkflow = new \stdClass();
+            $virtualWorkflow->id = 'virtual-' . $document->id;
+            $virtualWorkflow->status = $document->status === 'COMPLETED' ? 'COMPLETED' : 'ACTIVE';
+            $virtualWorkflow->steps = $document->signers->map(function ($signer, $index) {
+                $step = new \stdClass();
+                $step->id = $signer->id;
+                $step->order = $signer->ordering ?? $index + 1;
+                $step->status = strtoupper($signer->status);
+                $step->role = $signer->role ?? 'Signer';
+                $step->assigned_user_id = $signer->user_id;
+                $step->assignedUser = $signer->user; // May be null if not registered
+
+                // Add ad-hoc user details if not registered
+                if (!$step->assignedUser) {
+                    $step->assignedUser = [
+                        'name' => $signer->name,
+                        'email' => $signer->email,
+                    ];
+                }
+
+                return $step;
+            });
+
+            return response()->json([
+                'workflow' => $virtualWorkflow,
+                'current_steps' => $virtualWorkflow->steps->where('status', 'PENDING')->values(),
+                'can_user_sign' => $document->signers->where('email', $user->email)->where('status', 'pending')->isNotEmpty()
+            ]);
         }
 
         return response()->json([

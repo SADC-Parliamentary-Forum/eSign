@@ -60,7 +60,8 @@ class SignerController extends Controller
                 'signing_order' => $signer->signing_order,
             ],
             'fields' => $document->signatureFields,
-            'requires_account' => $signer->user_id === null,
+            'requires_account' => true,
+            'requires_verification' => true,
         ]);
     }
 
@@ -98,19 +99,49 @@ class SignerController extends Controller
         $validated = $request->validate([
             'signature_data' => 'required|string', // Base64 signature image
             'user_signature_id' => 'nullable|uuid', // If using saved signature
+            'save_to_profile' => 'nullable|boolean',
         ]);
 
-        // If user doesn't have an account yet, they need to create one
-        if ($signer->user_id === null && !$request->user()) {
+        // 1. Enforce Authentication
+        if (!$request->user()) {
             return response()->json([
-                'message' => 'You must create an account before signing.',
-                'requires_registration' => true,
+                'message' => 'You must be logged in to sign this document.',
+                'requires_login' => true,
+            ], 401);
+        }
+
+        // 2. Enforce Email Match
+        if ($request->user()->email !== $signer->email) {
+            return response()->json([
+                'message' => 'The email address of your account (' . $request->user()->email . ') does not match the signer email (' . $signer->email . '). Please log in with the correct account.',
             ], 403);
         }
 
-        // Link signer to user if they just registered/logged in
-        if ($request->user() && $signer->user_id === null) {
+        // 3. Enforce Email Verification
+        if (!$request->user()->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Please verify your email address before signing.',
+                'requires_verification' => true,
+            ], 403);
+        }
+
+        // Link signer to user if not already linked
+        if ($signer->user_id === null) {
             $signer->update(['user_id' => $request->user()->id]);
+        }
+
+        // Save to profile if requested
+        if (($validated['save_to_profile'] ?? false) && empty($validated['user_signature_id'])) {
+            try {
+                $request->user()->signatures()->create([
+                    'type' => 'signature',
+                    'name' => 'Signed Document ' . $document->title,
+                    'image_data' => $validated['signature_data'],
+                    'is_default' => !$request->user()->signatures()->exists(),
+                ]);
+            } catch (\Exception $e) {
+                // Ignore error if saving fails, don't block signing
+            }
         }
 
         try {

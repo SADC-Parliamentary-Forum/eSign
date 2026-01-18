@@ -1,6 +1,7 @@
 <script setup>
 import { useTheme } from 'vuetify'
 import ScrollToTop from '@core/components/ScrollToTop.vue'
+import GlobalSnackbar from '@/components/GlobalSnackbar.vue'
 import initCore from '@core/initCore'
 import {
   initConfigStore,
@@ -22,6 +23,7 @@ const configStore = useConfigStore()
     <!-- ℹ️ This is required to set the background color of active nav link based on currently active global theme's primary -->
     <VApp :style="`--v-global-theme-primary: ${hexToRgb(global.current.value.colors.primary)}`">
       <RouterView />
+      <GlobalSnackbar />
 
       <ScrollToTop />
     </VApp>

@@ -47,6 +47,31 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    async function register(userData) {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            })
+
+            const data = await response.json()
+
+            if (response.ok) {
+                setAuth(data.access_token, data.user)
+                return true
+            } else {
+                throw new Error(data.message || 'Registration failed')
+            }
+        } catch (error) {
+            console.error(error)
+            throw error // Re-throw to handle in component
+        }
+    }
+
     async function fetchUser() {
         try {
             const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/me`, {
@@ -67,5 +92,5 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    return { token, user, isAuthenticated, role, login, clearAuth, fetchUser }
+    return { token, user, isAuthenticated, role, login, register, clearAuth, fetchUser }
 })

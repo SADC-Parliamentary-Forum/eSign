@@ -29,7 +29,14 @@ class DocumentController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Document::where('user_id', $request->user()->id);
+        $user = $request->user();
+        $query = Document::where(function ($q) use ($user) {
+            $q->where('user_id', $user->id)
+                ->orWhereHas('signers', function ($sq) use ($user) {
+                    $sq->where('email', $user->email)
+                        ->orWhere('user_id', $user->id);
+                });
+        });
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -257,32 +264,42 @@ class DocumentController extends Controller
                 'email' => $s['email'],
                 'name' => $s['name'],
                 'order' => $s['order'] ?? ($index + 1),
+                'role' => $s['role'] ?? null,
             ];
         })->sortBy('order')->values()->all();
 
-        // Create signer records and map fields
-        foreach ($signers as $signerData) {
-            $user = \App\Models\User::where('email', $signerData['email'])->first();
-
-            $signer = \App\Models\DocumentSigner::create([
-                'document_id' => $document->id,
-                'user_id' => $user?->id,
-                'email' => $signerData['email'],
-                'name' => $signerData['name'],
-                'role' => $signerData['role'] ?? null, // Save role if provided (need to add to model if not there)
-                'signing_order' => $signerData['order'],
-            ]);
-
-            // Map template fields to this signer if role matches
-            if (isset($signerData['role'])) {
-                DocumentField::where('document_id', $document->id)
-                    ->where('signer_role', $signerData['role'])
-                    ->update([
-                        'document_signer_id' => $signer->id,
-                        'signer_email' => $signer->email
-                    ]);
+        // Transaction handling for atomicity
+        \Illuminate\Support\Facades\DB::transaction(function () use ($document, $signers) {
+            // For DRAFT documents, we replace the signers list to avoid duplication
+            // DO NOT delete if status is IN_PROGRESS (that would break ongoing workflows)
+            if ($document->status === 'DRAFT') {
+                $document->signers()->delete();
             }
-        }
+
+            // Create new signer records and map fields
+            foreach ($signers as $signerData) {
+                $user = \App\Models\User::where('email', $signerData['email'])->first();
+
+                $signer = \App\Models\DocumentSigner::create([
+                    'document_id' => $document->id,
+                    'user_id' => $user?->id,
+                    'email' => $signerData['email'],
+                    'name' => $signerData['name'],
+                    // 'role' => $signerData['role'] ?? null, // DB column might not exist yet, careful
+                    'signing_order' => $signerData['order'],
+                ]);
+
+                // Map template fields to this signer if role matches
+                if (isset($signerData['role'])) {
+                    DocumentField::where('document_id', $document->id)
+                        ->where('signer_role', $signerData['role'])
+                        ->update([
+                            'document_signer_id' => $signer->id,
+                            'signer_email' => $signer->email
+                        ]);
+                }
+            }
+        });
 
 
         return response()->json([
@@ -315,23 +332,33 @@ class DocumentController extends Controller
             'message' => 'nullable|string|max:1000',
         ]);
 
-        // Update document status and notify signers
-        $document->update([
-            'status' => 'IN_PROGRESS',
-            'sent_at' => now(),
-            'sequential_signing' => $validated['sequential'] ?? false,
-            'expires_at' => isset($validated['expires_in_days'])
-                ? now()->addDays($validated['expires_in_days'])
-                : null,
-        ]);
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($document, $validated) {
+                // Update document status
+                $document->update([
+                    'status' => 'IN_PROGRESS',
+                    'sent_at' => now(),
+                    'sequential_signing' => $validated['sequential'] ?? false,
+                    'expires_at' => isset($validated['expires_in_days'])
+                        ? now()->addDays($validated['expires_in_days'])
+                        : null,
+                ]);
 
-        // Notify appropriate signers
-        $this->workflowService->notifyCurrentSigners($document);
+                // Notify appropriate signers
+                $this->workflowService->notifyCurrentSigners($document);
+            });
 
-        return response()->json([
-            'message' => 'Document sent for signing.',
-            'document' => $document->fresh(['signers']),
-        ]);
+            return response()->json([
+                'message' => 'Document sent for signing.',
+                'document' => $document->fresh(['signers']),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to send document: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            return response()->json([
+                'message' => 'Failed to send document: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
