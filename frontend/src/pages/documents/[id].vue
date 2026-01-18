@@ -5,13 +5,16 @@ import { useAuthStore } from '@/stores/auth'
 import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useDisplay } from 'vuetify'
 
 const route = useRoute()
 const router = useRouter()
 const workflowStore = useWorkflowStore()
 const authStore = useAuthStore()
+const { mdAndUp } = useDisplay()
 
 // --- State ---
+const drawer = ref(false)
 const document = ref(null)
 const signers = ref([])
 const fields = ref([])
@@ -339,6 +342,37 @@ async function verifyOtp() {
     }
 }
 
+// --- Downloads ---
+const downloadingEvidence = ref(false)
+
+async function downloadEvidence() {
+    downloadingEvidence.value = true
+    try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/${document.value.id}/evidence`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        
+        if (!response.ok) throw new Error('Download failed')
+        
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `Evidence-${document.value.id}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+    } catch (e) {
+        showSnackbar('Failed to download evidence', 'error')
+    } finally {
+        downloadingEvidence.value = false
+    }
+}
+
 // --- Actions ---
 
 async function finishSigning() {
@@ -653,8 +687,8 @@ function getFieldValueModel(field) {
                 variant="tonal"
                 color="secondary"
                 prepend-icon="mdi-download"
-                :href="`/api/documents/${document.id}/evidence`"
-                target="_blank"
+                @click="downloadEvidence"
+                :loading="downloadingEvidence"
               >
                 Download Evidence
               </v-btn>
