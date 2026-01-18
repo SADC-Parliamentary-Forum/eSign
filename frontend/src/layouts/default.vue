@@ -15,6 +15,13 @@ const authStore = useAuthStore()
 // Remove below composable usage if you are not using horizontal nav layout in your app
 switchToVerticalNavOnLtOverlayNavBreakpoint()
 
+// Ensure user data is fresh on mount (handles verification updates)
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    authStore.fetchUser()
+  }
+})
+
 const { layoutAttrs, injectSkinClasses } = useSkins()
 
 injectSkinClasses()

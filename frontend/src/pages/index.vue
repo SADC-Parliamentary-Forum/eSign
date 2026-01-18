@@ -5,13 +5,16 @@ import InitiatorDashboard from '@/components/dashboards/InitiatorDashboard.vue'
 import SignerDashboard from '@/components/dashboards/SignerDashboard.vue'
 import ExecutiveDashboard from '@/components/dashboards/ExecutiveDashboard.vue'
 
+import { useAuthStore } from '@/stores/auth'
+
 const router = useRouter()
 const { isMobile, spacing } = useResponsive()
+const authStore = useAuthStore()
 
 const user = computed(() => ({
-  name: localStorage.getItem('user_name') || 'User',
-  email: localStorage.getItem('user_email') || 'user@example.com',
-  role: localStorage.getItem('user_role') || 'initiator',
+  name: authStore.user?.name || 'User',
+  email: authStore.user?.email || 'user@example.com',
+  role: authStore.user?.role?.name || 'initiator',
 }))
 
 const showDashboard = computed(() => {

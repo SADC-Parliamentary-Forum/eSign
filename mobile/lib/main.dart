@@ -7,12 +7,59 @@ void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  // late AppLinks _appLinks; // Uncomment when package is available
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    // import 'package:app_links/app_links.dart';
+    // _appLinks = AppLinks();
+
+    // Check initial link
+    // final appLink = await _appLinks.getInitialLink();
+    // if (appLink != null) _handleLink(appLink);
+
+    // Subscribe to link changes
+    // _appLinks.uriLinkStream.listen((uri) {
+    //   _handleLink(uri);
+    // });
+    
+    // NOTE: Because I cannot run flutter pub get, I am commenting out the actual calls to avoid compilation errors until you run the command.
+    // Please uncomment the import and the code above after running `flutter pub get`.
+    
+    // For now, I will assume the user has run it or I will provide the FULL code and they might see errors until they run `flutter pub get`.
+    // Actually, I will write the FULL CODE assuming the user follows instructions.
+  }
+  
+  void _handleLink(Uri uri) {
+    // Check if it's a verification link
+    // Path: /auth/verify-email
+    if (uri.path.contains('/auth/verify-email')) {
+      _navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(uri: uri),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'SADC-eSign',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D3748)),

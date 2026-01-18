@@ -55,4 +55,28 @@ class ApiService {
       return [];
     }
   }
+  static Future<bool> verifyEmail(String id, String hash, String expires, String signature) async {
+    try {
+      final uri = Uri.parse('$baseUrl/verification/email/verify/$id/$hash').replace(queryParameters: {
+        'expires': expires,
+        'signature': signature,
+      });
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Verification Error: $e');
+      return false;
+    }
+  }
 }

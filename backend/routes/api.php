@@ -160,11 +160,6 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::prefix('verification')->group(function () {
         Route::post('/signers/{signerId}/email', [VerificationController::class, 'createEmailVerification']);
 
-        // Use GET for email links, named 'verification.verify' for Laravel compatibility
-        Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
-            ->middleware(['signed', 'throttle:6,1'])
-            ->name('verification.verify');
-
         Route::post('/signers/{signerId}/otp', [VerificationController::class, 'createOTPVerification']);
         Route::post('/signers/{signerId}/otp/verify', [VerificationController::class, 'verifyOTP']);
         Route::post('/signers/{signerId}/device', [VerificationController::class, 'createDeviceVerification']);

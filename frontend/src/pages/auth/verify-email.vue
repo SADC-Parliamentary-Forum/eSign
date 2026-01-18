@@ -1,9 +1,11 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
@@ -35,6 +37,12 @@ onMounted(async () => {
 
     if (res.ok) {
       verified.value = true
+      
+      // Refresh user profile if logged in to update verification status in UI
+      if (authStore.token) {
+        await authStore.fetchUser()
+      }
+
       // Optional: Refresh user profile if logged in
       setTimeout(() => {
         router.push('/login')
@@ -88,7 +96,7 @@ onMounted(async () => {
           <VIcon icon="ri-error-warning-fill" size="64" color="error" class="mb-4" />
           <h3 class="text-h6 font-weight-bold text-error mb-2">Verification Failed</h3>
           <p class="text-body-2 mb-4">{{ error }}</p>
-          <VBtn block variant="outlined" to="/auth/login">
+          <VBtn block variant="outlined" to="/login">
             Back to Login
           </VBtn>
         </div>

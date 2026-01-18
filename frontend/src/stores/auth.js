@@ -86,6 +86,9 @@ export const useAuthStore = defineStore('auth', () => {
                 user.value = userData
                 localStorage.setItem('user', JSON.stringify(userData))
                 return userData
+            } else if (response.status === 401) {
+                // Token is invalid or expired
+                clearAuth()
             }
         } catch (error) {
             console.error('Failed to fetch user:', error)
