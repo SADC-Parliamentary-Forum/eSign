@@ -61,12 +61,21 @@ class DocumentService
                 // Find fields for this page
                 $fields = $document->fields()
                     ->where('page_number', $pageNo)
-                    ->whereNotNull('signature_id')
                     ->with('signature')
                     ->get();
 
                 foreach ($fields as $field) {
-                    if ($field->signature && $field->signature->signature_data) {
+                    // Calculate coordinates in Points
+                    $pageWidth = $size['width'];
+                    $pageHeight = $size['height'];
+
+                    $x = ($field->x / 100) * $pageWidth;
+                    $y = ($field->y / 100) * $pageHeight;
+                    $w = ($field->width / 100) * $pageWidth;
+                    $h = ($field->height / 100) * $pageHeight;
+
+                    // Handle Signature/Initials (Images)
+                    if (($field->type === 'SIGNATURE' || $field->type === 'INITIALS') && $field->signature && $field->signature->signature_data) {
                         try {
                             $data = $field->signature->signature_data;
 
@@ -84,17 +93,6 @@ class DocumentService
                                 $tempImg = tempnam(sys_get_temp_dir(), 'sig');
                                 file_put_contents($tempImg, $data);
 
-                                // Frontend sends coordinates in PERCENTAGE (0-100)
-                                // We must convert to POINTS based on the current page size
-
-                                $pageWidth = $size['width'];
-                                $pageHeight = $size['height'];
-
-                                $x = ($field->x / 100) * $pageWidth;
-                                $y = ($field->y / 100) * $pageHeight;
-                                $w = ($field->width / 100) * $pageWidth;
-                                $h = ($field->height / 100) * $pageHeight;
-
                                 $pdf->Image($tempImg, $x, $y, $w, $h, $extension);
 
                                 @unlink($tempImg);
@@ -103,6 +101,27 @@ class DocumentService
                             }
                         } catch (\Exception $e) {
                             \Illuminate\Support\Facades\Log::warning('Failed to stamp signature ' . $field->id . ': ' . $e->getMessage());
+                        }
+                    }
+                    // Handle Text/Date
+                    elseif (in_array($field->type, ['TEXT', 'DATE']) && $field->text_value) {
+                        try {
+                            $pdf->SetFont('Helvetica', '', 11);
+                            $pdf->SetXY($x, $y);
+                            // MultiCell to handle width wrapping
+                            $pdf->MultiCell($w, $h, $field->text_value, 0, 'L');
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::warning('Failed to stamp text field ' . $field->id . ': ' . $e->getMessage());
+                        }
+                    }
+                    // Handle Checkbox
+                    elseif ($field->type === 'CHECKBOX' && $field->text_value === 'true') {
+                        try {
+                            $pdf->SetFont('Helvetica', 'B', 14);
+                            $pdf->SetXY($x, $y);
+                            $pdf->Cell($w, $h, 'X', 0, 0, 'C');
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::warning('Failed to stamp checkbox ' . $field->id . ': ' . $e->getMessage());
                         }
                     }
                 }
