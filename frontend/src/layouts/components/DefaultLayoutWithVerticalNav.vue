@@ -2,6 +2,8 @@
 import navItems from '@/navigation/vertical'
 import { useConfigStore } from '@core/stores/config'
 import { themeConfig } from '@themeConfig'
+import { useAuthStore } from '@/stores/auth'
+import { computed, ref, watch } from 'vue'
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'
@@ -13,6 +15,20 @@ import NavBarI18n from '@core/components/I18n.vue'
 import { VerticalNavLayout } from '@layouts'
 
 const configStore = useConfigStore()
+const authStore = useAuthStore()
+
+// Filter nav items based on role
+const filteredNavItems = computed(() => {
+  const role = authStore.role
+  if (role === 'admin') return navItems
+  
+  // Exclude Admin Console for non-admins
+  return navItems.filter(item => {
+    // Check if the item is 'Admin Console' or has 'admin' in title/path
+    if (item.title === 'Admin Console') return false
+    return true
+  })
+})
 
 // ℹ️ Provide animation name for vertical nav collapse icon.
 const verticalNavHeaderActionAnimationName = ref(null)
@@ -29,7 +45,7 @@ watch([
 </script>
 
 <template>
-  <VerticalNavLayout :nav-items="navItems">
+  <VerticalNavLayout :nav-items="filteredNavItems">
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center">

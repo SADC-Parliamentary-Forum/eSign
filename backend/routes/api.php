@@ -76,9 +76,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 
     // -------------------------------------------------------------------------
-    // User Management
+    // User Management (Moved to Admin Group)
     // -------------------------------------------------------------------------
-    Route::apiResource('/users', UserController::class);
+    // Route::apiResource('/users', UserController::class);
 
     // -------------------------------------------------------------------------
     // User's Saved Signatures
@@ -141,9 +141,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('documents/{id}/reject', [SignatureController::class, 'reject']);
 
     // -------------------------------------------------------------------------
-    // Audit Logs
+    // Audit Logs (Moved to Admin Group)
     // -------------------------------------------------------------------------
-    Route::get('/audit-logs', [AuditController::class, 'index']);
+    // Route::get('/audit-logs', [AuditController::class, 'index']);
 
     // -------------------------------------------------------------------------
     // AI Features
@@ -184,5 +184,15 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Compliance (Admin)
     // TODO: Implement ComplianceController
     // Route::post('/compliance/rules', [App\Http\Controllers\ComplianceController::class, 'store']);
-});
+    // -------------------------------------------------------------------------
+    // Admin Routes
+    // -------------------------------------------------------------------------
+    Route::middleware(['admin'])->prefix('admin')->group(function () {
+        Route::get('/logs/system', [App\Http\Controllers\SystemLogController::class, 'show']);
+        Route::get('/roles', [App\Http\Controllers\RoleController::class, 'index']);
 
+        // Moved from general protected area
+        Route::apiResource('/users', UserController::class);
+        Route::get('/audit-logs', [AuditController::class, 'index']);
+    });
+});

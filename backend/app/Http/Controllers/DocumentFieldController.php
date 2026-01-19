@@ -62,16 +62,11 @@ class DocumentFieldController extends Controller
             $document->fields()->delete();
 
             // Create new fields
-            $fields = [];
-            foreach ($validated['fields'] as $fieldData) {
-                $fields[] = new DocumentField($fieldData);
-            }
-
-            $document->fields()->saveMany($fields);
+            $createdFields = $document->fields()->createMany($validated['fields']);
 
             DB::commit();
 
-            return response()->json(['message' => 'Fields saved successfully', 'count' => count($fields)]);
+            return response()->json(['message' => 'Fields saved successfully', 'count' => $createdFields->count()]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Failed to save fields: ' . $e->getMessage()], 500);
