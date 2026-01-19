@@ -4,8 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useDisplay } from 'vuetify'
+import AppDateTimePicker from '@core/components/app-form-elements/AppDateTimePicker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,10 +35,35 @@ const signatureCanvas = ref(null)
 let ctx = null
 let isDrawing = false
 
+// New Signature State
+const activeTab = ref('draw')
+
+// Watch tab to init canvas
+watch(activeTab, (val) => {
+  if (val === 'draw') {
+    nextTick(initCanvas)
+  }
+})
+
+const typeText = ref('')
+// Date Dialog State
+const showDateDialog = ref(false)
+const tempDate = ref('')
+const selectedFont = ref('Dancing Script')
+const uploadedImage = ref(null)
+const fonts = ['Dancing Script', 'Great Vibes', 'Sacramento', 'Parisienne', 'Allura']
+
 // Saved Signatures State
-const savedSignatures = ref([])
+const allSavedSignatures = ref([])
+const activeFieldType = ref('SIGNATURE') // 'SIGNATURE' or 'INITIALS'
+
+const savedSignatures = computed(() => {
+  const typeDiff = activeFieldType.value === 'INITIALS' ? 'initials' : 'signature'
+  return allSavedSignatures.value.filter(s => s.type === typeDiff)
+})
+
 const selectedSignatureId = ref(null)
-const useSaved = ref(false)
+// const useSaved = ref(false) // Removed in favor of activeTab
 
 // Workflow Cancellation
 const showCancelDialog = ref(false)
@@ -55,11 +81,21 @@ const snackbar = ref({ show: false, text: '', color: 'success' })
 const currentUser = computed(() => authStore.user)
 const currentUserEmail = computed(() => authStore.user?.email)
 
+const mySigner = computed(() => {
+  // Find signer record checking both email and user_id linkage
+  if (!currentUser.value) return null
+  return signers.value.find(s => s.email === currentUser.value?.email) || 
+         signers.value.find(s => s.user_id === currentUser.value?.id)
+})
+
 const myFields = computed(() => {
   if (!currentUser.value) return []
+  // Use mySigner.id for document_signer_id check
+  const signerId = mySigner.value?.id
+  
   return fields.value.filter(f => 
     f.signer_email === currentUser.value.email || 
-    f.document_signer_id === currentUser.value.id ||
+    (signerId && f.document_signer_id === signerId) ||
     (f.role && f.role === 'signer')
   )
 })
@@ -68,8 +104,7 @@ const canSign = computed(() => {
   if (document.value?.status !== 'IN_PROGRESS') return false
   
   if (document.value.sequential_signing) {
-     const mySigner = signers.value.find(s => s.email === currentUser.value.email)
-     if (mySigner && mySigner.signing_order !== document.value.current_signing_order) {
+     if (mySigner.value && mySigner.value.signing_order !== document.value.current_signing_order) {
        return false
      }
   }
@@ -80,11 +115,6 @@ const completionPercentage = computed(() => {
   if (myFields.value.length === 0) return 0
   const filled = myFields.value.filter(f => fieldValues.value[f.id]).length
   return Math.round((filled / myFields.value.length) * 100)
-})
-
-const mySigner = computed(() => {
-  return signers.value.find(s => s.email === currentUser.value?.email) || 
-         signers.value.find(s => s.user_id === currentUser.value?.id)
 })
 
 const canCancelWorkflow = computed(() => {
@@ -208,13 +238,8 @@ async function fetchWorkflow() {
 async function fetchSavedSignatures() {
   try {
     const res = await $api('/signatures/mine')
-    savedSignatures.value = (Array.isArray(res) ? res : res.data || [])
-      .filter(s => s.type === 'signature')
-    
-    if (savedSignatures.value.length > 0) {
-      const defaultSig = savedSignatures.value.find(s => s.is_default)
-      selectedSignatureId.value = defaultSig?.id || savedSignatures.value[0].id
-    }
+    allSavedSignatures.value = (Array.isArray(res) ? res : res.data || [])
+    // Don't filter here, we filter in computed property based on activeFieldType
   } catch (e) { /* ignore */ }
 }
 
@@ -233,16 +258,30 @@ function onFieldClick(field) {
   if (!isMine) return
 
   activeFieldId.value = field.id
+  activeFieldType.value = field.type // 'SIGNATURE' or 'INITIALS'
 
   if (field.type === 'SIGNATURE' || field.type === 'INITIALS') {
     showSignatureDialog.value = true
-    nextTick(() => {
-      // Only init canvas if not using saved signature
-      if (!useSaved.value) initCanvas()
-    })
+    selectedSignatureId.value = null
+    
+    // Default to 'saved' tab if we have saved items of this type
+    if (savedSignatures.value.length > 0) {
+        activeTab.value = 'saved'
+        const def = savedSignatures.value.find(s => s.is_default)
+        if (def) selectedSignatureId.value = def.id
+        else selectedSignatureId.value = savedSignatures.value[0].id
+    } else {
+        activeTab.value = 'draw'
+        nextTick(() => initCanvas())
+    }
   } else if (field.type === 'CHECKBOX') {
     const current = fieldValues.value[field.id]?.value
     fieldValues.value[field.id] = { value: !current, type: field.type }
+  } else if (field.type === 'DATE') {
+    activeFieldId.value = field.id
+    const current = fieldValues.value[field.id]?.value
+    tempDate.value = current || new Date().toISOString().substr(0, 10)
+    showDateDialog.value = true
   }
 }
 
@@ -279,23 +318,87 @@ function clearCanvas() {
   initCanvas()
 }
 
-async function saveSignature() {
-  let signatureValue
+function handleFileUpload(e) {
+  const file = e.target.files[0]
+  if (!file) return
 
-  if (useSaved.value && selectedSignatureId.value) {
-     try {
-       const sig = await $api(`/signatures/mine/${selectedSignatureId.value}`)
-       signatureValue = sig.image_data
-     } catch(e) {
-       showSnackbar('Failed to load saved signature', 'error')
-       return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    uploadedImage.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+function generateTypeSignature() {
+  const tCanvas = window.document.createElement('canvas') // Fix: Use window.document
+  tCanvas.width = 450
+  tCanvas.height = 150
+  const tCtx = tCanvas.getContext('2d')
+  
+  // White background
+  tCtx.fillStyle = '#fff'
+  tCtx.fillRect(0, 0, tCanvas.width, tCanvas.height)
+  
+  // Text
+  tCtx.font = `48px "${selectedFont.value}"`
+  tCtx.fillStyle = '#000'
+  tCtx.textAlign = 'center'
+  tCtx.textBaseline = 'middle'
+  tCtx.fillText(typeText.value || 'Preview', tCanvas.width / 2, tCanvas.height / 2)
+  
+  return tCanvas.toDataURL('image/png')
+}
+
+// Just trigger re-render of preview if needed, mostly handled by reactivity
+function updateTypePreview() { }
+
+async function saveSignature() {
+  let signatureValue = null
+  let method = 'DRAWN'
+
+  if (activeTab.value === 'saved') {
+     if (selectedSignatureId.value) {
+        try {
+          const sig = await $api(`/signatures/mine/${selectedSignatureId.value}`)
+          signatureValue = sig.image_data
+          method = sig.method // Keep original method if known
+        } catch(e) {
+          showSnackbar('Failed to load saved signature', 'error')
+          return
+        }
+     } else {
+        showSnackbar('Please select a signature first', 'error')
+        return
      }
-  } else {
+  } else if (activeTab.value === 'draw') {
      signatureValue = signatureCanvas.value.toDataURL('image/png')
+     method = 'DRAWN'
+  } else if (activeTab.value === 'upload') {
+     if (!uploadedImage.value) {
+        showSnackbar('Please upload an image first', 'error')
+        return
+     }
+     signatureValue = uploadedImage.value
+     method = 'UPLOADED'
+  } else if (activeTab.value === 'type') {
+     signatureValue = generateTypeSignature()
+     method = 'TYPED'
   }
 
-  fieldValues.value[activeFieldId.value] = { value: signatureValue, type: 'SIGNATURE' }
+  if (!signatureValue) return
+
+  fieldValues.value[activeFieldId.value] = { 
+      value: signatureValue, 
+      type: 'SIGNATURE',
+      method: method // Store method metadata too if backend supports it
+  }
   showSignatureDialog.value = false
+}
+
+function saveDate() {
+    if (!tempDate.value) return
+    fieldValues.value[activeFieldId.value] = { value: tempDate.value, type: 'DATE' }
+    showDateDialog.value = false
 }
 
 // --- Verification ---
@@ -478,9 +581,11 @@ const statusColor = computed(() => {
 })
 
 function isMyField(field) {
+  const signerId = mySigner.value?.id
   return canSign.value && (
     field.signer_email === currentUser.value?.email || 
-    field.document_signer_id === currentUser.value?.id
+    (signerId && field.document_signer_id === signerId) ||
+    (field.role && field.role === 'signer')
   )
 }
 
@@ -805,21 +910,24 @@ function getFieldValueModel(field) {
     </div>
 
     <!-- Dialogs (Keep existing) -->
-    <v-dialog v-model="showSignatureDialog" max-width="500">
+    <v-dialog v-model="showSignatureDialog" max-width="600">
        <v-card class="rounded-lg">
           <v-card-title class="d-flex justify-space-between align-center p-4 border-b">
-             <span>Adopt Your Signature</span>
+             <span>{{ activeFieldType === 'INITIALS' ? 'Adopt Your Initials' : 'Adopt Your Signature' }}</span>
              <v-btn icon="mdi-close" variant="text" size="small" @click="showSignatureDialog = false" />
           </v-card-title>
           
           <v-card-text class="pa-4">
-             <v-tabs v-model="useSaved" density="compact" color="primary" class="mb-4">
-                <v-tab :value="false">Draw</v-tab>
-                <v-tab :value="true" v-if="savedSignatures.length > 0">Saved</v-tab>
+             <v-tabs v-model="activeTab" density="compact" color="primary" class="mb-4">
+                <v-tab value="draw">Draw</v-tab>
+                <v-tab value="type">Type</v-tab>
+                <v-tab value="upload">Upload</v-tab>
+                <v-tab value="saved" v-if="savedSignatures.length > 0">Saved</v-tab>
              </v-tabs>
 
-             <v-window v-model="useSaved">
-                <v-window-item :value="false">
+             <v-window v-model="activeTab">
+                <!-- DRAW -->
+                <v-window-item value="draw">
                    <div class="border rounded bg-grey-lighten-5 pa-2 mb-2 d-flex justify-center position-relative">
                       <canvas 
                          ref="signatureCanvas" 
@@ -830,6 +938,9 @@ function getFieldValueModel(field) {
                          @mousemove="draw"
                          @mouseup="stopDrawing"
                          @mouseleave="stopDrawing"
+                         @touchstart="startDrawing"
+                         @touchmove="draw"
+                         @touchend="stopDrawing"
                       />
                       <div class="position-absolute bottom-0 right-0 ma-4">
                          <v-btn size="x-small" variant="text" color="error" @click="clearCanvas">Clear</v-btn>
@@ -838,8 +949,54 @@ function getFieldValueModel(field) {
                    <div class="text-caption text-center text-medium-emphasis">Draw your signature above</div>
                 </v-window-item>
 
-                <v-window-item :value="true">
-                   <v-list selectable bg-color="transparent">
+                <!-- TYPE -->
+                <v-window-item value="type">
+                    <v-text-field 
+                        v-model="typeText" 
+                        label="Type Name" 
+                        variant="outlined" 
+                        placeholder="John Doe" 
+                        class="mb-4"
+                        @input="updateTypePreview"
+                    />
+                    <div class="mb-2 text-subtitle-2">Select Style:</div>
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <v-chip 
+                          v-for="font in fonts" 
+                          :key="font"
+                          :color="selectedFont === font ? 'primary' : undefined"
+                          variant="outlined"
+                          label
+                          filter
+                          @click="selectedFont = font"
+                        >
+                          {{ font }}
+                        </v-chip>
+                    </div>
+                    <div class="preview-box border rounded bg-grey-lighten-5 d-flex align-center justify-center pa-4" style="min-height: 150px;">
+                         <span :style="{ fontFamily: selectedFont, fontSize: '48px' }">
+                           {{ typeText || 'Preview' }}
+                         </span>
+                    </div>
+                </v-window-item>
+
+                <!-- UPLOAD -->
+                <v-window-item value="upload">
+                    <v-file-input 
+                        accept="image/*" 
+                        label="Upload Image" 
+                        prepend-icon="mdi-cloud-upload"
+                        @change="handleFileUpload"
+                        variant="outlined"
+                    />
+                    <div v-if="uploadedImage" class="mt-4 border rounded bg-grey-lighten-5 d-flex align-center justify-center pa-4" style="min-height: 150px;">
+                        <img :src="uploadedImage" alt="Preview" style="max-height: 150px; max-width: 100%; object-fit: contain;" />
+                    </div>
+                </v-window-item>
+
+                <!-- SAVED -->
+                <v-window-item value="saved">
+                   <v-list selectable bg-color="transparent" class="overflow-y-auto" style="max-height: 300px;">
                       <v-list-item
                         v-for="sig in savedSignatures"
                         :key="sig.id"
@@ -849,7 +1006,8 @@ function getFieldValueModel(field) {
                         @click="selectedSignatureId = sig.id"
                         :variant="selectedSignatureId === sig.id ? 'tonal' : 'text'"
                       >
-                         <img :src="sig.image_data" height="60" class="d-block mx-auto" />
+                         <img :src="sig.image_data" height="60" class="d-block mx-auto" style="max-width: 100%; object-fit: contain;" />
+                         <v-list-item-title class="text-center text-caption mt-1 text-medium-emphasis">{{ sig.name }}</v-list-item-title>
                       </v-list-item>
                    </v-list>
                 </v-window-item>
@@ -862,6 +1020,25 @@ function getFieldValueModel(field) {
              <v-btn color="primary" variant="flat" class="px-6" @click="saveSignature">
                 Sign Document
              </v-btn>
+          </v-card-actions>
+       </v-card>
+    </v-dialog>
+
+    <!-- Date Dialog -->
+    <v-dialog v-model="showDateDialog" max-width="400">
+       <v-card class="rounded-lg">
+          <v-card-title class="pa-4 border-b text-h6">Select Date</v-card-title>
+          <v-card-text class="pa-4 d-flex justify-center">
+               <AppDateTimePicker 
+                  v-model="tempDate" 
+                  class="w-100"
+                  :config="{ enableTime: false, dateFormat: 'Y-m-d', inline: true }"
+               />
+          </v-card-text>
+          <v-card-actions class="pa-4 border-t bg-grey-lighten-5">
+             <v-spacer />
+             <v-btn variant="text" @click="showDateDialog = false">Cancel</v-btn>
+             <v-btn color="primary" variant="flat" @click="saveDate">Save Date</v-btn>
           </v-card-actions>
        </v-card>
     </v-dialog>

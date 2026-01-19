@@ -16,7 +16,9 @@ class UserSignatureController extends Controller
         $signatures = UserSignature::where('user_id', $request->user()->id)
             ->orderBy('type')
             ->orderByDesc('is_default')
-            ->get(['id', 'type', 'name', 'is_default', 'created_at']);
+            ->get(['id', 'type', 'name', 'is_default', 'image_data', 'method', 'created_at']);
+
+        $signatures->makeVisible('image_data');
 
         return response()->json($signatures);
     }
@@ -28,6 +30,8 @@ class UserSignatureController extends Controller
     {
         $signature = UserSignature::where('user_id', $request->user()->id)
             ->findOrFail($id);
+
+        $signature->makeVisible('image_data');
 
         return response()->json($signature);
     }
@@ -42,6 +46,7 @@ class UserSignatureController extends Controller
             'name' => 'nullable|string|max:100',
             'image_data' => 'required|string', // Base64 encoded image
             'is_default' => 'nullable|boolean',
+            'method' => 'nullable|in:DRAWN,UPLOADED,TYPED',
         ]);
 
         // Validate base64 image
@@ -71,7 +76,10 @@ class UserSignatureController extends Controller
             'name' => $validated['name'] ?? ($validated['type'] === 'signature' ? 'My Signature' : 'My Initials'),
             'image_data' => $validated['image_data'],
             'is_default' => $validated['is_default'] ?? $isFirst,
+            'method' => $validated['method'] ?? 'DRAWN',
         ]);
+
+        $signature->makeVisible('image_data');
 
         return response()->json($signature, 201);
     }
@@ -87,6 +95,7 @@ class UserSignatureController extends Controller
         $validated = $request->validate([
             'name' => 'nullable|string|max:100',
             'image_data' => 'nullable|string',
+            'method' => 'nullable|in:DRAWN,UPLOADED,TYPED',
         ]);
 
         if (isset($validated['image_data'])) {
@@ -98,6 +107,8 @@ class UserSignatureController extends Controller
         }
 
         $signature->update($validated);
+
+        $signature->makeVisible('image_data');
 
         return response()->json($signature);
     }
