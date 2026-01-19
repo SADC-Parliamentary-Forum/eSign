@@ -8,9 +8,118 @@ use App\Models\Document;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use setasign\Fpdi\Fpdi;
 
 class DocumentService
 {
+    /**
+     * Overlay signatures onto the PDF.
+     */
+    /**
+     * Overlay signatures onto the PDF.
+     */
+    protected function applySignaturesToPdf(Document $document, string $inputPath, string $outputPath)
+    {
+        // 1. Normalize PDF using Ghostscript (fix compression/version issues)
+        $normalizedPath = $inputPath . '_normalized.pdf';
+
+        // gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dNOPAUSE -dQUIET -dBATCH -sOutputFile=output.pdf input.pdf
+        try {
+            $process = new Process([
+                'gs',
+                '-sDEVICE=pdfwrite',
+                '-dCompatibilityLevel=1.4',
+                '-dNOPAUSE',
+                '-dQUIET',
+                '-dBATCH',
+                '-sOutputFile=' . $normalizedPath,
+                $inputPath
+            ]);
+            $process->mustRun();
+            // Use normalized PDF if successful
+            $sourcePath = $normalizedPath;
+        } catch (\Exception $e) {
+            // Fallback to original if GS fails
+            \Illuminate\Support\Facades\Log::warning('Ghostscript normalization failed: ' . $e->getMessage());
+            $sourcePath = $inputPath;
+        }
+
+        try {
+            // Initialize FPDI with Points as unit (compatible with standard PDF coords)
+            $pdf = new Fpdi('P', 'pt');
+
+            $pageCount = $pdf->setSourceFile($sourcePath);
+
+            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                $templateId = $pdf->importPage($pageNo);
+                $size = $pdf->getTemplateSize($templateId);
+
+                // Add page with same size/orientation
+                $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $pdf->useTemplate($templateId);
+
+                // Find fields for this page
+                $fields = $document->fields()
+                    ->where('page_number', $pageNo)
+                    ->whereNotNull('signature_id')
+                    ->with('signature')
+                    ->get();
+
+                foreach ($fields as $field) {
+                    if ($field->signature && $field->signature->signature_data) {
+                        try {
+                            $data = $field->signature->signature_data;
+
+                            // Parse Base64
+                            if (preg_match('/^data:image\/(\w+);base64,/', $data, $type)) {
+                                $data = substr($data, strpos($data, ',') + 1);
+                                $extension = strtolower($type[1]);
+                                $data = base64_decode($data);
+
+                                if ($data === false) {
+                                    \Illuminate\Support\Facades\Log::error("Base64 decode failed for Field {$field->id}");
+                                    continue;
+                                }
+
+                                $tempImg = tempnam(sys_get_temp_dir(), 'sig');
+                                file_put_contents($tempImg, $data);
+
+                                // Frontend sends coordinates in PERCENTAGE (0-100)
+                                // We must convert to POINTS based on the current page size
+
+                                $pageWidth = $size['width'];
+                                $pageHeight = $size['height'];
+
+                                $x = ($field->x / 100) * $pageWidth;
+                                $y = ($field->y / 100) * $pageHeight;
+                                $w = ($field->width / 100) * $pageWidth;
+                                $h = ($field->height / 100) * $pageHeight;
+
+                                $pdf->Image($tempImg, $x, $y, $w, $h, $extension);
+
+                                @unlink($tempImg);
+                            } else {
+                                \Illuminate\Support\Facades\Log::warning("Invalid image data format for Field {$field->id}");
+                            }
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::warning('Failed to stamp signature ' . $field->id . ': ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            $pdf->Output($outputPath, 'F');
+
+        } catch (\Exception $e) {
+            // If FPDI fails (e.g. still compression issue), copy source to output so we at least return the doc
+            \Illuminate\Support\Facades\Log::error('FPDI Stamping failed: ' . $e->getMessage());
+            copy($inputPath, $outputPath);
+        } finally {
+            if (file_exists($normalizedPath))
+                @unlink($normalizedPath);
+        }
+    }
+
     /**
      * Handle document upload, conversion and storage
      */
@@ -82,7 +191,9 @@ class DocumentService
 
     public function getFileUrl(Document $document)
     {
-        return Storage::disk('minio')->url($document->file_path);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('minio');
+        return $disk->url($document->file_path);
     }
 
     /**
@@ -100,7 +211,12 @@ class DocumentService
         try {
             // 1. Get the Signed Document (or current document file)
             $documentContent = Storage::disk('minio')->get($document->file_path);
-            file_put_contents($tempDir . '/document.pdf', $documentContent);
+            $inputPdfPath = $tempDir . '/original.pdf';
+            file_put_contents($inputPdfPath, $documentContent);
+
+            // 1b. Apply Signatures (Stamping)
+            $stampedPdfPath = $tempDir . '/document.pdf';
+            $this->applySignaturesToPdf($document, $inputPdfPath, $stampedPdfPath);
 
             // 2. Generate Audit Trail PDF
             $pdfContent = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.audit_trail', [
@@ -112,7 +228,10 @@ class DocumentService
             $zipPath = $tempDir . '/' . $zipFileName;
             $zip = new \ZipArchive;
             if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
-                $zip->addFile($tempDir . '/document.pdf', 'Signed_Document.pdf');
+                $baseName = pathinfo($document->title, PATHINFO_FILENAME);
+                $signedName = $baseName . ' signed.pdf';
+
+                $zip->addFile($tempDir . '/document.pdf', $signedName);
                 $zip->addFile($tempDir . '/audit_trail.pdf', 'Audit_Trail.pdf');
                 $zip->close();
             }
@@ -178,5 +297,42 @@ class DocumentService
         }
 
         return $document;
+    }
+    /**
+     * Finalize the document by stamping signatures and updating the file.
+     */
+    public function finalizeDocument(Document $document)
+    {
+        $tempDir = storage_path('app/temp/' . Str::uuid());
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        try {
+            // 1. Download current file
+            $content = Storage::disk('minio')->get($document->file_path);
+            $inputPath = $tempDir . '/original.pdf';
+            file_put_contents($inputPath, $content);
+
+            // 2. Stamp signatures
+            $outputPath = $tempDir . '/final.pdf';
+            $this->applySignaturesToPdf($document, $inputPath, $outputPath);
+
+            // 3. Update in MinIO
+            $finalContent = file_get_contents($outputPath);
+            Storage::disk('minio')->put($document->file_path, $finalContent);
+
+            // 4. Update Document Metadata
+            $document->update([
+                'file_hash' => hash('sha256', $finalContent),
+                'size' => strlen($finalContent),
+            ]);
+
+        } finally {
+            // Cleanup
+            @unlink($inputPath);
+            @unlink($outputPath);
+            @rmdir($tempDir);
+        }
     }
 }

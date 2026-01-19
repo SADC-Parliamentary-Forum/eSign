@@ -9,6 +9,7 @@ const loading = ref(true)
 const documents = ref([])
 const totalDocuments = ref(0)
 const deleteLoading = ref(null) // ID of doc being deleted
+const downloadLoading = ref(null) // ID of doc being downloaded
 const bulkDeleteLoading = ref(false)
 const selected = ref([])
 
@@ -177,6 +178,36 @@ async function performBulkDelete() {
     showSnackbar('Failed to delete documents: ' + (e.message || 'Unknown error'), 'error')
   } finally {
     bulkDeleteLoading.value = false
+  }
+}
+
+async function downloadEvidence(doc) {
+  downloadLoading.value = doc.id
+  try {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/${doc.id}/evidence`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    
+    if (!response.ok) throw new Error('Download failed')
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Evidence-${doc.id}.zip` // Default filename, browser might override from Content-Disposition
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    showSnackbar('Download started')
+  } catch (e) {
+    console.error('Failed to download evidence:', e)
+    showSnackbar('Failed to download evidence', 'error')
+  } finally {
+    downloadLoading.value = null
   }
 }
 
@@ -401,6 +432,17 @@ function formatRelativeDate(dateString) {
                     :to="`/prepare/${doc.id}`"
                     title="Edit Document"
                   />
+
+                  <v-btn 
+                    v-if="doc.status === 'COMPLETED'"
+                    icon="ri-download-line" 
+                    variant="text" 
+                    size="small" 
+                    color="secondary"
+                    :loading="downloadLoading === doc.id"
+                    @click="downloadEvidence(doc)"
+                    title="Download Signed Document"
+                  />
                   
                   <v-btn 
                     icon="ri-delete-bin-line" 
@@ -417,6 +459,7 @@ function formatRelativeDate(dateString) {
                     icon="ri-arrow-right-s-line" 
                     variant="text" 
                     size="small" 
+                    @click="router.push(`/documents/${doc.id}`)"
                   />
                 </div>
               </div>

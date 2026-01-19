@@ -82,16 +82,17 @@ class EvidencePackageController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if (!$document->evidence_package_path) {
-            return response()->json([
-                'message' => 'Evidence package not found. Generate it first.',
-            ], 404);
-        }
-
-        if (!Storage::exists($document->evidence_package_path)) {
-            return response()->json([
-                'message' => 'Evidence package file not found.',
-            ], 404);
+        if (!$document->evidence_package_path || !Storage::exists($document->evidence_package_path)) {
+            // Auto-generate if missing
+            try {
+                $this->signatureService->updateTrustScore($document);
+                $this->evidenceService->generateEvidencePackage($document);
+                $document->refresh();
+            } catch (\Exception $e) {
+                return response()->json([
+                    'message' => 'Evidence package not found and could not be generated: ' . $e->getMessage(),
+                ], 500);
+            }
         }
 
         $filename = 'Evidence_Package_' . $document->id . '.pdf';

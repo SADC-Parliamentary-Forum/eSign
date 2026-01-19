@@ -11,9 +11,15 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('document_signers', function (Blueprint $table) {
-            $table->timestamp('verified_at')->nullable()->after('viewed_at');
-            $table->string('verification_method')->nullable()->after('verified_at'); // EMAIL, OTP, etc.
-            $table->json('verification_data')->nullable()->after('verification_method'); // Snapshot of verification proofs
+            if (!Schema::hasColumn('document_signers', 'verified_at')) {
+                $table->timestamp('verified_at')->nullable()->after('viewed_at');
+            }
+            if (!Schema::hasColumn('document_signers', 'verification_method')) {
+                $table->string('verification_method')->nullable()->after('verified_at'); // EMAIL, OTP, etc.
+            }
+            if (!Schema::hasColumn('document_signers', 'verification_data')) {
+                $table->json('verification_data')->nullable()->after('verification_method'); // Snapshot of verification proofs
+            }
         });
     }
 

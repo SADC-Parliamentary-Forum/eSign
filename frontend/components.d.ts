@@ -39,6 +39,7 @@ declare module 'vue' {
     DashboardWidget: typeof import('./src/components/dashboards/DashboardWidget.vue')['default']
     DialogCloseBtn: typeof import('./src/@core/components/DialogCloseBtn.vue')['default']
     DropZone: typeof import('./src/@core/components/DropZone.vue')['default']
+    EditUserDialog: typeof import('./src/components/dialogs/EditUserDialog.vue')['default']
     EnableOneTimePasswordDialog: typeof import('./src/components/dialogs/EnableOneTimePasswordDialog.vue')['default']
     ErrorBoundary: typeof import('./src/components/common/ErrorBoundary.vue')['default']
     ErrorHeader: typeof import('./src/components/ErrorHeader.vue')['default']

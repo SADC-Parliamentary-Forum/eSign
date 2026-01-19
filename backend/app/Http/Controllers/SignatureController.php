@@ -13,10 +13,12 @@ use Illuminate\Support\Facades\DB;
 class SignatureController extends Controller
 {
     protected $delegationService;
+    protected $documentService;
 
-    public function __construct(DelegationService $delegationService)
+    public function __construct(DelegationService $delegationService, \App\Services\DocumentService $documentService)
     {
         $this->delegationService = $delegationService;
+        $this->documentService = $documentService;
     }
 
     public function sign(Request $request, $documentId)
@@ -152,6 +154,8 @@ class SignatureController extends Controller
         // Refresh signers
         $document->load('signers');
 
+        $isCompleted = false;
+
         if ($document->sequential_signing) {
             // Find current order
             $currentOrder = $document->current_signing_order;
@@ -169,13 +173,25 @@ class SignatureController extends Controller
                     // Notify next signers (WorkflowService TODO)
                 } else {
                     // No next order -> Completed
-                    $document->update(['status' => 'COMPLETED', 'completed_at' => now()]);
+                    $isCompleted = true;
                 }
             }
         } else {
             // Parallel: Check if ALL signers are signed
             if ($document->signers->every(fn($s) => $s->status === 'signed')) {
-                $document->update(['status' => 'COMPLETED', 'completed_at' => now()]);
+                $isCompleted = true;
+            }
+        }
+
+        if ($isCompleted) {
+            $document->update(['status' => 'COMPLETED', 'completed_at' => now()]);
+
+            // Finalize Document (Stamp Signatures)
+            try {
+                $this->documentService->finalizeDocument($document);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to finalize document {$document->id}: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error($e->getTraceAsString());
             }
         }
     }

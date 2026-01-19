@@ -355,19 +355,40 @@ async function downloadEvidence() {
             }
         })
         
-        if (!response.ok) throw new Error('Download failed')
+        if (!response.ok) {
+            const text = await response.text()
+            let errMsg = 'Download failed'
+            try {
+                const json = JSON.parse(text)
+                errMsg = json.message || json.error || errMsg
+            } catch {
+                errMsg = text.substring(0, 100) || response.statusText
+            }
+            throw new Error(errMsg)
+        }
         
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
+        const a = window.document.createElement('a')
         a.href = url
-        a.download = `Evidence-${document.value.id}.pdf`
-        document.body.appendChild(a)
+        a.download = `Evidence-${document.value.id}.zip`
+        window.document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
+        window.document.body.removeChild(a)
+        showSnackbar('Download started')
     } catch (e) {
-        showSnackbar('Failed to download evidence', 'error')
+        let msg = 'Failed to download evidence'
+        // Try to parse parsed body if available, or statusText
+        // Since we did response.blob(), the body is consumed.
+        // We should clone response or check content-type before blob()?
+        // Actually, for file downloads, if JSON error comes back, it's tricky.
+        // But if fetch threw Error('Download failed'), we lose the body.
+        
+        // Let's improve the logic in the main function:
+        // If !response.ok, we try to read text/json instead of blob.
+        console.error('Failed to download evidence:', e)
+        showSnackbar(e.message || msg, 'error')
     } finally {
         downloadingEvidence.value = false
     }
@@ -525,6 +546,14 @@ function getFieldValueModel(field) {
 
         <v-spacer />
 
+        <!-- Mobile Menu Button -->
+        <v-btn
+          icon="mdi-dots-vertical"
+          variant="text"
+          class="d-md-none"
+          @click="drawer = !drawer"
+        />
+
         <!-- Actions Section -->
         <div v-if="canSign" class="d-flex align-center">
            <!-- Progress Indicator -->
@@ -559,6 +588,74 @@ function getFieldValueModel(field) {
         </div>
       </div>
     </v-toolbar>
+
+    <!-- Mobile Drawer for Sidebar Content -->
+    <v-navigation-drawer
+      v-model="drawer"
+      location="right"
+      temporary
+      width="300"
+    >
+      <div class="pa-4 h-100 d-flex flex-column">
+         <div class="text-h6 font-weight-bold mb-4">Document Details</div>
+         
+         <!-- Copied Sidebar Content -->
+         <div class="flex-grow-1 overflow-y-auto mb-4">
+            <div class="text-overline mb-2 text-medium-emphasis">Workflow Timeline</div>
+            <workflow-timeline v-if="workflow" :steps="workflow.steps" class="mb-6" />
+            
+            <div v-if="risks.length > 0">
+               <v-divider class="my-4" />
+               <div class="text-overline mb-2 text-warning">Risk Analysis</div>
+               <v-alert
+                  v-for="(risk, i) in risks" :key="i"
+                  type="warning" variant="tonal" density="compact" class="mb-2 text-caption"
+                  :icon="false"
+               >
+                  <strong>{{ risk.term }}</strong>: {{ risk.message }}
+               </v-alert>
+            </div>
+         </div>
+
+         <!-- Mobile Actions -->
+         <div class="pt-4 border-t">
+              <v-btn
+                block
+                variant="outlined"
+                color="primary"
+                class="mb-2"
+                prepend-icon="mdi-robot"
+                :loading="analyzing"
+                @click="analyzeDocument"
+              >
+                Run AI Analysis
+              </v-btn>
+
+              <v-btn
+                v-if="document?.status === 'COMPLETED'"
+                block
+                variant="tonal"
+                color="secondary"
+                prepend-icon="mdi-download"
+                @click="downloadEvidence"
+                :loading="downloadingEvidence"
+              >
+                Download Evidence
+              </v-btn>
+
+               <v-btn
+                 v-if="canCancelWorkflow && workflow?.status !== 'COMPLETED'"
+                 block
+                 variant="text"
+                 color="error"
+                 class="mt-2"
+                 @click="showCancelDialog = true"
+               >
+                 Cancel Workflow
+               </v-btn>
+         </div>
+      </div>
+    </v-navigation-drawer>
 
     <!-- Main Workspace -->
     <div class="d-flex flex-grow-1 overflow-hidden positions-relative">
