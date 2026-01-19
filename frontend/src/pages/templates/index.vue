@@ -46,6 +46,7 @@ const filteredTemplates = computed(() => {
   // Filter by search query
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
+
     templates = templates.filter(t =>
       t.name.toLowerCase().includes(query) ||
       t.description?.toLowerCase().includes(query),
@@ -58,6 +59,7 @@ const filteredTemplates = computed(() => {
 const handleActivate = async template => {
   try {
     await templateStore.activateTemplate(template.id)
+
     // Show success message
   }
   catch (error) {
@@ -92,21 +94,24 @@ const handleDelete = async template => {
         </div>
       </div>
 
-      <v-btn
+      <VBtn
         prepend-icon="mdi-plus"
         color="primary"
         to="/templates/create"
       >
         Create Template
-      </v-btn>
+      </VBtn>
     </div>
 
     <!-- Filters & Search -->
-    <v-card class="mb-4">
-      <v-card-text>
-        <v-row align="center">
-          <v-col cols="12" md="6">
-            <v-text-field
+    <VCard class="mb-4">
+      <VCardText>
+        <VRow align="center">
+          <VCol
+            cols="12"
+            md="6"
+          >
+            <VTextField
               v-model="searchQuery"
               prepend-inner-icon="mdi-magnify"
               placeholder="Search templates..."
@@ -115,10 +120,13 @@ const handleDelete = async template => {
               hide-details
               clearable
             />
-          </v-col>
+          </VCol>
 
-          <v-col cols="12" md="4">
-            <v-select
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <VSelect
               v-model="statusFilter"
               :items="statusOptions"
               item-title="title"
@@ -127,30 +135,43 @@ const handleDelete = async template => {
               density="compact"
               hide-details
             />
-          </v-col>
+          </VCol>
 
-          <v-col cols="12" md="2" class="d-flex justify-end">
-            <v-btn-toggle
+          <VCol
+            cols="12"
+            md="2"
+            class="d-flex justify-end"
+          >
+            <VBtnToggle
               v-model="viewMode"
               mandatory
               variant="outlined"
               density="compact"
             >
-              <v-btn value="grid" icon="mdi-view-grid" />
-              <v-btn value="list" icon="mdi-view-list" />
-            </v-btn-toggle>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+              <VBtn
+                value="grid"
+                icon="mdi-view-grid"
+              />
+              <VBtn
+                value="list"
+                icon="mdi-view-list"
+              />
+            </VBtnToggle>
+          </VCol>
+        </VRow>
+      </VCardText>
+    </VCard>
 
     <!-- Templates Grid/List -->
-    <v-progress-linear v-if="loading" indeterminate />
+    <VProgressLinear
+      v-if="loading"
+      indeterminate
+    />
 
     <template v-else>
       <!-- Grid View -->
-      <v-row v-if="viewMode === 'grid' && filteredTemplates.length > 0">
-        <v-col
+      <VRow v-if="viewMode === 'grid' && filteredTemplates.length > 0">
+        <VCol
           v-for="template in filteredTemplates"
           :key="template.id"
           cols="12"
@@ -158,115 +179,145 @@ const handleDelete = async template => {
           md="4"
           lg="3"
         >
-          <template-card
+          <TemplateCard
             :template="template"
             @edit="$router.push(`/templates/${template.id}/edit`)"
             @activate="handleActivate"
             @delete="handleDelete"
           />
-        </v-col>
-      </v-row>
+        </VCol>
+      </VRow>
 
       <!-- List View -->
-      <v-card v-else-if="viewMode === 'list' && filteredTemplates.length > 0">
-        <v-list>
-          <v-list-item
+      <VCard v-else-if="viewMode === 'list' && filteredTemplates.length > 0">
+        <VList>
+          <VListItem
             v-for="template in filteredTemplates"
             :key="template.id"
             :to="`/templates/${template.id}`"
           >
             <template #prepend>
-              <v-avatar :color="getStatusColor(template.status)">
-                <v-icon>mdi-file-document</v-icon>
-              </v-avatar>
+              <VAvatar :color="getStatusColor(template.status)">
+                <VIcon>mdi-file-document</VIcon>
+              </VAvatar>
             </template>
 
-            <v-list-item-title>{{ template.name }}</v-list-item-title>
-            <v-list-item-subtitle>
+            <VListItemTitle>{{ template.name }}</VListItemTitle>
+            <VListItemSubtitle>
               {{ template.description || 'No description' }}
-            </v-list-item-subtitle>
+            </VListItemSubtitle>
 
             <template #append>
               <div class="d-flex align-center ga-2">
-                <v-chip :color="getStatusColor(template.status)" size="small">
+                <VChip
+                  :color="getStatusColor(template.status)"
+                  size="small"
+                >
                   {{ template.status }}
-                </v-chip>
+                </VChip>
                 
-                <v-btn
+                <VBtn
                   icon="mdi-chevron-right"
                   variant="text"
                   size="small"
                 />
               </div>
             </template>
-          </v-list-item>
-        </v-list>
-      </v-card>
+          </VListItem>
+        </VList>
+      </VCard>
 
       <!-- Empty State -->
-      <v-empty-state
+      <VEmptyState
         v-else
         icon="mdi-file-document-outline"
         title="No templates found"
         text="Create your first template to streamline document signing"
       >
         <template #actions>
-          <v-btn
+          <VBtn
             color="primary"
             to="/templates/create"
           >
             Create Template
-          </v-btn>
+          </VBtn>
         </template>
-      </v-empty-state>
+      </VEmptyState>
     </template>
 
     <!-- Summary Stats -->
-    <v-row v-if="!loading" class="mt-4">
-      <v-col cols="12" sm="6" md="3">
-        <v-card variant="tonal">
-          <v-card-text class="text-center">
+    <VRow
+      v-if="!loading"
+      class="mt-4"
+    >
+      <VCol
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <VCard variant="tonal">
+          <VCardText class="text-center">
             <div class="text-h4 font-weight-bold">
               {{ templateStore.activeTemplates.length }}
             </div>
-            <div class="text-caption">Active Templates</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+            <div class="text-caption">
+              Active Templates
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" sm="6" md="3">
-        <v-card variant="tonal">
-          <v-card-text class="text-center">
+      <VCol
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <VCard variant="tonal">
+          <VCardText class="text-center">
             <div class="text-h4 font-weight-bold">
               {{ templateStore.draftTemplates.length }}
             </div>
-            <div class="text-caption">Drafts</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+            <div class="text-caption">
+              Drafts
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" sm="6" md="3">
-        <v-card variant="tonal">
-          <v-card-text class="text-center">
+      <VCol
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <VCard variant="tonal">
+          <VCardText class="text-center">
             <div class="text-h4 font-weight-bold">
               {{ templateStore.pendingReviewTemplates.length }}
             </div>
-            <div class="text-caption">Pending Review</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+            <div class="text-caption">
+              Pending Review
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" sm="6" md="3">
-        <v-card variant="tonal">
-          <v-card-text class="text-center">
+      <VCol
+        cols="12"
+        sm="6"
+        md="3"
+      >
+        <VCard variant="tonal">
+          <VCardText class="text-center">
             <div class="text-h4 font-weight-bold">
               {{ filteredTemplates.length }}
             </div>
-            <div class="text-caption">Total Showing</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+            <div class="text-caption">
+              Total Showing
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
+    </VRow>
   </div>
 </template>
 
@@ -279,6 +330,8 @@ function getStatusColor(status) {
     ACTIVE: 'primary',
     ARCHIVED: 'error',
   }
+
+  
   return colors[status] || 'grey'
 }
 </script>

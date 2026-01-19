@@ -7,29 +7,29 @@ const notificationsOpen = ref(false)
 
 const getNotificationIcon = type => {
   switch (type) {
-    case 'success':
-      return 'mdi-check-circle'
-    case 'error':
-      return 'mdi-alert-circle'
-    case 'warning':
-      return 'mdi-alert'
-    case 'info':
-    default:
-      return 'mdi-information'
+  case 'success':
+    return 'mdi-check-circle'
+  case 'error':
+    return 'mdi-alert-circle'
+  case 'warning':
+    return 'mdi-alert'
+  case 'info':
+  default:
+    return 'mdi-information'
   }
 }
 
 const getNotificationColor = type => {
   switch (type) {
-    case 'success':
-      return 'success'
-    case 'error':
-      return 'error'
-    case 'warning':
-      return 'warning'
-    case 'info':
-    default:
-      return 'info'
+  case 'success':
+    return 'success'
+  case 'error':
+    return 'error'
+  case 'warning':
+    return 'warning'
+  case 'info':
+  default:
+    return 'info'
   }
 }
 
@@ -45,6 +45,7 @@ const formatTime = timestamp => {
   if (days > 0) return `${days}d ago`
   if (hours > 0) return `${hours}h ago`
   if (minutes > 0) return `${minutes}m ago`
+  
   return 'Just now'
 }
 
@@ -60,110 +61,110 @@ const handleNotificationClick = notification => {
 </script>
 
 <template>
-  <v-menu
+  <VMenu
     v-model="notificationsOpen"
     :close-on-content-click="false"
     location="bottom end"
     max-width="400"
   >
     <template #activator="{ props }">
-      <v-btn
+      <VBtn
         icon
         v-bind="props"
       >
-        <v-badge
+        <VBadge
           :content="notificationStore.unreadCount"
           :model-value="notificationStore.hasUnread"
           color="error"
         >
-          <v-icon>mdi-bell</v-icon>
-        </v-badge>
-      </v-btn>
+          <VIcon>mdi-bell</VIcon>
+        </VBadge>
+      </VBtn>
     </template>
 
-    <v-card>
-      <v-card-title class="d-flex align-center">
+    <VCard>
+      <VCardTitle class="d-flex align-center">
         Notifications
         
-        <v-spacer />
+        <VSpacer />
         
-        <v-btn
+        <VBtn
           v-if="notificationStore.hasUnread"
           variant="text"
           size="small"
           @click="notificationStore.markAllAsRead()"
         >
           Mark all read
-        </v-btn>
-      </v-card-title>
+        </VBtn>
+      </VCardTitle>
 
-      <v-divider />
+      <VDivider />
 
-      <v-list
+      <VList
         v-if="notificationStore.notifications.length > 0"
         max-height="400"
         class="overflow-y-auto"
       >
-        <v-list-item
+        <VListItem
           v-for="notification in notificationStore.notifications"
           :key="notification.id"
           :class="{ 'bg-grey-lighten-4': !notification.read }"
           @click="handleNotificationClick(notification)"
         >
           <template #prepend>
-            <v-avatar
+            <VAvatar
               :color="getNotificationColor(notification.type)"
               size="40"
             >
-              <v-icon
+              <VIcon
                 :icon="getNotificationIcon(notification.type)"
                 color="white"
               />
-            </v-avatar>
+            </VAvatar>
           </template>
 
-          <v-list-item-title class="text-wrap">
+          <VListItemTitle class="text-wrap">
             {{ notification.message }}
-          </v-list-item-title>
+          </VListItemTitle>
 
-          <v-list-item-subtitle class="mt-1">
+          <VListItemSubtitle class="mt-1">
             {{ formatTime(notification.timestamp) }}
-          </v-list-item-subtitle>
+          </VListItemSubtitle>
 
           <template #append>
-            <v-btn
+            <VBtn
               icon="mdi-close"
               size="x-small"
               variant="text"
               @click.stop="notificationStore.removeNotification(notification.id)"
             />
           </template>
-        </v-list-item>
-      </v-list>
+        </VListItem>
+      </VList>
 
-      <v-card-text
+      <VCardText
         v-else
         class="text-center text-medium-emphasis py-8"
       >
-        <v-icon
+        <VIcon
           icon="mdi-bell-off"
           size="48"
           class="mb-2"
         />
         <div>No notifications</div>
-      </v-card-text>
+      </VCardText>
 
-      <v-divider v-if="notificationStore.notifications.length > 0" />
+      <VDivider v-if="notificationStore.notifications.length > 0" />
 
-      <v-card-actions v-if="notificationStore.notifications.length > 0">
-        <v-btn
+      <VCardActions v-if="notificationStore.notifications.length > 0">
+        <VBtn
           block
           variant="text"
           @click="notificationStore.clearAll()"
         >
           Clear All
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-menu>
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VMenu>
 </template>

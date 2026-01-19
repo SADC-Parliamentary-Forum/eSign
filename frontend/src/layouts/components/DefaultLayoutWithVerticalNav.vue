@@ -26,6 +26,7 @@ const filteredNavItems = computed(() => {
   return navItems.filter(item => {
     // Check if the item is 'Admin Console' or has 'admin' in title/path
     if (item.title === 'Admin Console') return false
+    
     return true
   })
 })

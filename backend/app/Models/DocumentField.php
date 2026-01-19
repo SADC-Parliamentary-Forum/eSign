@@ -25,6 +25,7 @@ class DocumentField extends Model
         'text_value',
         'signature_id',
         'signed_at',
+        'group_id',
     ];
 
     protected $casts = [

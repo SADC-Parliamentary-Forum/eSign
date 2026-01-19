@@ -39,6 +39,7 @@ async function loadProfile() {
   loading.value = true
   try {
     const user = await $api('/auth/me')
+
     form.value = {
       name: user.name || '',
       email: user.email || '',
@@ -61,7 +62,7 @@ async function saveProfile() {
   try {
     await $api('/auth/profile', {
       method: 'PUT',
-      body: form.value
+      body: form.value,
     })
     
     // Update localStorage
@@ -82,6 +83,7 @@ async function saveProfile() {
 async function changePassword() {
   if (passwordForm.value.password !== passwordForm.value.password_confirmation) {
     error.value = 'Passwords do not match'
+    
     return
   }
   
@@ -92,7 +94,7 @@ async function changePassword() {
   try {
     await $api('/auth/password', {
       method: 'PUT',
-      body: passwordForm.value
+      body: passwordForm.value,
     })
     
     success.value = 'Password changed successfully!'
@@ -107,53 +109,94 @@ async function changePassword() {
 </script>
 
 <template>
-  <v-container class="py-6" max-width="800">
-    <v-row>
-      <v-col cols="12">
+  <VContainer
+    class="py-6"
+    max-width="800"
+  >
+    <VRow>
+      <VCol cols="12">
         <!-- Header -->
         <div class="d-flex align-center mb-6">
-          <v-btn icon="mdi-arrow-left" variant="text" to="/" class="mr-2" />
+          <VBtn
+            icon="mdi-arrow-left"
+            variant="text"
+            to="/"
+            class="mr-2"
+          />
           <div>
-            <h1 class="text-h5 font-weight-bold">My Profile</h1>
-            <p class="text-body-2 text-medium-emphasis mb-0">Manage your account settings</p>
+            <h1 class="text-h5 font-weight-bold">
+              My Profile
+            </h1>
+            <p class="text-body-2 text-medium-emphasis mb-0">
+              Manage your account settings
+            </p>
           </div>
         </div>
 
         <!-- Alerts -->
-        <v-alert v-if="success" type="success" variant="tonal" closable class="mb-4" @click:close="success = ''">
+        <VAlert
+          v-if="success"
+          type="success"
+          variant="tonal"
+          closable
+          class="mb-4"
+          @click:close="success = ''"
+        >
           {{ success }}
-        </v-alert>
-        <v-alert v-if="error" type="error" variant="tonal" closable class="mb-4" @click:close="error = ''">
+        </VAlert>
+        <VAlert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          closable
+          class="mb-4"
+          @click:close="error = ''"
+        >
           {{ error }}
-        </v-alert>
+        </VAlert>
 
         <!-- Loading -->
-        <div v-if="loading" class="text-center py-8">
-          <v-progress-circular indeterminate color="primary" />
+        <div
+          v-if="loading"
+          class="text-center py-8"
+        >
+          <VProgressCircular
+            indeterminate
+            color="primary"
+          />
         </div>
 
         <template v-else>
           <!-- Profile Card -->
-          <v-card class="mb-4">
-            <v-card-title class="d-flex align-center">
-              <v-icon icon="mdi-account-circle" class="mr-2" />
+          <VCard class="mb-4">
+            <VCardTitle class="d-flex align-center">
+              <VIcon
+                icon="mdi-account-circle"
+                class="mr-2"
+              />
               Personal Information
-            </v-card-title>
+            </VCardTitle>
             
-            <v-card-text>
-              <v-form @submit.prevent="saveProfile">
-                <v-row>
-                  <v-col cols="12" md="6">
-                    <v-text-field
+            <VCardText>
+              <VForm @submit.prevent="saveProfile">
+                <VRow>
+                  <VCol
+cols="12"
+                        md="6"
+>
+                    <VTextField
                       v-model="form.name"
                       label="Full Name"
                       prepend-inner-icon="mdi-account"
                       variant="outlined"
                       required
                     />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
+                  </VCol>
+                  <VCol
+cols="12"
+                        md="6"
+>
+                    <VTextField
                       v-model="form.email"
                       label="Email Address"
                       type="email"
@@ -164,94 +207,108 @@ async function changePassword() {
                       hint="Email cannot be changed"
                       persistent-hint
                     />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
+                  </VCol>
+                  <VCol
+cols="12"
+                        md="6"
+>
+                    <VTextField
                       v-model="form.phone"
                       label="Phone Number"
                       prepend-inner-icon="mdi-phone"
                       variant="outlined"
                     />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
+                  </VCol>
+                  <VCol
+cols="12"
+                        md="6"
+>
+                    <VTextField
                       v-model="form.job_title"
                       label="Job Title"
                       prepend-inner-icon="mdi-briefcase"
                       variant="outlined"
                     />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-text-field
+                  </VCol>
+                  <VCol cols="12">
+                    <VTextField
                       v-model="form.department"
                       label="Department"
                       prepend-inner-icon="mdi-office-building"
                       variant="outlined"
                     />
-                  </v-col>
-                </v-row>
+                  </VCol>
+                </VRow>
 
-                <v-btn 
+                <VBtn 
                   type="submit" 
                   color="primary" 
                   :loading="saving"
                   class="mt-2"
                 >
-                  <v-icon icon="mdi-content-save" class="mr-2" />
+                  <VIcon
+                    icon="mdi-content-save"
+                    class="mr-2"
+                  />
                   Save Changes
-                </v-btn>
-              </v-form>
-            </v-card-text>
-          </v-card>
+                </VBtn>
+              </VForm>
+            </VCardText>
+          </VCard>
 
           <!-- Password Card -->
-          <v-card>
-            <v-card-title class="d-flex align-center justify-space-between">
+          <VCard>
+            <VCardTitle class="d-flex align-center justify-space-between">
               <div class="d-flex align-center">
-                <v-icon icon="mdi-lock" class="mr-2" />
+                <VIcon
+                  icon="mdi-lock"
+                  class="mr-2"
+                />
                 Security
               </div>
-              <v-btn 
+              <VBtn 
                 variant="text" 
                 size="small"
                 @click="showPasswordForm = !showPasswordForm"
               >
                 {{ showPasswordForm ? 'Cancel' : 'Change Password' }}
-              </v-btn>
-            </v-card-title>
+              </VBtn>
+            </VCardTitle>
             
-            <v-expand-transition>
-              <v-card-text v-if="showPasswordForm">
-                <v-form @submit.prevent="changePassword">
-                  <v-row>
-                    <v-col cols="12">
-                      <v-text-field
+            <VExpandTransition>
+              <VCardText v-if="showPasswordForm">
+                <VForm @submit.prevent="changePassword">
+                  <VRow>
+                    <VCol cols="12">
+                      <VTextField
                         v-model="passwordForm.current_password"
                         label="Current Password"
                         :type="showCurrentPassword ? 'text' : 'password'"
                         prepend-inner-icon="mdi-lock"
                         :append-inner-icon="showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                        @click:append-inner="showCurrentPassword = !showCurrentPassword"
                         variant="outlined"
+                        @click:append-inner="showCurrentPassword = !showCurrentPassword"
                         required
                       />
-                    </v-col>
-                    <v-col cols="12" md="6">
-                      <v-text-field
+                    </VCol>
+                    <VCol cols="12"
+md="6">
+                      <VTextField
                         v-model="passwordForm.password"
                         label="New Password"
                         :type="showNewPassword ? 'text' : 'password'"
                         prepend-inner-icon="mdi-lock-plus"
                         :append-inner-icon="showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                        @click:append-inner="showNewPassword = !showNewPassword"
                         variant="outlined"
+                        @click:append-inner="showNewPassword = !showNewPassword"
                         required
                         hint="Minimum 8 characters"
                         persistent-hint
                       />
-                    </v-col>
-                    <v-col cols="12" md="6">
-                      <v-text-field
+                    </VCol>
+                    <VCol cols="12"
+md="6">
+                      <VTextField
                         v-model="passwordForm.password_confirmation"
                         label="Confirm New Password"
                         :type="showNewPassword ? 'text' : 'password'"
@@ -259,31 +316,38 @@ async function changePassword() {
                         variant="outlined"
                         required
                       />
-                    </v-col>
-                  </v-row>
+                    </VCol>
+                  </VRow>
 
-                  <v-btn 
+                  <VBtn 
                     type="submit" 
                     color="warning" 
                     :loading="saving"
                     class="mt-2"
                   >
-                    <v-icon icon="mdi-lock-reset" class="mr-2" />
+                    <VIcon
+icon="mdi-lock-reset"
+                           class="mr-2"
+/>
                     Update Password
-                  </v-btn>
-                </v-form>
-              </v-card-text>
-            </v-expand-transition>
+                  </VBtn>
+                </VForm>
+              </VCardText>
+            </VExpandTransition>
             
-            <v-card-text v-if="!showPasswordForm">
+            <VCardText v-if="!showPasswordForm">
               <div class="text-body-2 text-medium-emphasis">
-                <v-icon icon="mdi-shield-check" color="success" class="mr-1" />
+                <VIcon
+                  icon="mdi-shield-check"
+                  color="success"
+                  class="mr-1"
+                />
                 Your password is secure. Click "Change Password" to update it.
               </div>
-            </v-card-text>
-          </v-card>
+            </VCardText>
+          </VCard>
         </template>
-      </v-col>
-    </v-row>
-  </v-container>
+      </VCol>
+    </VRow>
+  </VContainer>
 </template>

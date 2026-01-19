@@ -18,7 +18,7 @@ let isDrawing = false
 
 const newSignature = ref({
   type: 'signature',
-  name: ''
+  name: '',
 })
 
 onMounted(async () => {
@@ -29,6 +29,7 @@ async function fetchSignatures() {
   loading.value = true
   try {
     const res = await $api('/signatures/mine')
+
     signatures.value = Array.isArray(res) ? res : (res.data || [])
   } catch (e) {
     console.error('Failed to fetch signatures', e)
@@ -60,16 +61,18 @@ function openEditDialog(sig) {
   
   // Try to determine the initial tab based on method
   if (sig.method === 'UPLOADED') {
-      activeTab.value = 'upload'
-      uploadedImage.value = sig.image_data
+    activeTab.value = 'upload'
+    uploadedImage.value = sig.image_data
   } else if (sig.method === 'TYPED') {
-      activeTab.value = 'type'
-      // We don't have the original text, so leave blank or try to infer?
-      // Just leave blank for now, user can re-type.
-      typeText.value = sig.name !== 'My Signature' && sig.name !== 'My Initials' ? sig.name : ''
+    activeTab.value = 'type'
+
+    // We don't have the original text, so leave blank or try to infer?
+    // Just leave blank for now, user can re-type.
+    typeText.value = sig.name !== 'My Signature' && sig.name !== 'My Initials' ? sig.name : ''
   } else {
-      activeTab.value = 'draw'
-      // Can't put image back on canvas easily for editing
+    activeTab.value = 'draw'
+
+    // Can't put image back on canvas easily for editing
   }
 
   showDialog.value = true
@@ -79,7 +82,7 @@ function openEditDialog(sig) {
 }
 
 // Watch tab change to init canvas
-watch(activeTab, (val) => {
+watch(activeTab, val => {
   if (val === 'draw') {
     nextTick(initCanvas)
   }
@@ -97,9 +100,11 @@ function initCanvas() {
 
 function startDrawing(e) {
   isDrawing = true
+
   const rect = canvas.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
   const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+
   ctx.beginPath()
   ctx.moveTo(x, y)
 }
@@ -107,9 +112,11 @@ function startDrawing(e) {
 function draw(e) {
   if (!isDrawing) return
   e.preventDefault()
+
   const rect = canvas.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
   const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+
   ctx.lineTo(x, y)
   ctx.stroke()
 }
@@ -132,7 +139,8 @@ function handleFileUpload(e) {
   if (!file) return
 
   const reader = new FileReader()
-  reader.onload = (e) => {
+
+  reader.onload = e => {
     uploadedImage.value = e.target.result
   }
   reader.readAsDataURL(file)
@@ -140,8 +148,10 @@ function handleFileUpload(e) {
 
 function generateTypeSignature() {
   const tCanvas = document.createElement('canvas')
+
   tCanvas.width = 450
   tCanvas.height = 150
+
   const tCtx = tCanvas.getContext('2d')
   
   // White background
@@ -175,10 +185,12 @@ async function saveSignature() {
     } else if (activeTab.value === 'upload') {
       if (!uploadedImage.value) {
         if (!editingId.value) {
-            alert('Please upload an image first')
-            saving.value = false
-            return
+          alert('Please upload an image first')
+          saving.value = false
+          
+          return
         }
+
         // If editing and no new upload, keep existing? 
         // But uploadedImage variable holds the preview. 
         // Logic in openEditDialog sets uploadedImage = sig.image_data.
@@ -192,26 +204,26 @@ async function saveSignature() {
     }
 
     const payload = {
-        name: newSignature.value.name,
-        image_data: imageData,
-        method: method
+      name: newSignature.value.name,
+      image_data: imageData,
+      method: method,
     }
 
     if (!editingId.value) {
-        // CREATE
-        payload.type = newSignature.value.type
-        payload.is_default = signatures.value.filter(s => s.type === newSignature.value.type).length === 0
+      // CREATE
+      payload.type = newSignature.value.type
+      payload.is_default = signatures.value.filter(s => s.type === newSignature.value.type).length === 0
         
-        await $api('/signatures/mine', {
-            method: 'POST',
-            body: payload
-        })
+      await $api('/signatures/mine', {
+        method: 'POST',
+        body: payload,
+      })
     } else {
-        // UPDATE
-        await $api(`/signatures/mine/${editingId.value}`, {
-            method: 'PUT',
-            body: payload
-        })
+      // UPDATE
+      await $api(`/signatures/mine/${editingId.value}`, {
+        method: 'PUT',
+        body: payload,
+      })
     }
 
     showDialog.value = false
@@ -255,64 +267,140 @@ async function viewSignature(id) {
     <!-- Header -->
     <div class="d-flex justify-space-between align-center mb-6">
       <div>
-        <h2 class="text-h4 font-weight-bold">My Signatures</h2>
-        <div class="text-body-1 text-disabled">Manage your saved signatures and initials</div>
+        <h2 class="text-h4 font-weight-bold">
+          My Signatures
+        </h2>
+        <div class="text-body-1 text-disabled">
+          Manage your saved signatures and initials
+        </div>
       </div>
       <div class="d-flex gap-2">
-        <VBtn variant="outlined" prepend-icon="ri-pen-nib-line" @click="openCreateDialog('initials')">
+        <VBtn
+          variant="outlined"
+          prepend-icon="ri-pen-nib-line"
+          @click="openCreateDialog('initials')"
+        >
           Add Initials
         </VBtn>
-        <VBtn prepend-icon="ri-edit-line" @click="openCreateDialog('signature')">
+        <VBtn
+          prepend-icon="ri-edit-line"
+          @click="openCreateDialog('signature')"
+        >
           Add Signature
         </VBtn>
       </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-10">
-      <VProgressCircular indeterminate color="primary" />
+    <div
+      v-if="loading"
+      class="text-center py-10"
+    >
+      <VProgressCircular
+        indeterminate
+        color="primary"
+      />
     </div>
 
     <!-- Empty State -->
-    <VCard v-else-if="signatures.length === 0" class="text-center py-10">
+    <VCard
+      v-else-if="signatures.length === 0"
+      class="text-center py-10"
+    >
       <VCardText>
-        <VIcon icon="ri-edit-2-line" size="64" color="disabled" class="mb-4" />
-        <h3 class="text-h6 mb-2">No Saved Signatures</h3>
-        <p class="text-body-2 text-disabled mb-4">Create your first signature to speed up document signing.</p>
-        <VBtn @click="openCreateDialog('signature')">Create Signature</VBtn>
+        <VIcon
+          icon="ri-edit-2-line"
+          size="64"
+          color="disabled"
+          class="mb-4"
+        />
+        <h3 class="text-h6 mb-2">
+          No Saved Signatures
+        </h3>
+        <p class="text-body-2 text-disabled mb-4">
+          Create your first signature to speed up document signing.
+        </p>
+        <VBtn @click="openCreateDialog('signature')">
+          Create Signature
+        </VBtn>
       </VCardText>
     </VCard>
 
     <!-- Signature List -->
     <VRow v-else>
-      <VCol v-for="sig in signatures" :key="sig.id" cols="12" md="6" lg="4">
-        <VCard @click="openEditDialog(sig)" class="cursor-pointer hover-card">
+      <VCol
+        v-for="sig in signatures"
+        :key="sig.id"
+        cols="12"
+        md="6"
+        lg="4"
+      >
+        <VCard
+          class="cursor-pointer hover-card"
+          @click="openEditDialog(sig)"
+        >
           <VCardItem>
             <template #prepend>
-              <div class="d-flex align-center justify-center rounded bg-grey-lighten-4 pa-2 me-4" style="width: 80px; height: 50px; background-color: #f5f5f5;">
-                <img :src="sig.image_data" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+              <div
+                class="d-flex align-center justify-center rounded bg-grey-lighten-4 pa-2 me-4"
+                style="width: 80px; height: 50px; background-color: #f5f5f5;"
+              >
+                <img
+                  :src="sig.image_data"
+                  style="max-width: 100%; max-height: 100%; object-fit: contain;"
+                >
               </div>
             </template>
             <div class="d-flex flex-column">
-               <VCardTitle class="pb-1">{{ sig.name }}</VCardTitle>
-               <VCardSubtitle>
-                 <VChip size="x-small" :color="sig.type === 'signature' ? 'primary' : 'secondary'" class="me-2">
-                   {{ sig.type }}
-                 </VChip>
-                 <VChip v-if="sig.is_default" size="x-small" color="success">Default</VChip>
-               </VCardSubtitle>
+              <VCardTitle class="pb-1">
+                {{ sig.name }}
+              </VCardTitle>
+              <VCardSubtitle>
+                <VChip
+                  size="x-small"
+                  :color="sig.type === 'signature' ? 'primary' : 'secondary'"
+                  class="me-2"
+                >
+                  {{ sig.type }}
+                </VChip>
+                <VChip
+                  v-if="sig.is_default"
+                  size="x-small"
+                  color="success"
+                >
+                  Default
+                </VChip>
+              </VCardSubtitle>
             </div>
             <template #append>
               <VMenu>
                 <template #activator="{ props }">
-                  <VBtn icon="ri-more-2-line" variant="text" v-bind="props" @click.stop />
+                  <VBtn
+                    icon="ri-more-2-line"
+                    variant="text"
+                    v-bind="props"
+                    @click.stop
+                  />
                 </template>
                 <VList density="compact">
-                  <VListItem prepend-icon="ri-pencil-line" @click="openEditDialog(sig)">Edit</VListItem>
-                  <VListItem v-if="!sig.is_default" prepend-icon="ri-star-line" @click="setDefault(sig.id)">
+                  <VListItem
+                    prepend-icon="ri-pencil-line"
+                    @click="openEditDialog(sig)"
+                  >
+                    Edit
+                  </VListItem>
+                  <VListItem
+                    v-if="!sig.is_default"
+                    prepend-icon="ri-star-line"
+                    @click="setDefault(sig.id)"
+                  >
                     Set as Default
                   </VListItem>
-                  <VListItem prepend-icon="ri-delete-bin-line" class="text-error" @click="deleteSignature(sig.id)">
+                  <VListItem
+                    prepend-icon="ri-delete-bin-line"
+                    class="text-error"
+                    @click="deleteSignature(sig.id)"
+                  >
                     Delete
                   </VListItem>
                 </VList>
@@ -324,11 +412,18 @@ async function viewSignature(id) {
     </VRow>
 
     <!-- Create/Edit Dialog -->
-    <VDialog v-model="showDialog" max-width="600">
+    <VDialog
+      v-model="showDialog"
+      max-width="600"
+    >
       <VCard>
         <VCardTitle class="pt-4 d-flex justify-space-between align-center">
           <span>{{ editingId ? 'Edit' : 'Create' }} {{ newSignature.type === 'signature' ? 'Signature' : 'Initials' }}</span>
-          <VBtn icon="ri-close-line" variant="text" @click="showDialog = false" />
+          <VBtn
+            icon="ri-close-line"
+            variant="text"
+            @click="showDialog = false"
+          />
         </VCardTitle>
         
         <VCardText>
@@ -339,17 +434,36 @@ async function viewSignature(id) {
             class="mb-4"
           />
 
-          <div v-if="editingId && currentSignatureImage" class="mb-4">
-             <div class="text-caption text-medium-emphasis mb-1">Current Signature:</div>
-             <div class="border rounded bg-grey-lighten-5 pa-4 d-flex justify-center align-center">
-                 <img :src="currentSignatureImage" style="max-height: 100px; max-width: 100%; object-fit: contain;" />
-             </div>
+          <div
+            v-if="editingId && currentSignatureImage"
+            class="mb-4"
+          >
+            <div class="text-caption text-medium-emphasis mb-1">
+              Current Signature:
+            </div>
+            <div class="border rounded bg-grey-lighten-5 pa-4 d-flex justify-center align-center">
+              <img
+                :src="currentSignatureImage"
+                style="max-height: 100px; max-width: 100%; object-fit: contain;"
+              >
+            </div>
           </div>
 
-          <VTabs v-model="activeTab" grow color="primary" class="mb-4">
-            <VTab value="draw">Draw</VTab>
-            <VTab value="type">Type</VTab>
-            <VTab value="upload">Upload</VTab>
+          <VTabs
+            v-model="activeTab"
+            grow
+            color="primary"
+            class="mb-4"
+          >
+            <VTab value="draw">
+              Draw
+            </VTab>
+            <VTab value="type">
+              Type
+            </VTab>
+            <VTab value="upload">
+              Upload
+            </VTab>
           </VTabs>
 
           <VWindow v-model="activeTab">
@@ -370,8 +484,19 @@ async function viewSignature(id) {
                 />
               </div>
               <div class="d-flex justify-between align-center mt-2">
-                 <span v-if="editingId" class="text-caption text-warning">Drawing will replace existing image</span>
-                 <VBtn size="small" variant="text" color="error" class="ms-auto" @click="clearCanvas">Clear</VBtn>
+                <span
+                  v-if="editingId"
+                  class="text-caption text-warning"
+                >Drawing will replace existing image</span>
+                <VBtn
+                  size="small"
+                  variant="text"
+                  color="error"
+                  class="ms-auto"
+                  @click="clearCanvas"
+                >
+                  Clear
+                </VBtn>
               </div>
             </VWindowItem>
 
@@ -384,7 +509,9 @@ async function viewSignature(id) {
                 class="mb-4" 
                 placeholder="John Doe"
               />
-              <div class="mb-2 text-subtitle-2">Select Style:</div>
+              <div class="mb-2 text-subtitle-2">
+                Select Style:
+              </div>
               <div class="d-flex flex-wrap gap-2 mb-4">
                 <VChip 
                   v-for="font in fonts" 
@@ -413,17 +540,32 @@ async function viewSignature(id) {
                 prepend-icon="ri-upload-cloud-line"
                 @change="handleFileUpload"
               />
-              <div v-if="uploadedImage" class="mt-4 preview-box d-flex align-center justify-center">
-                <img :src="uploadedImage" alt="Preview" style="max-height: 150px; max-width: 100%;" />
+              <div
+                v-if="uploadedImage"
+                class="mt-4 preview-box d-flex align-center justify-center"
+              >
+                <img
+                  :src="uploadedImage"
+                  alt="Preview"
+                  style="max-height: 150px; max-width: 100%;"
+                >
               </div>
             </VWindowItem>
           </VWindow>
-
         </VCardText>
         <VCardActions class="justify-end pa-4">
-          <VBtn variant="outlined" @click="showDialog = false">Cancel</VBtn>
-          <VBtn color="primary" :loading="saving" @click="saveSignature">
-             {{ editingId ? 'Update' : 'Save' }}
+          <VBtn
+            variant="outlined"
+            @click="showDialog = false"
+          >
+            Cancel
+          </VBtn>
+          <VBtn
+            color="primary"
+            :loading="saving"
+            @click="saveSignature"
+          >
+            {{ editingId ? 'Update' : 'Save' }}
           </VBtn>
         </VCardActions>
       </VCard>

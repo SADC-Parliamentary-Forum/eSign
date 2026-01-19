@@ -60,56 +60,58 @@ const handleFileSelect = event => {
   }
 }
 
-const handlePdfLoad = (pdf) => {
-   pageCount.value = pdf.numPages
+const handlePdfLoad = pdf => {
+  pageCount.value = pdf.numPages
 }
 
 const onDragStart = (event, type) => {
-   event.dataTransfer.setData('fieldType', type)
+  event.dataTransfer.setData('fieldType', type)
 }
 
 const onDrop = (event, pageNumber) => {
-   const type = event.dataTransfer.getData('fieldType')
-   if (!type) return
+  const type = event.dataTransfer.getData('fieldType')
+  if (!type) return
    
-   if (!selectedRoleForMapping.value) {
-      alert('Please select a role to assign this field to first.')
-      return
-   }
+  if (!selectedRoleForMapping.value) {
+    alert('Please select a role to assign this field to first.')
+    
+    return
+  }
 
-   const rect = event.target.getBoundingClientRect()
-   const x = event.clientX - rect.left
-   const y = event.clientY - rect.top
+  const rect = event.target.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
    
-   // Convert to percentage
-   const xPercent = (x / rect.width) * 100
-   const yPercent = (y / rect.height) * 100
+  // Convert to percentage
+  const xPercent = (x / rect.width) * 100
+  const yPercent = (y / rect.height) * 100
 
-   fieldMappings.value.push({
-      type,
-      role_name: selectedRoleForMapping.value, // We use role_name to map to roles
-      page_number: pageNumber,
-      x: xPercent,
-      y: yPercent,
-      width: 15, // Default width %
-      height: 5, // Default height %
-      required: true
-   })
+  fieldMappings.value.push({
+    type,
+    role_name: selectedRoleForMapping.value, // We use role_name to map to roles
+    page_number: pageNumber,
+    x: xPercent,
+    y: yPercent,
+    width: 15, // Default width %
+    height: 5, // Default height %
+    required: true,
+  })
 }
 
-const removeFieldMapping = (field) => {
-   const idx = fieldMappings.value.indexOf(field)
-   if (idx !== -1) fieldMappings.value.splice(idx, 1)
+const removeFieldMapping = field => {
+  const idx = fieldMappings.value.indexOf(field)
+  if (idx !== -1) fieldMappings.value.splice(idx, 1)
 }
 
-const getRoleColor = (roleName) => {
-   // Generate consistent color from string
-   let hash = 0;
-   for (let i = 0; i < roleName.length; i++) {
-       hash = roleName.charCodeAt(i) + ((hash << 5) - hash);
-   }
-   const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-   return '#' + '00000'.substring(0, 6 - c.length) + c + '40'; // 40 for transparency
+const getRoleColor = roleName => {
+  // Generate consistent color from string
+  let hash = 0
+  for (let i = 0; i < roleName.length; i++) {
+    hash = roleName.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const c = (hash & 0x00FFFFFF).toString(16).toUpperCase()
+  
+  return '#' + '00000'.substring(0, 6 - c.length) + c + '40' // 40 for transparency
 }
 
 const addRole = () => {
@@ -123,6 +125,7 @@ const addRole = () => {
 
 const removeRole = index => {
   roles.value.splice(index, 1)
+
   // Reorder remaining roles
   roles.value.forEach((role, idx) => {
     role.signing_order = idx + 1
@@ -143,18 +146,18 @@ const removeThreshold = index => {
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
-    case 1:
-      return templateForm.value.name && templateForm.value.file
-    case 2:
-      return roles.value.length > 0 && roles.value.every(r => r.role)
-    case 3:
-      // Optional, but ideally check if all SIGN roles have at least one field? 
-      // For now, allow proceeding even without fields (maybe they add them later or use auto-placement)
-      return true 
-    case 4:
-      return !templateForm.value.amount_required || thresholds.value.length > 0
-    default:
-      return false
+  case 1:
+    return templateForm.value.name && templateForm.value.file
+  case 2:
+    return roles.value.length > 0 && roles.value.every(r => r.role)
+  case 3:
+    // Optional, but ideally check if all SIGN roles have at least one field? 
+    // For now, allow proceeding even without fields (maybe they add them later or use auto-placement)
+    return true 
+  case 4:
+    return !templateForm.value.amount_required || thresholds.value.length > 0
+  default:
+    return false
   }
 })
 
@@ -175,6 +178,7 @@ const handleCreate = async () => {
   try {
     // Create FormData for file upload
     const formData = new FormData()
+
     formData.append('name', templateForm.value.name)
     formData.append('description', templateForm.value.description)
     formData.append('workflow_type', templateForm.value.workflow_type)
@@ -193,16 +197,17 @@ const handleCreate = async () => {
     // Add field mappings (saveFields)
     if (fieldMappings.value.length > 0) {
       const fieldsPayload = fieldMappings.value.map(f => ({
-          type: f.type.toLowerCase(), // backend expects lowercase? Checking validation... 'in:signature,initials,date,text'
-          signer_role: f.role_name,
-          page_number: f.page_number,
-          x_position: Number(f.x),
-          y_position: Number(f.y),
-          width: Number(f.width),
-          height: Number(f.height),
-          required: f.required,
-          label: f.type // Default label
+        type: f.type.toLowerCase(), // backend expects lowercase? Checking validation... 'in:signature,initials,date,text'
+        signer_role: f.role_name,
+        page_number: f.page_number,
+        x_position: Number(f.x),
+        y_position: Number(f.y),
+        width: Number(f.width),
+        height: Number(f.height),
+        required: f.required,
+        label: f.type, // Default label
       }))
+
       await templateStore.saveFields(template.id, fieldsPayload)
     }
 
@@ -237,52 +242,52 @@ const handleCreate = async () => {
     </div>
 
     <!-- Stepper -->
-    <v-stepper
+    <VStepper
       v-model="currentStep"
       alt-labels
     >
-      <v-stepper-header>
-        <v-stepper-item
+      <VStepperHeader>
+        <VStepperItem
           :value="1"
           title="Basic Info"
           icon="mdi-file-document"
         />
-        <v-divider />
+        <VDivider />
         
-        <v-stepper-item
+        <VStepperItem
           :value="2"
           title="Roles"
           icon="mdi-account-group"
         />
-        <v-divider />
+        <VDivider />
         
-        <v-stepper-item
+        <VStepperItem
           :value="3"
           title="Field Mapping"
           icon="mdi-crosshairs-gps"
         />
-        <v-divider />
+        <VDivider />
         
-        <v-stepper-item
+        <VStepperItem
           :value="4"
           title="Thresholds"
           icon="mdi-currency-usd"
         />
-        <v-divider />
+        <VDivider />
         
-        <v-stepper-item
+        <VStepperItem
           :value="5"
           title="Review"
           icon="mdi-check"
         />
-      </v-stepper-header>
+      </VStepperHeader>
 
-      <v-stepper-window>
+      <VStepperWindow>
         <!-- Step 1: Basic Info -->
-        <v-stepper-window-item :value="1">
-          <v-card>
-            <v-card-text>
-              <v-text-field
+        <VStepperWindowItem :value="1">
+          <VCard>
+            <VCardText>
+              <VTextField
                 v-model="templateForm.name"
                 label="Template Name"
                 placeholder="e.g., Standard Purchase Order"
@@ -290,7 +295,7 @@ const handleCreate = async () => {
                 :rules="[v => !!v || 'Name is required']"
               />
 
-              <v-textarea
+              <VTextarea
                 v-model="templateForm.description"
                 label="Description"
                 placeholder="Describe when this template should be used..."
@@ -300,7 +305,7 @@ const handleCreate = async () => {
               />
 
               <!-- Workflow Type Selection -->
-              <v-select
+              <VSelect
                 v-model="templateForm.workflow_type"
                 :items="workflowTypes"
                 item-title="title"
@@ -310,7 +315,7 @@ const handleCreate = async () => {
                 class="mt-4"
               />
 
-              <v-select
+              <VSelect
                 v-model="templateForm.required_signature_level"
                 :items="['SIMPLE', 'ADVANCED', 'QUALIFIED']"
                 label="Required Signature Level"
@@ -320,7 +325,7 @@ const handleCreate = async () => {
                 class="mt-4"
               />
 
-              <v-file-input
+              <VFileInput
                 :model-value="templateForm.file ? [templateForm.file] : []"
                 label="Upload PDF Template"
                 accept="application/pdf"
@@ -332,20 +337,20 @@ const handleCreate = async () => {
                 @change="handleFileSelect"
               />
 
-              <v-checkbox
+              <VCheckbox
                 v-model="templateForm.amount_required"
                 label="This template requires financial amount"
                 hint="Enable financial threshold rules"
                 persistent-hint
               />
-            </v-card-text>
-          </v-card>
-        </v-stepper-window-item>
+            </VCardText>
+          </VCard>
+        </VStepperWindowItem>
 
         <!-- Step 2: Roles -->
-        <v-stepper-window-item :value="2">
-          <v-card>
-            <v-card-text>
+        <VStepperWindowItem :value="2">
+          <VCard>
+            <VCardText>
               <div class="d-flex justify-space-between align-center mb-4">
                 <div>
                   <div class="text-h6">
@@ -355,15 +360,15 @@ const handleCreate = async () => {
                     Specify who needs to sign this document
                   </div>
                 </div>
-                <v-btn
+                <VBtn
                   prepend-icon="mdi-plus"
                   @click="addRole"
                 >
                   Add Role
-                </v-btn>
+                </VBtn>
               </div>
 
-              <v-table v-if="roles.length > 0">
+              <VTable v-if="roles.length > 0">
                 <thead>
                   <tr>
                     <th>Order</th>
@@ -374,10 +379,13 @@ const handleCreate = async () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(role, index) in roles" :key="index">
+                  <tr
+                    v-for="(role, index) in roles"
+                    :key="index"
+                  >
                     <td>{{ role.signing_order }}</td>
                     <td>
-                      <v-select
+                      <VSelect
                         v-model="role.role"
                         :items="availableRoles"
                         variant="outlined"
@@ -386,7 +394,7 @@ const handleCreate = async () => {
                       />
                     </td>
                     <td>
-                      <v-select
+                      <VSelect
                         v-model="role.action"
                         :items="['SIGN', 'APPROVE', 'ACKNOWLEDGE']"
                         variant="outlined"
@@ -395,13 +403,13 @@ const handleCreate = async () => {
                       />
                     </td>
                     <td>
-                      <v-checkbox
+                      <VCheckbox
                         v-model="role.required"
                         hide-details
                       />
                     </td>
                     <td>
-                      <v-btn
+                      <VBtn
                         icon="mdi-delete"
                         size="small"
                         variant="text"
@@ -411,29 +419,37 @@ const handleCreate = async () => {
                     </td>
                   </tr>
                 </tbody>
-              </v-table>
+              </VTable>
 
-              <v-empty-state
+              <VEmptyState
                 v-else
                 icon="mdi-account-group-outline"
                 title="No roles defined"
                 text="Add at least one signing role"
               />
-            </v-card-text>
-          </v-card>
-        </v-stepper-window-item>
+            </VCardText>
+          </VCard>
+        </VStepperWindowItem>
 
         <!-- Step 3: Field Mapping -->
-        <v-stepper-window-item :value="3">
-          <v-card>
-            <v-card-text>
-              <v-alert type="info" variant="tonal" class="mb-4">
+        <VStepperWindowItem :value="3">
+          <VCard>
+            <VCardText>
+              <VAlert
+                type="info"
+                variant="tonal"
+                class="mb-4"
+              >
                 Field mapping allows you to specify exact signature placement coordinates.
                 This step is optional and can be configured later.
-              </v-alert>
+              </VAlert>
               
               <div class="text-center py-8">
-                <v-icon icon="mdi-map-marker" size="64" color="grey" />
+                <VIcon
+                  icon="mdi-map-marker"
+                  size="64"
+                  color="grey"
+                />
                 <div class="mt-4">
                   Field mapping will be implemented using PDF viewer with drag-and-drop
                 </div>
@@ -441,14 +457,14 @@ const handleCreate = async () => {
                   Skip for now and configure later in template settings
                 </div>
               </div>
-            </v-card-text>
-          </v-card>
-        </v-stepper-window-item>
+            </VCardText>
+          </VCard>
+        </VStepperWindowItem>
 
         <!-- Step 4: Thresholds -->
-        <v-stepper-window-item :value="4">
-          <v-card>
-            <v-card-text>
+        <VStepperWindowItem :value="4">
+          <VCard>
+            <VCardText>
               <template v-if="templateForm.amount_required">
                 <div class="d-flex justify-space-between align-center mb-4">
                   <div>
@@ -459,15 +475,15 @@ const handleCreate = async () => {
                       Define approval requirements based on amount
                     </div>
                   </div>
-                  <v-btn
+                  <VBtn
                     prepend-icon="mdi-plus"
                     @click="addThreshold"
                   >
                     Add Threshold
-                  </v-btn>
+                  </VBtn>
                 </div>
 
-                <v-table v-if="thresholds.length > 0">
+                <VTable v-if="thresholds.length > 0">
                   <thead>
                     <tr>
                       <th>Min Amount</th>
@@ -477,9 +493,12 @@ const handleCreate = async () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(threshold, index) in thresholds" :key="index">
+                    <tr
+                      v-for="(threshold, index) in thresholds"
+                      :key="index"
+                    >
                       <td>
-                        <v-text-field
+                        <VTextField
                           v-model.number="threshold.min_amount"
                           type="number"
                           prefix="$"
@@ -489,7 +508,7 @@ const handleCreate = async () => {
                         />
                       </td>
                       <td>
-                        <v-text-field
+                        <VTextField
                           v-model.number="threshold.max_amount"
                           type="number"
                           prefix="$"
@@ -500,7 +519,7 @@ const handleCreate = async () => {
                         />
                       </td>
                       <td>
-                        <v-select
+                        <VSelect
                           v-model="threshold.required_roles"
                           :items="roles.map(r => r.role)"
                           multiple
@@ -511,7 +530,7 @@ const handleCreate = async () => {
                         />
                       </td>
                       <td>
-                        <v-btn
+                        <VBtn
                           icon="mdi-delete"
                           size="small"
                           variant="text"
@@ -521,9 +540,9 @@ const handleCreate = async () => {
                       </td>
                     </tr>
                   </tbody>
-                </v-table>
+                </VTable>
 
-                <v-empty-state
+                <VEmptyState
                   v-else
                   icon="mdi-currency-usd"
                   title="No thresholds defined"
@@ -531,89 +550,99 @@ const handleCreate = async () => {
                 />
               </template>
 
-              <v-alert v-else type="info" variant="tonal">
+              <VAlert
+                v-else
+                type="info"
+                variant="tonal"
+              >
                 Financial thresholds are disabled. 
                 Go back to Step 1 to enable amount-based rules.
-              </v-alert>
-            </v-card-text>
-          </v-card>
-        </v-stepper-window-item>
+              </VAlert>
+            </VCardText>
+          </VCard>
+        </VStepperWindowItem>
 
         <!-- Step 5: Review -->
-        <v-stepper-window-item :value="5">
-          <v-card>
-            <v-card-text>
+        <VStepperWindowItem :value="5">
+          <VCard>
+            <VCardText>
               <div class="text-h6 mb-4">
                 Review Template Configuration
               </div>
 
-              <v-list>
-                <v-list-subheader>Basic Information</v-list-subheader>
-                <v-list-item>
-                  <v-list-item-title>Name</v-list-item-title>
-                  <v-list-item-subtitle>{{ templateForm.name }}</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>Workflow Type</v-list-item-title>
-                  <v-list-item-subtitle>{{ templateForm.workflow_type }}</v-list-item-subtitle>
-                </v-list-item>
+              <VList>
+                <VListSubheader>Basic Information</VListSubheader>
+                <VListItem>
+                  <VListItemTitle>Name</VListItemTitle>
+                  <VListItemSubtitle>{{ templateForm.name }}</VListItemSubtitle>
+                </VListItem>
+                <VListItem>
+                  <VListItemTitle>Workflow Type</VListItemTitle>
+                  <VListItemSubtitle>{{ templateForm.workflow_type }}</VListItemSubtitle>
+                </VListItem>
 
-                <v-divider class="my-4" />
+                <VDivider class="my-4" />
 
-                <v-list-subheader>Roles ({{ roles.length }})</v-list-subheader>
-                <v-list-item v-for="role in roles" :key="role.signing_order">
-                  <v-list-item-title>
+                <VListSubheader>Roles ({{ roles.length }})</VListSubheader>
+                <VListItem
+                  v-for="role in roles"
+                  :key="role.signing_order"
+                >
+                  <VListItemTitle>
                     {{ role.signing_order }}. {{ role.role }} - {{ role.action }}
-                  </v-list-item-title>
-                </v-list-item>
+                  </VListItemTitle>
+                </VListItem>
 
                 <template v-if="templateForm.amount_required && thresholds.length > 0">
-                  <v-divider class="my-4" />
-                  <v-list-subheader>Financial Thresholds ({{ thresholds.length }})</v-list-subheader>
-                  <v-list-item v-for="(threshold, index) in thresholds" :key="index">
-                    <v-list-item-title>
+                  <VDivider class="my-4" />
+                  <VListSubheader>Financial Thresholds ({{ thresholds.length }})</VListSubheader>
+                  <VListItem
+                    v-for="(threshold, index) in thresholds"
+                    :key="index"
+                  >
+                    <VListItemTitle>
                       ${{ threshold.min_amount }} - ${{ threshold.max_amount || '∞' }}
-                    </v-list-item-title>
-                    <v-list-item-subtitle>
+                    </VListItemTitle>
+                    <VListItemSubtitle>
                       Requires: {{ threshold.required_roles.join(', ') }}
-                    </v-list-item-subtitle>
-                  </v-list-item>
+                    </VListItemSubtitle>
+                  </VListItem>
                 </template>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-stepper-window-item>
-      </v-stepper-window>
+              </VList>
+            </VCardText>
+          </VCard>
+        </VStepperWindowItem>
+      </VStepperWindow>
 
       <!-- Navigation -->
-      <v-card-actions class="mt-4">
-        <v-btn
+      <VCardActions class="mt-4">
+        <VBtn
           v-if="currentStep > 1"
           @click="previousStep"
         >
           Back
-        </v-btn>
+        </VBtn>
 
-        <v-spacer />
+        <VSpacer />
 
-        <v-btn
+        <VBtn
           v-if="currentStep < 5"
           color="primary"
           :disabled="!canProceed"
           @click="nextStep"
         >
           Next
-        </v-btn>
+        </VBtn>
 
-        <v-btn
+        <VBtn
           v-else
           color="primary"
           :loading="loading"
           @click="handleCreate"
         >
           Create Template
-        </v-btn>
-      </v-card-actions>
-    </v-stepper>
+        </VBtn>
+      </VCardActions>
+    </VStepper>
   </div>
 </template>

@@ -8,16 +8,16 @@ import { computed, ref } from 'vue'
 const props = defineProps({
   modelValue: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   selectedSigner: {
     type: Object,
-    default: null
+    default: null,
   },
   disabled: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:modelValue', 'update:selectedSigner', 'signerSelected'])
@@ -36,7 +36,7 @@ const signerColors = [
 
 const signers = computed({
   get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
+  set: val => emit('update:modelValue', val),
 })
 
 // New signer form
@@ -56,7 +56,7 @@ function addSigner() {
     name: newSignerName.value,
     email: newSignerEmail.value,
     colorIndex: signers.value.length,
-    color: getSignerColor(signers.value.length)
+    color: getSignerColor(signers.value.length),
   }
   
   signers.value = [...signers.value, newSigner]
@@ -73,6 +73,7 @@ function addSigner() {
 function removeSigner(index) {
   const updated = [...signers.value]
   const removed = updated.splice(index, 1)[0]
+
   signers.value = updated
   
   // If removed signer was selected, select first remaining
@@ -99,9 +100,13 @@ function isSelected(signer) {
   <div class="signer-panel">
     <div class="text-overline mb-3 d-flex align-center justify-between">
       <span>Signers</span>
-      <v-chip size="x-small" color="primary" variant="tonal">
+      <VChip
+        size="x-small"
+        color="primary"
+        variant="tonal"
+      >
         {{ signers.length }}
-      </v-chip>
+      </VChip>
     </div>
 
     <!-- Signers List -->
@@ -118,7 +123,7 @@ function isSelected(signer) {
         @click="selectSigner(signer)"
       >
         <div class="d-flex align-center">
-          <v-avatar 
+          <VAvatar 
             size="32" 
             :color="signer.color.border"
             class="mr-3"
@@ -126,7 +131,7 @@ function isSelected(signer) {
             <span class="text-white text-caption font-weight-bold">
               {{ signer.name.charAt(0).toUpperCase() }}
             </span>
-          </v-avatar>
+          </VAvatar>
           
           <div class="flex-grow-1 overflow-hidden">
             <div class="text-body-2 font-weight-medium text-truncate">
@@ -137,7 +142,7 @@ function isSelected(signer) {
             </div>
           </div>
 
-          <v-btn
+          <VBtn
             v-if="!disabled"
             icon="mdi-close"
             size="x-small"
@@ -148,16 +153,28 @@ function isSelected(signer) {
         </div>
       </div>
 
-      <div v-if="signers.length === 0" class="text-center py-6 text-medium-emphasis">
-        <v-icon icon="mdi-account-plus" size="48" class="mb-2" />
-        <div class="text-body-2">No signers added yet</div>
+      <div
+        v-if="signers.length === 0"
+        class="text-center py-6 text-medium-emphasis"
+      >
+        <VIcon
+          icon="mdi-account-plus"
+          size="48"
+          class="mb-2"
+        />
+        <div class="text-body-2">
+          No signers added yet
+        </div>
       </div>
     </div>
 
     <!-- Add Signer Form -->
-    <v-expand-transition>
-      <div v-if="showAddForm && !disabled" class="add-signer-form pa-3 rounded-lg bg-surface-variant mb-3">
-        <v-text-field
+    <VExpandTransition>
+      <div
+        v-if="showAddForm && !disabled"
+        class="add-signer-form pa-3 rounded-lg bg-surface-variant mb-3"
+      >
+        <VTextField
           v-model="newSignerName"
           label="Name"
           variant="outlined"
@@ -166,7 +183,7 @@ function isSelected(signer) {
           class="mb-2"
           @keyup.enter="$refs.emailInput?.focus()"
         />
-        <v-text-field
+        <VTextField
           ref="emailInput"
           v-model="newSignerEmail"
           label="Email"
@@ -178,27 +195,27 @@ function isSelected(signer) {
           @keyup.enter="addSigner"
         />
         <div class="d-flex gap-2">
-          <v-btn
+          <VBtn
             size="small"
             variant="text"
             @click="showAddForm = false"
           >
             Cancel
-          </v-btn>
-          <v-btn
+          </VBtn>
+          <VBtn
             size="small"
             color="primary"
             :disabled="!newSignerName || !newSignerEmail"
             @click="addSigner"
           >
             Add
-          </v-btn>
+          </VBtn>
         </div>
       </div>
-    </v-expand-transition>
+    </VExpandTransition>
 
     <!-- Add Signer Button -->
-    <v-btn
+    <VBtn
       v-if="!showAddForm && !disabled"
       block
       variant="tonal"
@@ -207,11 +224,18 @@ function isSelected(signer) {
       @click="showAddForm = true"
     >
       Add Signer
-    </v-btn>
+    </VBtn>
 
     <!-- Help Text -->
-    <div v-if="signers.length > 0" class="text-caption text-medium-emphasis mt-4 text-center">
-      <v-icon icon="mdi-information" size="14" class="mr-1" />
+    <div
+      v-if="signers.length > 0"
+      class="text-caption text-medium-emphasis mt-4 text-center"
+    >
+      <VIcon
+        icon="mdi-information"
+        size="14"
+        class="mr-1"
+      />
       Select a signer, then draw on the PDF
     </div>
   </div>

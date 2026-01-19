@@ -2,6 +2,7 @@
 import { $api } from '@/utils/api'
 
 const loading = ref(false)
+
 const stats = ref({
   highValuePending: 0,
   bottlenecks: [],
@@ -33,9 +34,11 @@ const loadDashboardData = async () => {
     
     // Identify bottlenecks (documents stuck > 48 hours)
     const now = new Date()
+
     bottleneckDocuments.value = documents.filter(doc => {
       const updated = new Date(doc.updated_at)
       const hoursDiff = (now - updated) / 3600000
+      
       return hoursDiff > 48
     })
     
@@ -63,25 +66,34 @@ const getBottleneckDuration = doc => {
   const days = Math.floor(hours / 24)
   
   if (days > 0) return `${days}d`
+  
   return `${hours}h`
 }
 </script>
 
 <template>
-  <v-container fluid>
+  <VContainer fluid>
     <!-- Executive Summary Cards -->
-    <v-row>
-      <v-col cols="12" md="4">
-        <v-card color="warning-lighten-4">
-          <v-card-text>
+    <VRow>
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <VCard color="warning-lighten-4">
+          <VCardText>
             <div class="d-flex align-center">
-              <v-avatar color="warning" size="56">
-                <v-icon size="32">
+              <VAvatar
+                color="warning"
+                size="56"
+              >
+                <VIcon size="32">
                   mdi-currency-usd
-                </v-icon>
-              </v-avatar>
+                </VIcon>
+              </VAvatar>
               <div class="ml-4">
-                <div class="text-overline">High-Value Pending</div>
+                <div class="text-overline">
+                  High-Value Pending
+                </div>
                 <div class="text-h3 font-weight-bold">
                   {{ stats.highValuePending }}
                 </div>
@@ -90,21 +102,29 @@ const getBottleneckDuration = doc => {
                 </div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" md="4">
-        <v-card color="error-lighten-4">
-          <v-card-text>
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <VCard color="error-lighten-4">
+          <VCardText>
             <div class="d-flex align-center">
-              <v-avatar color="error" size="56">
-                <v-icon size="32">
+              <VAvatar
+                color="error"
+                size="56"
+              >
+                <VIcon size="32">
                   mdi-alert
-                </v-icon>
-              </v-avatar>
+                </VIcon>
+              </VAvatar>
               <div class="ml-4">
-                <div class="text-overline">Workflow Bottlenecks</div>
+                <div class="text-overline">
+                  Workflow Bottlenecks
+                </div>
                 <div class="text-h3 font-weight-bold">
                   {{ bottleneckDocuments.length }}
                 </div>
@@ -113,21 +133,29 @@ const getBottleneckDuration = doc => {
                 </div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" md="4">
-        <v-card color="info-lighten-4">
-          <v-card-text>
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <VCard color="info-lighten-4">
+          <VCardText>
             <div class="d-flex align-center">
-              <v-avatar color="info" size="56">
-                <v-icon size="32">
+              <VAvatar
+                color="info"
+                size="56"
+              >
+                <VIcon size="32">
                   mdi-shield-check
-                </v-icon>
-              </v-avatar>
+                </VIcon>
+              </VAvatar>
               <div class="ml-4">
-                <div class="text-overline">Compliance Alerts</div>
+                <div class="text-overline">
+                  Compliance Alerts
+                </div>
                 <div class="text-h3 font-weight-bold">
                   0
                 </div>
@@ -136,21 +164,21 @@ const getBottleneckDuration = doc => {
                 </div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </VCardText>
+        </VCard>
+      </VCol>
+    </VRow>
 
     <!-- High-Value Documents Pending Approval -->
-    <v-row class="mt-4">
-      <v-col cols="12">
-        <dashboard-widget
+    <VRow class="mt-4">
+      <VCol cols="12">
+        <DashboardWidget
           title="High-Value Documents Pending Approval"
           icon="mdi-currency-usd"
           color="warning"
           :loading="loading"
         >
-          <v-table v-if="highValueDocuments.length > 0">
+          <VTable v-if="highValueDocuments.length > 0">
             <thead>
               <tr>
                 <th>Document</th>
@@ -178,15 +206,21 @@ const getBottleneckDuration = doc => {
                   <strong>{{ formatCurrency(doc.amount) }}</strong>
                 </td>
                 <td>
-                  <v-chip size="small" color="info">
+                  <VChip
+                    size="small"
+                    color="info"
+                  >
                     {{ doc.status }}
-                  </v-chip>
+                  </VChip>
                 </td>
                 <td>
                   <span v-if="doc.workflow">
                     {{ doc.workflow.currentStep?.role || 'N/A' }}
                   </span>
-                  <span v-else class="text-medium-emphasis">
+                  <span
+                    v-else
+                    class="text-medium-emphasis"
+                  >
                     No workflow
                   </span>
                 </td>
@@ -194,7 +228,7 @@ const getBottleneckDuration = doc => {
                   {{ getBottleneckDuration(doc) }}
                 </td>
                 <td>
-                  <v-btn
+                  <VBtn
                     size="small"
                     variant="text"
                     icon="mdi-eye"
@@ -203,102 +237,118 @@ const getBottleneckDuration = doc => {
                 </td>
               </tr>
             </tbody>
-          </v-table>
+          </VTable>
 
-          <v-empty-state
+          <VEmptyState
             v-else
             icon="mdi-check-circle"
             title="No high-value documents pending"
             text="All high-value documents have been processed"
           />
-        </dashboard-widget>
-      </v-col>
-    </v-row>
+        </DashboardWidget>
+      </VCol>
+    </VRow>
 
     <!-- Workflow Bottlenecks -->
-    <v-row v-if="bottleneckDocuments.length > 0" class="mt-2">
-      <v-col cols="12">
-        <dashboard-widget
+    <VRow
+      v-if="bottleneckDocuments.length > 0"
+      class="mt-2"
+    >
+      <VCol cols="12">
+        <DashboardWidget
           title="Workflow Bottlenecks"
           icon="mdi-alert"
           color="error"
         >
-          <v-alert
+          <VAlert
             type="error"
             variant="tonal"
             class="mb-4"
           >
             <strong>{{ bottleneckDocuments.length }}</strong> document(s) are experiencing delays
-          </v-alert>
+          </VAlert>
 
-          <v-list>
-            <v-list-item
+          <VList>
+            <VListItem
               v-for="doc in bottleneckDocuments"
               :key="doc.id"
               :to="`/documents/${doc.id}`"
             >
               <template #prepend>
-                <v-icon color="error">
+                <VIcon color="error">
                   mdi-clock-alert
-                </v-icon>
+                </VIcon>
               </template>
 
-              <v-list-item-title>{{ doc.title }}</v-list-item-title>
-              <v-list-item-subtitle>
+              <VListItemTitle>{{ doc.title }}</VListItemTitle>
+              <VListItemSubtitle>
                 Stuck at step: <strong>{{ doc.workflow?.currentStep?.role || 'Unknown' }}</strong>
                 • {{ getBottleneckDuration(doc) }} without progress
-              </v-list-item-subtitle>
+              </VListItemSubtitle>
 
               <template #append>
-                <v-chip size="small" color="error">
+                <VChip
+                  size="small"
+                  color="error"
+                >
                   Delayed {{ getBottleneckDuration(doc) }}
-                </v-chip>
+                </VChip>
               </template>
-            </v-list-item>
-          </v-list>
-        </dashboard-widget>
-      </v-col>
-    </v-row>
+            </VListItem>
+          </VList>
+        </DashboardWidget>
+      </VCol>
+    </VRow>
 
     <!-- Average Time Per Step -->
-    <v-row class="mt-2">
-      <v-col cols="12" md="6">
-        <dashboard-widget
+    <VRow class="mt-2">
+      <VCol
+        cols="12"
+        md="6"
+      >
+        <DashboardWidget
           title="Average Time Per Step"
           icon="mdi-timer"
           color="primary"
         >
-          <v-list>
-            <v-list-item>
-              <v-list-item-title>Finance Review</v-list-item-title>
+          <VList>
+            <VListItem>
+              <VListItemTitle>Finance Review</VListItemTitle>
               <template #append>
                 <span class="text-h6">2.5h</span>
               </template>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>SG Approval</v-list-item-title>
+            </VListItem>
+            <VListItem>
+              <VListItemTitle>SG Approval</VListItemTitle>
               <template #append>
                 <span class="text-h6">4.2h</span>
               </template>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Legal Review</v-list-item-title>
+            </VListItem>
+            <VListItem>
+              <VListItemTitle>Legal Review</VListItemTitle>
               <template #append>
                 <span class="text-h6">6.8h</span>
               </template>
-            </v-list-item>
-          </v-list>
-        </dashboard-widget>
-      </v-col>
+            </VListItem>
+          </VList>
+        </DashboardWidget>
+      </VCol>
 
-      <v-col cols="12" md="6">
-        <dashboard-widget
+      <VCol
+        cols="12"
+        md="6"
+      >
+        <DashboardWidget
           title="Document Trends"
           icon="mdi-chart-line"
           color="success"
         >
           <div class="text-center py-8">
-            <v-icon icon="mdi-chart-line" size="64" color="success" />
+            <VIcon
+              icon="mdi-chart-line"
+              size="64"
+              color="success"
+            />
             <div class="mt-4 text-h6">
               15% increase in completion rate
             </div>
@@ -306,8 +356,8 @@ const getBottleneckDuration = doc => {
               vs. last month
             </div>
           </div>
-        </dashboard-widget>
-      </v-col>
-    </v-row>
-  </v-container>
+        </DashboardWidget>
+      </VCol>
+    </VRow>
+  </VContainer>
 </template>

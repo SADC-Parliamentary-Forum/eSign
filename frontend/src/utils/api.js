@@ -7,6 +7,7 @@ export const $api = ofetch.create({
   },
   async onRequest({ options }) {
     options.headers = new Headers(options.headers)
+
     const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
     if (accessToken)
       options.headers.set('Authorization', `Bearer ${accessToken}`)
@@ -62,23 +63,31 @@ export const workflowAPI = {
 export const aiAPI = {
   suggestTemplate: file => {
     const formData = new FormData()
+
     formData.append('file', file)
+    
     return $api('/ai/suggest-template', { method: 'POST', body: formData })
   },
   analyzeDocument: file => {
     const formData = new FormData()
+
     formData.append('file', file)
+    
     return $api('/ai/analyze-document', { method: 'POST', body: formData })
   },
   validateTemplate: (templateId, file) => {
     const formData = new FormData()
+
     formData.append('template_id', templateId)
     formData.append('file', file)
+    
     return $api('/ai/validate-template', { method: 'POST', body: formData })
   },
   getBestMatch: file => {
     const formData = new FormData()
+
     formData.append('file', file)
+    
     return $api('/ai/best-match', { method: 'POST', body: formData })
   },
 }

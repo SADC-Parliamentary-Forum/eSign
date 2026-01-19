@@ -53,6 +53,7 @@ class DocumentFieldController extends Controller
             'fields.*.document_signer_id' => 'nullable|exists:document_signers,id',
             'fields.*.required' => 'boolean',
             'fields.*.label' => 'nullable|string',
+            'fields.*.group_id' => 'nullable|string',
         ]);
 
         try {

@@ -88,6 +88,7 @@ async function loadDocuments() {
     params.append('limit', itemsPerPage.value)
     
     const response = await $api(`/documents?${params.toString()}`)
+
     documents.value = response?.data || response || []
     totalDocuments.value = response?.total || documents.value.length
   } catch (error) {
@@ -105,13 +106,13 @@ const confirmDialog = ref({
   message: '',
   confirmText: 'Delete',
   confirmColor: 'error',
-  onConfirm: null
+  onConfirm: null,
 })
 
 const snackbar = ref({
   show: false,
   text: '',
-  color: 'success'
+  color: 'success',
 })
 
 function showSnackbar(text, color = 'success') {
@@ -125,7 +126,7 @@ function deleteDocument(id) {
     message: 'Are you sure you want to delete this document? This action cannot be undone.',
     confirmText: 'Delete',
     confirmColor: 'error',
-    onConfirm: () => performDeleteDocument(id)
+    onConfirm: () => performDeleteDocument(id),
   }
 }
 
@@ -134,6 +135,7 @@ async function performDeleteDocument(id) {
   deleteLoading.value = id
   try {
     await $api(`/documents/${id}`, { method: 'DELETE' })
+
     // Remove from local list to avoid full reload flicker
     documents.value = documents.value.filter(d => d.id !== id)
     totalDocuments.value--
@@ -156,7 +158,7 @@ function bulkDelete() {
     message: `Are you sure you want to delete ${selected.value.length} document(s)?`,
     confirmText: 'Delete All',
     confirmColor: 'error',
-    onConfirm: () => performBulkDelete()
+    onConfirm: () => performBulkDelete(),
   }
 }
 
@@ -166,7 +168,7 @@ async function performBulkDelete() {
   try {
     await $api('/documents/bulk-delete', {
       method: 'POST',
-      body: { ids: selected.value }
+      body: { ids: selected.value },
     })
     
     // Reload to refresh state
@@ -185,10 +187,11 @@ async function downloadEvidence(doc) {
   downloadLoading.value = doc.id
   try {
     const token = localStorage.getItem('token')
+
     const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/${doc.id}/evidence`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     })
     
     if (!response.ok) throw new Error('Download failed')
@@ -196,6 +199,7 @@ async function downloadEvidence(doc) {
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
+
     a.href = url
     a.download = `Evidence-${doc.id}.zip` // Default filename, browser might override from Content-Disposition
     document.body.appendChild(a)
@@ -223,34 +227,35 @@ const pageCount = computed(() => Math.ceil(totalDocuments.value / itemsPerPage.v
 
 function getStatusColor(status) {
   switch (status) {
-    case 'COMPLETED': return 'success'
-    case 'IN_PROGRESS': return 'info'
-    case 'DRAFT': return 'grey'
-    case 'DECLINED': return 'error'
-    case 'EXPIRED': return 'error'
-    default: return 'grey'
+  case 'COMPLETED': return 'success'
+  case 'IN_PROGRESS': return 'info'
+  case 'DRAFT': return 'grey'
+  case 'DECLINED': return 'error'
+  case 'EXPIRED': return 'error'
+  default: return 'grey'
   }
 }
 
 function getStatusIcon(status) {
   switch (status) {
-    case 'COMPLETED': return 'ri-checkbox-circle-line'
-    case 'IN_PROGRESS': return 'ri-time-line'
-    case 'DRAFT': return 'ri-pencil-line'
-    case 'DECLINED': return 'ri-close-circle-line'
-    case 'EXPIRED': return 'ri-error-warning-line'
-    default: return 'ri-file-line'
+  case 'COMPLETED': return 'ri-checkbox-circle-line'
+  case 'IN_PROGRESS': return 'ri-time-line'
+  case 'DRAFT': return 'ri-pencil-line'
+  case 'DECLINED': return 'ri-close-circle-line'
+  case 'EXPIRED': return 'ri-error-warning-line'
+  default: return 'ri-file-line'
   }
 }
 
 function formatDate(dateString) {
   if (!dateString) return ''
+  
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   })
 }
 
@@ -264,31 +269,41 @@ function formatRelativeDate(dateString) {
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
+  
   return formatDate(dateString)
 }
 </script>
 
 <template>
-  <v-container class="py-6">
+  <VContainer class="py-6">
     <!-- Header -->
     <div class="d-flex align-center justify-space-between mb-6">
       <div>
-        <h1 class="text-h5 font-weight-bold">Documents</h1>
+        <h1 class="text-h5 font-weight-bold">
+          Documents
+        </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
           Manage and track all your documents
         </p>
       </div>
-      <v-btn color="primary" to="/upload" prepend-icon="ri-add-line">
+      <VBtn
+        color="primary"
+        to="/upload"
+        prepend-icon="ri-add-line"
+      >
         New Document
-      </v-btn>
+      </VBtn>
     </div>
 
     <!-- Filters -->
-    <v-card class="mb-6">
-      <v-card-text>
-        <v-row align="center">
-          <v-col cols="12" md="4">
-            <v-text-field
+    <VCard class="mb-6">
+      <VCardText>
+        <VRow align="center">
+          <VCol
+            cols="12"
+            md="4"
+          >
+            <VTextField
               v-model="searchQuery"
               prepend-inner-icon="ri-search-line"
               placeholder="Search documents..."
@@ -297,9 +312,12 @@ function formatRelativeDate(dateString) {
               hide-details
               clearable
             />
-          </v-col>
-          <v-col cols="6" md="3">
-            <v-select
+          </VCol>
+          <VCol
+            cols="6"
+            md="3"
+          >
+            <VSelect
               v-model="statusFilter"
               :items="statuses"
               label="Status"
@@ -307,9 +325,12 @@ function formatRelativeDate(dateString) {
               density="compact"
               hide-details
             />
-          </v-col>
-          <v-col cols="6" md="3">
-            <v-select
+          </VCol>
+          <VCol
+            cols="6"
+            md="3"
+          >
+            <VSelect
               v-model="sortBy"
               :items="sortOptions"
               label="Sort By"
@@ -317,31 +338,47 @@ function formatRelativeDate(dateString) {
               density="compact"
               hide-details
             />
-          </v-col>
-          <v-col cols="12" md="2">
-            <v-btn-toggle v-model="sortDesc" mandatory density="compact" class="w-100">
-              <v-btn :value="true" size="small" class="flex-grow-1">
-                <v-icon icon="ri-sort-desc" />
-              </v-btn>
-              <v-btn :value="false" size="small" class="flex-grow-1">
-                <v-icon icon="ri-sort-asc" />
-              </v-btn>
-            </v-btn-toggle>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+          </VCol>
+          <VCol
+            cols="12"
+            md="2"
+          >
+            <VBtnToggle
+              v-model="sortDesc"
+              mandatory
+              density="compact"
+              class="w-100"
+            >
+              <VBtn
+                :value="true"
+                size="small"
+                class="flex-grow-1"
+              >
+                <VIcon icon="ri-sort-desc" />
+              </VBtn>
+              <VBtn
+                :value="false"
+                size="small"
+                class="flex-grow-1"
+              >
+                <VIcon icon="ri-sort-asc" />
+              </VBtn>
+            </VBtnToggle>
+          </VCol>
+        </VRow>
+      </VCardText>
+    </VCard>
 
     <!-- Results Count -->
     <div class="d-flex align-center justify-space-between mb-4">
       <div class="d-flex align-center">
-        <v-checkbox
+        <VCheckbox
           :model-value="selected.length > 0 && selected.length === documents.length"
           :indeterminate="selected.length > 0 && selected.length < documents.length"
-          @update:model-value="toggleSelectAll"
           hide-details
           density="compact"
           class="mr-2 ma-0"
+          @update:model-value="toggleSelectAll"
         />
         <div class="text-body-2 text-medium-emphasis">
           <span v-if="selected.length > 0">{{ selected.length }} selected</span>
@@ -350,7 +387,7 @@ function formatRelativeDate(dateString) {
         </div>
       </div>
       
-      <v-btn
+      <VBtn
         v-if="selected.length > 0"
         color="error"
         prepend-icon="ri-delete-bin-line"
@@ -360,20 +397,32 @@ function formatRelativeDate(dateString) {
         @click="bulkDelete"
       >
         Delete Selected
-      </v-btn>
+      </VBtn>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="text-center py-12">
-      <v-progress-circular indeterminate color="primary" size="48" />
-      <div class="text-body-2 text-medium-emphasis mt-4">Loading documents...</div>
+    <div
+      v-if="loading"
+      class="text-center py-12"
+    >
+      <VProgressCircular
+        indeterminate
+        color="primary"
+        size="48"
+      />
+      <div class="text-body-2 text-medium-emphasis mt-4">
+        Loading documents...
+      </div>
     </div>
 
     <!-- Documents List -->
     <template v-else>
-      <v-card v-if="documents.length > 0">
-        <v-list lines="two" select-strategy="classic">
-          <v-list-item
+      <VCard v-if="documents.length > 0">
+        <VList
+          lines="two"
+          select-strategy="classic"
+        >
+          <VListItem
             v-for="doc in documents"
             :key="doc.id"
             :value="doc.id"
@@ -381,37 +430,43 @@ function formatRelativeDate(dateString) {
             @click="router.push(`/documents/${doc.id}`)"
           >
             <template #prepend>
-              <v-checkbox
+              <VCheckbox
                 v-model="selected"
                 :value="doc.id"
                 density="compact"
                 hide-details
-                @click.stop
                 class="mr-4"
+                @click.stop
               />
-              <v-avatar :color="`${getStatusColor(doc.status)}-lighten-4`" size="48">
-                <v-icon :icon="getStatusIcon(doc.status)" :color="getStatusColor(doc.status)" />
-              </v-avatar>
+              <VAvatar
+                :color="`${getStatusColor(doc.status)}-lighten-4`"
+                size="48"
+              >
+                <VIcon
+                  :icon="getStatusIcon(doc.status)"
+                  :color="getStatusColor(doc.status)"
+                />
+              </VAvatar>
             </template>
 
-            <v-list-item-title class="font-weight-medium text-body-1">
+            <VListItemTitle class="font-weight-medium text-body-1">
               {{ doc.title }}
-            </v-list-item-title>
+            </VListItemTitle>
             
-            <v-list-item-subtitle class="mt-1">
-              <v-chip 
+            <VListItemSubtitle class="mt-1">
+              <VChip 
                 :color="getStatusColor(doc.status)" 
                 size="x-small" 
                 variant="tonal"
                 class="mr-2"
               >
                 {{ doc.status?.replace('_', ' ') }}
-              </v-chip>
+              </VChip>
               <span class="text-caption">
                 <span v-if="doc.signers?.length">{{ doc.signers.length }} signer(s) • </span>
                 Updated {{ formatRelativeDate(doc.updated_at) }}
               </span>
-            </v-list-item-subtitle>
+            </VListItemSubtitle>
 
             <template #append>
               <div class="d-flex align-center">
@@ -422,8 +477,11 @@ function formatRelativeDate(dateString) {
                 </div>
 
                 <!-- Actions -->
-                <div class="d-flex" @click.stop>
-                  <v-btn 
+                <div
+                  class="d-flex"
+                  @click.stop
+                >
+                  <VBtn 
                     v-if="doc.status === 'DRAFT'"
                     icon="ri-pencil-line" 
                     variant="text" 
@@ -433,28 +491,28 @@ function formatRelativeDate(dateString) {
                     title="Edit Document"
                   />
 
-                  <v-btn 
+                  <VBtn 
                     v-if="doc.status === 'COMPLETED'"
                     icon="ri-download-line" 
                     variant="text" 
                     size="small" 
                     color="secondary"
                     :loading="downloadLoading === doc.id"
-                    @click="downloadEvidence(doc)"
                     title="Download Signed Document"
+                    @click="downloadEvidence(doc)"
                   />
                   
-                  <v-btn 
+                  <VBtn 
                     icon="ri-delete-bin-line" 
                     variant="text" 
                     size="small" 
                     color="error"
                     :loading="deleteLoading === doc.id"
-                    @click="deleteDocument(doc.id)"
                     title="Delete Document"
+                    @click="deleteDocument(doc.id)"
                   />
                   
-                  <v-btn 
+                  <VBtn 
                     v-if="doc.status !== 'DRAFT'"
                     icon="ri-arrow-right-s-line" 
                     variant="text" 
@@ -464,28 +522,49 @@ function formatRelativeDate(dateString) {
                 </div>
               </div>
             </template>
-          </v-list-item>
-        </v-list>
-      </v-card>
+          </VListItem>
+        </VList>
+      </VCard>
 
       <!-- Empty State -->
-      <v-card v-else class="text-center py-12">
-        <v-icon icon="ri-file-text-line" size="64" color="grey-lighten-1" />
-        <div class="text-h6 mt-4">No documents found</div>
+      <VCard
+        v-else
+        class="text-center py-12"
+      >
+        <VIcon
+          icon="ri-file-text-line"
+          size="64"
+          color="grey-lighten-1"
+        />
+        <div class="text-h6 mt-4">
+          No documents found
+        </div>
         <div class="text-body-2 text-medium-emphasis mb-4">
           {{ searchQuery || statusFilter ? 'Try adjusting your filters' : 'Get started by uploading your first document' }}
         </div>
-        <v-btn v-if="!searchQuery && !statusFilter" color="primary" to="/upload" prepend-icon="ri-upload-cloud-2-line">
+        <VBtn
+          v-if="!searchQuery && !statusFilter"
+          color="primary"
+          to="/upload"
+          prepend-icon="ri-upload-cloud-2-line"
+        >
           Upload Document
-        </v-btn>
-        <v-btn v-else variant="outlined" @click="searchQuery = ''; statusFilter = ''">
+        </VBtn>
+        <VBtn
+          v-else
+          variant="outlined"
+          @click="searchQuery = ''; statusFilter = ''"
+        >
           Clear Filters
-        </v-btn>
-      </v-card>
+        </VBtn>
+      </VCard>
 
       <!-- Pagination -->
-      <div v-if="pageCount > 1" class="d-flex justify-center mt-6">
-        <v-pagination
+      <div
+        v-if="pageCount > 1"
+        class="d-flex justify-center mt-6"
+      >
+        <VPagination
           v-model="page"
           :length="pageCount"
           :total-visible="5"
@@ -495,35 +574,38 @@ function formatRelativeDate(dateString) {
     </template>
     
     <!-- Confirm Dialog -->
-    <v-dialog v-model="confirmDialog.show" max-width="400">
-      <v-card>
-        <v-card-title class="text-h6 pt-4 px-4">
+    <VDialog
+      v-model="confirmDialog.show"
+      max-width="400"
+    >
+      <VCard>
+        <VCardTitle class="text-h6 pt-4 px-4">
           {{ confirmDialog.title }}
-        </v-card-title>
-        <v-card-text class="px-4 py-2">
+        </VCardTitle>
+        <VCardText class="px-4 py-2">
           {{ confirmDialog.message }}
-        </v-card-text>
-        <v-card-actions class="px-4 pb-4">
-          <v-spacer />
-          <v-btn
+        </VCardText>
+        <VCardActions class="px-4 pb-4">
+          <VSpacer />
+          <VBtn
             variant="text"
             @click="confirmDialog.show = false"
           >
             Cancel
-          </v-btn>
-          <v-btn
+          </VBtn>
+          <VBtn
             :color="confirmDialog.confirmColor"
             variant="elevated"
             @click="confirmDialog.onConfirm()"
           >
             {{ confirmDialog.confirmText }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
 
     <!-- Snackbar -->
-    <v-snackbar
+    <VSnackbar
       v-model="snackbar.show"
       :color="snackbar.color"
       timeout="3000"
@@ -531,14 +613,14 @@ function formatRelativeDate(dateString) {
     >
       {{ snackbar.text }}
       <template #actions>
-        <v-btn
+        <VBtn
           variant="text"
           icon="ri-close-line"
           @click="snackbar.show = false"
         />
       </template>
-    </v-snackbar>
-  </v-container>
+    </VSnackbar>
+  </VContainer>
 </template>
 
 <style scoped>

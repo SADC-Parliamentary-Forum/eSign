@@ -29,7 +29,7 @@ class SignatureController extends Controller
         $validated = $request->validate([
             'fields' => 'required|array',
             'fields.*.field_id' => 'required|exists:document_fields,id',
-            'fields.*.value' => 'required', // string or base64
+            'fields.*.value' => 'nullable', // Allow empty string (e.g. unchecking checkbox or clearing text)
         ]);
 
         // Verification Enforcer

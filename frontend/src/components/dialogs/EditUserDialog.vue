@@ -18,6 +18,7 @@ const emit = defineEmits([
 ])
 
 const roles = ref([])
+
 const formData = ref({
   name: '',
   email: '',
@@ -27,15 +28,16 @@ const formData = ref({
 })
 
 const fetchRoles = async () => {
-    try {
-        const res = await $api('/admin/roles')
-        roles.value = res.data || res
-    } catch (e) {
-        console.error("Failed to fetch roles", e)
-    }
+  try {
+    const res = await $api('/admin/roles')
+
+    roles.value = res.data || res
+  } catch (e) {
+    console.error("Failed to fetch roles", e)
+  }
 }
 
-watch(() => props.user, (newUser) => {
+watch(() => props.user, newUser => {
   if (newUser) {
     formData.value = {
       name: newUser.name,
@@ -48,7 +50,7 @@ watch(() => props.user, (newUser) => {
 }, { immediate: true })
 
 onMounted(() => {
-    fetchRoles()
+  fetchRoles()
 })
 
 const onSubmit = () => {
@@ -94,13 +96,13 @@ const onCancel = () => {
               label="Role"
             />
           </VCol>
-           <VCol cols="12">
-             <VSelect
+          <VCol cols="12">
+            <VSelect
               v-model="formData.status"
               :items="['ACTIVE', 'INACTIVE']"
               label="Status"
             />
-           </VCol>
+          </VCol>
           <VCol cols="12">
             <VSwitch
               v-model="formData.mfa_enabled"

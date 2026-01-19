@@ -50,8 +50,8 @@ const resendVerification = async () => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     })
     
     if (res.ok) {
@@ -79,7 +79,7 @@ const resendVerification = async () => {
     <AppLoadingIndicator ref="refLoadingIndicator" />
 
     <!-- Verification Banner -->
-    <v-alert
+    <VAlert
       v-if="authStore.isAuthenticated && !authStore.user?.email_verified_at"
       color="warning"
       variant="tonal"
@@ -88,12 +88,16 @@ const resendVerification = async () => {
     >
       <div class="d-flex flex-wrap align-center justify-space-between w-100 gap-2">
         <div class="d-flex align-center">
-          <v-icon icon="mdi-alert" class="mr-2" size="20" />
+          <VIcon
+            icon="mdi-alert"
+            class="mr-2"
+            size="20"
+          />
           <span class="text-body-2">
             Your email address is not verified. Please check your email inbox for a verification link.
           </span>
         </div>
-        <v-btn
+        <VBtn
           v-if="!verificationSent"
           size="small"
           variant="outlined"
@@ -101,13 +105,20 @@ const resendVerification = async () => {
           @click="resendVerification"
         >
           Resend Link
-        </v-btn>
-        <span v-else class="text-caption text-success font-weight-bold">
-          <v-icon icon="mdi-check" size="16" class="mr-1" />
+        </VBtn>
+        <span
+          v-else
+          class="text-caption text-success font-weight-bold"
+        >
+          <VIcon
+            icon="mdi-check"
+            size="16"
+            class="mr-1"
+          />
           Link Sent!
         </span>
       </div>
-    </v-alert>
+    </VAlert>
 
     <RouterView v-slot="{ Component }">
       <Suspense

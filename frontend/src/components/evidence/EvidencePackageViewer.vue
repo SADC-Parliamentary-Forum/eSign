@@ -25,6 +25,7 @@ async function loadEvidenceInfo() {
   loading.value = true
   try {
     const response = await $api(`/evidence/documents/${props.documentId}`)
+
     evidenceInfo.value = response
   }
   catch (error) {
@@ -68,6 +69,7 @@ async function downloadEvidence() {
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
+
     a.href = url
     a.download = `Evidence_Package_${props.documentId}.pdf`
     document.body.appendChild(a)
@@ -85,19 +87,25 @@ async function downloadEvidence() {
 </script>
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center">
-      <v-icon icon="mdi-file-certificate" class="mr-2" />
+  <VCard>
+    <VCardTitle class="d-flex align-center">
+      <VIcon
+        icon="mdi-file-certificate"
+        class="mr-2"
+      />
       Evidence Package
-    </v-card-title>
+    </VCardTitle>
 
-    <v-card-text>
-      <v-skeleton-loader v-if="loading" type="article" />
+    <VCardText>
+      <VSkeletonLoader
+        v-if="loading"
+        type="article"
+      />
 
       <div v-else-if="evidenceInfo">
         <!-- Trust Score Display -->
         <div class="d-flex justify-center mb-4">
-          <trust-score-indicator
+          <TrustScoreIndicator
             :score="evidenceInfo.trust_score || 0"
             :breakdown="evidenceInfo.trust_breakdown"
             :size="140"
@@ -105,46 +113,53 @@ async function downloadEvidence() {
           />
         </div>
 
-        <v-divider class="my-4" />
+        <VDivider class="my-4" />
 
         <!-- Evidence Package Info -->
         <div v-if="evidenceInfo.evidence_package?.exists">
-          <v-alert type="success" variant="tonal" class="mb-3">
-            <v-icon icon="mdi-check-circle" class="mr-2" />
+          <VAlert
+            type="success"
+            variant="tonal"
+            class="mb-3"
+          >
+            <VIcon
+              icon="mdi-check-circle"
+              class="mr-2"
+            />
             Evidence package available
-          </v-alert>
+          </VAlert>
 
-          <v-list density="compact">
-            <v-list-item>
+          <VList density="compact">
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-calendar" />
+                <VIcon icon="mdi-calendar" />
               </template>
-              <v-list-item-title>Generated</v-list-item-title>
-              <v-list-item-subtitle>
+              <VListItemTitle>Generated</VListItemTitle>
+              <VListItemSubtitle>
                 {{ new Date(evidenceInfo.evidence_package.generated_at).toLocaleString() }}
-              </v-list-item-subtitle>
-            </v-list-item>
+              </VListItemSubtitle>
+            </VListItem>
 
-            <v-list-item>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-file-pdf-box" />
+                <VIcon icon="mdi-file-pdf-box" />
               </template>
-              <v-list-item-title>Format</v-list-item-title>
-              <v-list-item-subtitle>PDF/A-3 (Long-term archival)</v-list-item-subtitle>
-            </v-list-item>
+              <VListItemTitle>Format</VListItemTitle>
+              <VListItemSubtitle>PDF/A-3 (Long-term archival)</VListItemSubtitle>
+            </VListItem>
 
-            <v-list-item>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-shield-check" />
+                <VIcon icon="mdi-shield-check" />
               </template>
-              <v-list-item-title>Contents</v-list-item-title>
-              <v-list-item-subtitle>
+              <VListItemTitle>Contents</VListItemTitle>
+              <VListItemSubtitle>
                 Complete audit trail, signatures, verifications, certificates
-              </v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
+              </VListItemSubtitle>
+            </VListItem>
+          </VList>
 
-          <v-btn
+          <VBtn
             v-if="canDownload"
             color="primary"
             block
@@ -154,56 +169,99 @@ async function downloadEvidence() {
             @click="downloadEvidence"
           >
             Download Evidence Package
-          </v-btn>
+          </VBtn>
         </div>
 
         <!-- No Evidence Package -->
         <div v-else>
-          <v-alert type="info" variant="tonal" class="mb-3">
+          <VAlert
+            type="info"
+            variant="tonal"
+            class="mb-3"
+          >
             Evidence package not yet generated
-          </v-alert>
+          </VAlert>
 
-          <v-list density="compact" class="mb-4">
-            <v-list-subheader>Package will include:</v-list-subheader>
-            <v-list-item>
+          <VList
+            density="compact"
+            class="mb-4"
+          >
+            <VListSubheader>Package will include:</VListSubheader>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">Document summary</v-list-item-title>
-            </v-list-item>
-            <v-list-item>
+              <VListItemTitle class="text-body-2">
+                Document summary
+              </VListItemTitle>
+            </VListItem>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">All signature details</v-list-item-title>
-            </v-list-item>
-            <v-list-item>
+              <VListItemTitle class="text-body-2">
+                All signature details
+              </VListItemTitle>
+            </VListItem>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">Identity verifications</v-list-item-title>
-            </v-list-item>
-            <v-list-item>
+              <VListItemTitle class="text-body-2">
+                Identity verifications
+              </VListItemTitle>
+            </VListItem>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">Certificate chain</v-list-item-title>
-            </v-list-item>
-            <v-list-item>
+              <VListItemTitle class="text-body-2">
+                Certificate chain
+              </VListItemTitle>
+            </VListItem>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">Hash verification</v-list-item-title>
-            </v-list-item>
-            <v-list-item>
+              <VListItemTitle class="text-body-2">
+                Hash verification
+              </VListItemTitle>
+            </VListItem>
+            <VListItem>
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">Complete audit trail</v-list-item-title>
-            </v-list-item>
-          </v-list>
+              <VListItemTitle class="text-body-2">
+                Complete audit trail
+              </VListItemTitle>
+            </VListItem>
+          </VList>
 
-          <v-btn
+          <VBtn
             v-if="evidenceInfo.document?.status === 'COMPLETED'"
             color="success"
             block
@@ -212,13 +270,18 @@ async function downloadEvidence() {
             @click="generateEvidence"
           >
             Generate Evidence Package
-          </v-btn>
+          </VBtn>
 
-          <v-alert v-else type="warning" variant="tonal" density="compact">
+          <VAlert
+            v-else
+            type="warning"
+            variant="tonal"
+            density="compact"
+          >
             Evidence package can only be generated for completed documents
-          </v-alert>
+          </VAlert>
         </div>
       </div>
-    </v-card-text>
-  </v-card>
+    </VCardText>
+  </VCard>
 </template>

@@ -22,7 +22,7 @@ export default [
   {
     title: 'Delegations',
     to: { path: '/settings/delegations' },
-    icon: { icon: 'ri-user-follow-line' }
+    icon: { icon: 'ri-user-follow-line' },
   },
-];
+]
 

@@ -16,6 +16,8 @@ const getStatusColor = status => {
     ACTIVE: 'primary',
     ARCHIVED: 'error',
   }
+
+  
   return colors[status] || 'grey'
 }
 
@@ -27,6 +29,8 @@ const getStatusIcon = status => {
     ACTIVE: 'mdi-check-circle',
     ARCHIVED: 'mdi-archive',
   }
+
+  
   return icons[status] || 'mdi-file'
 }
 
@@ -40,50 +44,54 @@ const formatDate = date => {
   if (days === 0) return 'Today'
   if (days === 1) return 'Yesterday'
   if (days < 7) return `${days} days ago`
+  
   return d.toLocaleDateString()
 }
 </script>
 
 <template>
-  <v-card variant="outlined" class="template-card">
-    <v-card-item>
+  <VCard
+    variant="outlined"
+    class="template-card"
+  >
+    <VCardItem>
       <template #prepend>
-        <v-avatar
+        <VAvatar
           :color="getStatusColor(template.status)"
           size="48"
         >
-          <v-icon :icon="getStatusIcon(template.status)" />
-        </v-avatar>
+          <VIcon :icon="getStatusIcon(template.status)" />
+        </VAvatar>
       </template>
 
-      <v-card-title>{{ template.name }}</v-card-title>
+      <VCardTitle>{{ template.name }}</VCardTitle>
       
-      <v-card-subtitle v-if="template.description">
+      <VCardSubtitle v-if="template.description">
         {{ template.description }}
-      </v-card-subtitle>
+      </VCardSubtitle>
 
       <template #append>
-        <v-chip
+        <VChip
           :color="getStatusColor(template.status)"
           size="small"
         >
           {{ template.status }}
-        </v-chip>
+        </VChip>
       </template>
-    </v-card-item>
+    </VCardItem>
 
-    <v-card-text>
+    <VCardText>
       <div class="d-flex flex-wrap ga-2 mb-2">
-        <v-chip
+        <VChip
           v-if="template.workflow_type"
           size="small"
           prepend-icon="mdi-workflow"
           variant="tonal"
         >
           {{ template.workflow_type }}
-        </v-chip>
+        </VChip>
         
-        <v-chip
+        <VChip
           v-if="template.amount_required"
           size="small"
           prepend-icon="mdi-currency-usd"
@@ -91,39 +99,46 @@ const formatDate = date => {
           color="warning"
         >
           Financial Rules
-        </v-chip>
+        </VChip>
         
-        <v-chip
+        <VChip
           v-if="template.roles_count"
           size="small"
           prepend-icon="mdi-account-group"
           variant="tonal"
         >
           {{ template.roles_count }} roles
-        </v-chip>
+        </VChip>
       </div>
 
       <div class="text-caption text-medium-emphasis">
-        <v-icon icon="mdi-update" size="x-small" class="mr-1" />
+        <VIcon
+          icon="mdi-update"
+          size="x-small"
+          class="mr-1"
+        />
         Updated {{ formatDate(template.updated_at) }}
-        <span v-if="template.version" class="ml-2">
+        <span
+          v-if="template.version"
+          class="ml-2"
+        >
           • v{{ template.version }}
         </span>
       </div>
-    </v-card-text>
+    </VCardText>
 
-    <v-divider />
+    <VDivider />
 
-    <v-card-actions>
-      <v-btn
+    <VCardActions>
+      <VBtn
         size="small"
         variant="text"
         :to="`/templates/${template.id}`"
       >
         View
-      </v-btn>
+      </VBtn>
 
-      <v-btn
+      <VBtn
         v-if="template.status === 'ACTIVE'"
         size="small"
         color="primary"
@@ -131,18 +146,18 @@ const formatDate = date => {
         :to="`/upload?templateId=${template.id}`"
       >
         Use
-      </v-btn>
+      </VBtn>
 
-      <v-btn
+      <VBtn
         v-if="template.status === 'DRAFT'"
         size="small"
         variant="text"
         @click="$emit('edit', template)"
       >
         Edit
-      </v-btn>
+      </VBtn>
 
-      <v-btn
+      <VBtn
         v-if="template.status === 'APPROVED'"
         size="small"
         color="primary"
@@ -150,22 +165,22 @@ const formatDate = date => {
         @click="$emit('activate', template)"
       >
         Activate
-      </v-btn>
+      </VBtn>
 
-      <v-spacer />
+      <VSpacer />
 
-      <v-btn
+      <VBtn
         v-if="template.usage_count"
         size="small"
         variant="text"
         color="info"
       >
         {{ template.usage_count }} uses
-      </v-btn>
+      </VBtn>
 
-      <v-menu>
+      <VMenu>
         <template #activator="{ props: menuProps }">
-          <v-btn
+          <VBtn
             icon="mdi-dots-vertical"
             size="small"
             variant="text"
@@ -173,24 +188,28 @@ const formatDate = date => {
           />
         </template>
 
-        <v-list>
-          <v-list-item @click="$emit('edit', template)">
+        <VList>
+          <VListItem @click="$emit('edit', template)">
             <template #prepend>
-              <v-icon>mdi-pencil</v-icon>
+              <VIcon>mdi-pencil</VIcon>
             </template>
-            <v-list-item-title>Edit</v-list-item-title>
-          </v-list-item>
+            <VListItemTitle>Edit</VListItemTitle>
+          </VListItem>
 
-          <v-list-item @click="$emit('delete', template)">
+          <VListItem @click="$emit('delete', template)">
             <template #prepend>
-              <v-icon color="error">mdi-delete</v-icon>
+              <VIcon color="error">
+                mdi-delete
+              </VIcon>
             </template>
-            <v-list-item-title class="text-error">Delete</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-    </v-card-actions>
-  </v-card>
+            <VListItemTitle class="text-error">
+              Delete
+            </VListItemTitle>
+          </VListItem>
+        </VList>
+      </VMenu>
+    </VCardActions>
+  </VCard>
 </template>
 
 

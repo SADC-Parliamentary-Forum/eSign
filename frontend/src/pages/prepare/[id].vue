@@ -49,8 +49,173 @@ const drawCurrent = ref({ x: 0, y: 0 })
 const showFieldTypePopup = ref(false)
 const pendingField = ref(null)
 
+// Drag & Resize State
+const isDragging = ref(false)
+const isResizing = ref(false)
+const dragOffset = ref({ x: 0, y: 0 })
+const activeInteractionFieldId = ref(null)
+
 // Submit dialog
 const showSubmitDialog = ref(false)
+// ... (rest of existing code)
+
+// Drawing handlers
+function startDrawing(e, page) {
+  if (!selectedSigner.value || isDragging.value || isResizing.value) return
+  
+  const target = e.currentTarget
+  const rect = target.getBoundingClientRect()
+  const x = ((e.clientX - rect.left) / rect.width) * 100
+  const y = ((e.clientY - rect.top) / rect.height) * 100
+  
+  isDrawing.value = true
+  drawStart.value = { x, y, page }
+  drawCurrent.value = { x, y }
+}
+
+function onDrawing(e, page) {
+  if (isDragging.value || isResizing.value) {
+      onInteractionMove(e, page)
+      return
+  }
+  if (!isDrawing.value || page !== drawStart.value.page) return
+  
+  const target = e.currentTarget
+  const rect = target.getBoundingClientRect()
+  const x = ((e.clientX - rect.left) / rect.width) * 100
+  const y = ((e.clientY - rect.top) / rect.height) * 100
+  
+  drawCurrent.value = { x, y }
+}
+
+function endDrawing(e) {
+  if (isDragging.value || isResizing.value) {
+      endInteraction()
+      return
+  }
+  if (!isDrawing.value) return
+  
+  isDrawing.value = false
+  
+  const minX = Math.min(drawStart.value.x, drawCurrent.value.x)
+  const minY = Math.min(drawStart.value.y, drawCurrent.value.y)
+  const width = Math.abs(drawCurrent.value.x - drawStart.value.x)
+  const height = Math.abs(drawCurrent.value.y - drawStart.value.y)
+  
+  // Minimum size check
+  if (width < 3 || height < 2) return
+  
+  pendingField.value = {
+    x: minX,
+    y: minY,
+    width,
+    height,
+    page: drawStart.value.page
+  }
+  
+  showFieldTypePopup.value = true
+}
+
+// --- Interaction Handlers (Drag/Resize) ---
+
+function startDrag(e, field) {
+    if (isResizing.value) return
+    e.stopPropagation() // Prevent drawing start
+    
+    isDragging.value = true
+    activeInteractionFieldId.value = field.id
+    selectedFieldId.value = field.id
+    
+    // Calculate offset from top-left of field
+    // We need parent rect to convert mouse px to %
+    const parent = e.target.closest('.field-overlay')
+    const rect = parent.getBoundingClientRect()
+    
+    // Mouse Pos in %
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
+    const mouseY = ((e.clientY - rect.top) / rect.height) * 100
+    
+    dragOffset.value = {
+        x: mouseX - field.x,
+        y: mouseY - field.y
+    }
+}
+
+function startResize(e, field) {
+    e.stopPropagation()
+    isResizing.value = true
+    activeInteractionFieldId.value = field.id
+    selectedFieldId.value = field.id
+}
+
+function onInteractionMove(e, page) {
+    const field = fields.value.find(f => f.id === activeInteractionFieldId.value)
+    if (!field) return
+
+    const target = e.currentTarget // .field-overlay
+    const rect = target.getBoundingClientRect()
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
+    const mouseY = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (isDragging.value) {
+        let newX = mouseX - dragOffset.value.x
+        let newY = mouseY - dragOffset.value.y
+        
+        // Bounds check (0-100)
+        newX = Math.max(0, Math.min(100 - field.width, newX))
+        newY = Math.max(0, Math.min(100 - field.height, newY))
+        
+        field.x = newX
+        field.y = newY
+    } else if (isResizing.value) {
+        // Resize changes width/height based on mouse pos relative to field x/y
+        let newW = mouseX - field.x
+        let newH = mouseY - field.y
+        
+        // Minimum size
+        newW = Math.max(5, Math.min(100 - field.x, newW))
+        newH = Math.max(3, Math.min(100 - field.y, newH))
+        
+        field.width = newW
+        field.height = newH
+    }
+}
+
+function endInteraction() {
+    isDragging.value = false
+    isResizing.value = false
+    activeInteractionFieldId.value = null
+}
+
+function duplicateFieldToAllPages(field) {
+    if (!field) return
+    
+    // Ensure the source field has a group_id
+    if (!field.group_id) {
+        field.group_id = crypto.randomUUID()
+    }
+    const groupId = field.group_id
+    
+    // Create copies for all other pages
+    const newFields = []
+    for (let p = 1; p <= pageCount.value; p++) {
+        if (p === field.page_number) continue // Skip current page
+        
+        // Check if field already exists at this exact spot? Maybe not necessary.
+        
+        newFields.push({
+            ...field,
+            id: crypto.randomUUID(),
+            group_id: groupId, // Link all copies
+            page_number: p
+        })
+    }
+    
+    fields.value.push(...newFields)
+    showFieldTypePopup.value = false // Close any popups
+}
+
+
 const sequentialSigning = ref(false)
 const expiresInDays = ref(30)
 
@@ -227,53 +392,7 @@ function selectSigner(signer) {
 }
 
 // Drawing handlers
-function startDrawing(e, page) {
-  if (!selectedSigner.value) return
-  
-  const target = e.currentTarget
-  const rect = target.getBoundingClientRect()
-  const x = ((e.clientX - rect.left) / rect.width) * 100
-  const y = ((e.clientY - rect.top) / rect.height) * 100
-  
-  isDrawing.value = true
-  drawStart.value = { x, y, page }
-  drawCurrent.value = { x, y }
-}
 
-function onDrawing(e, page) {
-  if (!isDrawing.value || page !== drawStart.value.page) return
-  
-  const target = e.currentTarget
-  const rect = target.getBoundingClientRect()
-  const x = ((e.clientX - rect.left) / rect.width) * 100
-  const y = ((e.clientY - rect.top) / rect.height) * 100
-  
-  drawCurrent.value = { x, y }
-}
-
-function endDrawing(e) {
-  if (!isDrawing.value) return
-  
-  isDrawing.value = false
-  
-  const minX = Math.min(drawStart.value.x, drawCurrent.value.x)
-  const minY = Math.min(drawStart.value.y, drawCurrent.value.y)
-  const width = Math.abs(drawCurrent.value.x - drawStart.value.x)
-  const height = Math.abs(drawCurrent.value.y - drawStart.value.y)
-  
-  // Minimum size check
-  if (width < 3 || height < 2) return
-  
-  pendingField.value = {
-    x: minX,
-    y: minY,
-    width,
-    height,
-    page: drawStart.value.page
-  }
-  
-  showFieldTypePopup.value = true
-}
 
 function selectFieldType(type) {
   if (!pendingField.value || !selectedSigner.value) return
@@ -290,7 +409,8 @@ function selectFieldType(type) {
     signer_email: selectedSigner.value.email,
     document_signer_id: selectedSigner.value.id,
     signer_color: selectedSigner.value.color,
-    required: true
+    required: true,
+    label: ['SIGNATURE', 'INITIALS', 'DATE'].includes(type) ? type : null
   }
   
   fields.value.push(newField)
@@ -409,7 +529,8 @@ async function submitDocument() {
         height: Number(f.height),
         signer_email: realSignerEmail, // Ensure email is consistent
         document_signer_id: realSignerId, // Use the REAL DB ID
-        required: f.required
+        required: f.required,
+        group_id: f.group_id // Include Group Link
       }
     })
     
@@ -649,18 +770,25 @@ onUnmounted(() => {
               <!-- Field Overlay -->
               <div 
                 class="field-overlay"
-                :class="{ 'draw-cursor': selectedSigner }"
+                :class="{ 
+                    'draw-cursor': selectedSigner && !isDragging && !isResizing,
+                    'grabbing': isDragging,
+                    'resizing': isResizing
+                }"
                 @mousedown="startDrawing($event, page)"
                 @mousemove="onDrawing($event, page)"
                 @mouseup="endDrawing"
-                @mouseleave="() => { if (isDrawing) isDrawing = false }"
+                @mouseleave="endDrawing"
               >
                 <!-- Placed Fields -->
                 <div
                   v-for="field in getFieldsByPage(page)"
                   :key="field.id"
                   class="field-box"
-                  :class="{ 'field-selected': selectedFieldId === field.id }"
+                  :class="{ 
+                      'field-selected': selectedFieldId === field.id,
+                      'is-interacting': activeInteractionFieldId === field.id
+                  }"
                   :style="{
                     left: field.x + '%',
                     top: field.y + '%',
@@ -668,19 +796,40 @@ onUnmounted(() => {
                     height: field.height + '%',
                     backgroundColor: getFieldColor(field).bg,
                     borderColor: getFieldColor(field).border,
-                    color: getFieldColor(field).text
+                    color: getFieldColor(field).text,
+                    zIndex: selectedFieldId === field.id ? 10 : 1
                   }"
+                  @mousedown="startDrag($event, field)"
                   @click.stop="selectField(field)"
                 >
                   <v-icon :icon="getFieldTypeIcon(field.type)" size="14" />
-                  <v-btn
+                  
+                  <!-- Toolbar -->
+                  <div v-if="selectedFieldId === field.id" class="field-toolbar">
+                      <v-btn
+                        icon="ri-file-copy-line"
+                        size="x-small"
+                        color="secondary"
+                        variant="flat"
+                        class="toolbar-btn"
+                        title="Duplicate to all pages"
+                        @click.stop="duplicateFieldToAllPages(field)"
+                      />
+                      <v-btn
+                        icon="ri-delete-bin-line"
+                        size="x-small"
+                        color="error"
+                        variant="flat"
+                        class="toolbar-btn"
+                        @click.stop="deleteField(field.id)"
+                      />
+                  </div>
+
+                  <!-- Resize Handle -->
+                  <div 
                     v-if="selectedFieldId === field.id"
-                    icon="ri-delete-bin-line"
-                    size="x-small"
-                    color="error"
-                    variant="flat"
-                    class="delete-btn"
-                    @click.stop="deleteField(field.id)"
+                    class="resize-handle"
+                    @mousedown="startResize($event, field)"
                   />
                 </div>
                 
@@ -1274,10 +1423,57 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.4);
 }
 
-.delete-btn {
+
+.field-overlay.grabbing {
+  cursor: grabbing;
+}
+
+.field-overlay.resizing {
+  cursor: nwse-resize;
+}
+
+.field-box.is-interacting {
+  transition: none;
+  z-index: 100 !important;
+}
+
+.field-toolbar {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  top: -36px;
+  right: -2px;
+  display: flex;
+  gap: 4px;
+  background: white;
+  padding: 4px;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  z-index: 100;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 2px solid #1976D2;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  z-index: 20;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.1s;
+}
+
+.resize-handle:hover {
+  background: #1976D2;
+  transform: scale(1.2);
 }
 
 .drawing-preview {

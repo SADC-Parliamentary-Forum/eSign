@@ -5,7 +5,7 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: 'SIMPLE',
-    validator: (value) => ['SIMPLE', 'ADVANCED', 'QUALIFIED'].includes(value),
+    validator: value => ['SIMPLE', 'ADVANCED', 'QUALIFIED'].includes(value),
   },
 })
 
@@ -13,7 +13,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const selectedLevel = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value),
+  set: value => emit('update:modelValue', value),
 })
 
 const levels = [
@@ -54,38 +54,49 @@ const showComparison = ref(false)
 
 <template>
   <div class="signature-level-selector">
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-shield-check" class="mr-2" />
+    <VCard>
+      <VCardTitle class="d-flex align-center">
+        <VIcon
+          icon="mdi-shield-check"
+          class="mr-2"
+        />
         Signature Assurance Level
-        <v-spacer />
-        <v-btn
+        <VSpacer />
+        <VBtn
           variant="text"
           size="small"
           @click="showComparison = !showComparison"
         >
           {{ showComparison ? 'Hide' : 'Show' }} Comparison
-        </v-btn>
-      </v-card-title>
+        </VBtn>
+      </VCardTitle>
 
-      <v-card-text>
-        <v-alert type="info" variant="tonal" class="mb-4">
+      <VCardText>
+        <VAlert
+          type="info"
+          variant="tonal"
+          class="mb-4"
+        >
           Higher signature levels provide stronger legal protection through additional identity verification steps.
-        </v-alert>
+        </VAlert>
 
-        <v-radio-group v-model="selectedLevel">
-          <v-card
+        <VRadioGroup v-model="selectedLevel">
+          <VCard
             v-for="level in levels"
             :key="level.value"
             :variant="selectedLevel === level.value ? 'elevated' : 'outlined'"
             :color="selectedLevel === level.value ? level.color : undefined"
             class="mb-3"
           >
-            <v-card-text>
-              <v-radio :value="level.value">
+            <VCardText>
+              <VRadio :value="level.value">
                 <template #label>
                   <div class="d-flex align-center w-100">
-                    <v-icon :icon="level.icon" :color="level.color" class="mr-2" />
+                    <VIcon
+                      :icon="level.icon"
+                      :color="level.color"
+                      class="mr-2"
+                    />
                     <div class="flex-grow-1">
                       <div class="text-subtitle-1 font-weight-bold">
                         {{ level.name }}
@@ -96,15 +107,20 @@ const showComparison = ref(false)
                     </div>
                   </div>
                 </template>
-              </v-radio>
+              </VRadio>
 
-              <v-expand-transition>
-                <div v-if="selectedLevel === level.value" class="mt-3 ml-8">
-                  <v-divider class="mb-3" />
+              <VExpandTransition>
+                <div
+                  v-if="selectedLevel === level.value"
+                  class="mt-3 ml-8"
+                >
+                  <VDivider class="mb-3" />
                   
                   <div class="mb-3">
-                    <div class="text-caption text-medium-emphasis mb-1">Required Verifications:</div>
-                    <v-chip
+                    <div class="text-caption text-medium-emphasis mb-1">
+                      Required Verifications:
+                    </div>
+                    <VChip
                       v-for="verification in level.verifications"
                       :key="verification"
                       size="small"
@@ -113,90 +129,185 @@ const showComparison = ref(false)
                       variant="tonal"
                     >
                       {{ verification }}
-                    </v-chip>
+                    </VChip>
                   </div>
 
                   <div class="mb-3">
-                    <div class="text-caption text-medium-emphasis mb-1">Common Use Cases:</div>
+                    <div class="text-caption text-medium-emphasis mb-1">
+                      Common Use Cases:
+                    </div>
                     <ul class="text-caption">
-                      <li v-for="useCase in level.useCases" :key="useCase">
+                      <li
+                        v-for="useCase in level.useCases"
+                        :key="useCase"
+                      >
                         {{ useCase }}
                       </li>
                     </ul>
                   </div>
 
-                  <v-alert type="success" variant="tonal" density="compact">
+                  <VAlert
+                    type="success"
+                    variant="tonal"
+                    density="compact"
+                  >
                     <div class="text-caption">
-                      <v-icon icon="mdi-check-circle" size="small" class="mr-1" />
+                      <VIcon
+                        icon="mdi-check-circle"
+                        size="small"
+                        class="mr-1"
+                      />
                       {{ level.compliance }}
                     </div>
-                  </v-alert>
+                  </VAlert>
                 </div>
-              </v-expand-transition>
-            </v-card-text>
-          </v-card>
-        </v-radio-group>
+              </VExpandTransition>
+            </VCardText>
+          </VCard>
+        </VRadioGroup>
 
         <!-- Comparison Table -->
-        <v-expand-transition>
-          <v-card v-if="showComparison" variant="outlined" class="mt-4">
-            <v-card-title class="text-subtitle-1">
+        <VExpandTransition>
+          <VCard
+            v-if="showComparison"
+            variant="outlined"
+            class="mt-4"
+          >
+            <VCardTitle class="text-subtitle-1">
               Level Comparison
-            </v-card-title>
-            <v-card-text>
-              <v-table density="compact">
+            </VCardTitle>
+            <VCardText>
+              <VTable density="compact">
                 <thead>
                   <tr>
                     <th>Feature</th>
-                    <th class="text-center">SIMPLE</th>
-                    <th class="text-center">ADVANCED</th>
-                    <th class="text-center">QUALIFIED</th>
+                    <th class="text-center">
+                      SIMPLE
+                    </th>
+                    <th class="text-center">
+                      ADVANCED
+                    </th>
+                    <th class="text-center">
+                      QUALIFIED
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td>Email Verification</td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
                   </tr>
                   <tr>
                     <td>OTP Verification</td>
-                    <td class="text-center"><v-icon icon="mdi-close" color="error" /></td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-close"
+                        color="error"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
                   </tr>
                   <tr>
                     <td>Device Fingerprint</td>
-                    <td class="text-center"><v-icon icon="mdi-close" color="error" /></td>
-                    <td class="text-center"><v-icon icon="mdi-close" color="error" /></td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-close"
+                        color="error"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-close"
+                        color="error"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
                   </tr>
                   <tr>
                     <td>IP Geolocation</td>
-                    <td class="text-center"><v-icon icon="mdi-close" color="error" /></td>
-                    <td class="text-center"><v-icon icon="mdi-close" color="error" /></td>
-                    <td class="text-center"><v-icon icon="mdi-check" color="success" /></td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-close"
+                        color="error"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-close"
+                        color="error"
+                      />
+                    </td>
+                    <td class="text-center">
+                      <VIcon
+                        icon="mdi-check"
+                        color="success"
+                      />
+                    </td>
                   </tr>
                   <tr>
                     <td>Legal Strength</td>
-                    <td class="text-center">Basic</td>
-                    <td class="text-center">Strong</td>
-                    <td class="text-center">Strongest</td>
+                    <td class="text-center">
+                      Basic
+                    </td>
+                    <td class="text-center">
+                      Strong
+                    </td>
+                    <td class="text-center">
+                      Strongest
+                    </td>
                   </tr>
                   <tr>
                     <td>Signing Time</td>
-                    <td class="text-center">~1 min</td>
-                    <td class="text-center">~2 min</td>
-                    <td class="text-center">~3 min</td>
+                    <td class="text-center">
+                      ~1 min
+                    </td>
+                    <td class="text-center">
+                      ~2 min
+                    </td>
+                    <td class="text-center">
+                      ~3 min
+                    </td>
                   </tr>
                 </tbody>
-              </v-table>
-            </v-card-text>
-          </v-card>
-        </v-expand-transition>
-      </v-card-text>
-    </v-card>
+              </VTable>
+            </VCardText>
+          </VCard>
+        </VExpandTransition>
+      </VCardText>
+    </VCard>
   </div>
 </template>
 

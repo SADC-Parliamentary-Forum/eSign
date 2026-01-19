@@ -11,6 +11,7 @@ const router = useRouter()
 const workflowStore = useWorkflowStore()
 
 const loading = ref(true)
+
 const stats = ref({
   drafts: 0,
   awaitingSignatures: 0,
@@ -41,9 +42,11 @@ onMounted(async () => {
 const loadStats = async () => {
   try {
     const response = await $api('/documents/stats')
+
     stats.value = { ...stats.value, ...response }
   } catch (error) {
     console.error('Failed to load stats:', error)
+
     // Use mock data if API fails
     stats.value = {
       drafts: documents.value.drafts?.length || 0,
@@ -72,8 +75,9 @@ const loadDocuments = async () => {
       expiring: (awaiting?.data || awaiting || []).filter(d => {
         if (!d.expires_at) return false
         const daysLeft = Math.ceil((new Date(d.expires_at) - new Date()) / (1000 * 60 * 60 * 24))
+        
         return daysLeft <= 7 && daysLeft > 0
-      })
+      }),
     }
     
     // Update stats based on loaded data
@@ -91,6 +95,7 @@ const loadRecentActivity = async () => {
   try {
     // Try to load from activity endpoint, fallback to mock
     const response = await $api('/documents/activity?limit=10')
+
     recentActivity.value = response?.data || response || []
   } catch (error) {
     // Generate mock activity from documents
@@ -107,6 +112,8 @@ const getStatusColor = status => {
     'DECLINED': 'error',
     'EXPIRED': 'error',
   }
+
+  
   return colors[status] || 'grey'
 }
 
@@ -119,10 +126,12 @@ const getStatusIcon = status => {
     'DECLINED': 'mdi-close-circle',
     'EXPIRED': 'mdi-timer-off',
   }
+
+  
   return icons[status] || 'mdi-file-document'
 }
 
-const formatDate = (date) => {
+const formatDate = date => {
   if (!date) return ''
   const d = new Date(date)
   const now = new Date()
@@ -133,33 +142,39 @@ const formatDate = (date) => {
   if (days > 7) return d.toLocaleDateString()
   if (days > 0) return `${days}d ago`
   if (hours > 0) return `${hours}h ago`
+  
   return 'Just now'
 }
 
-const getDaysUntilExpiry = (expiresAt) => {
+const getDaysUntilExpiry = expiresAt => {
   if (!expiresAt) return null
-  const days = Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
-  return days
+  
+  return Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
 }
 
 const filteredDocuments = computed(() => {
   if (!searchQuery.value) return null
   const query = searchQuery.value.toLowerCase()
+
   const allDocs = [
     ...documents.value.drafts,
     ...documents.value.awaiting,
     ...documents.value.completed,
   ]
+
+  
   return allDocs.filter(d => 
     d.title?.toLowerCase().includes(query) ||
-    d.status?.toLowerCase().includes(query)
+    d.status?.toLowerCase().includes(query),
   )
 })
-const deleteDraft = async (id) => {
+
+const deleteDraft = async id => {
   if (!confirm('Are you sure you want to delete this draft?')) return
   
   try {
     await $api(`/documents/${id}`, { method: 'DELETE' })
+
     // Remove locally
     documents.value.drafts = documents.value.drafts.filter(d => d.id !== id)
     stats.value.drafts--
@@ -172,7 +187,7 @@ const deleteDraft = async (id) => {
 <template>
   <div class="dashboard">
     <!-- Search Bar -->
-    <v-text-field
+    <VTextField
       v-model="searchQuery"
       prepend-inner-icon="mdi-magnify"
       placeholder="Search documents..."
@@ -185,104 +200,179 @@ const deleteDraft = async (id) => {
     />
 
     <!-- Search Results -->
-    <v-card v-if="filteredDocuments" class="mb-6">
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-magnify" class="mr-2" />
+    <VCard
+      v-if="filteredDocuments"
+      class="mb-6"
+    >
+      <VCardTitle class="d-flex align-center">
+        <VIcon
+          icon="mdi-magnify"
+          class="mr-2"
+        />
         Search Results
-        <v-chip size="small" class="ml-2">{{ filteredDocuments.length }}</v-chip>
-      </v-card-title>
-      <v-list v-if="filteredDocuments.length > 0">
-        <v-list-item
+        <VChip
+          size="small"
+          class="ml-2"
+        >
+          {{ filteredDocuments.length }}
+        </VChip>
+      </VCardTitle>
+      <VList v-if="filteredDocuments.length > 0">
+        <VListItem
           v-for="doc in filteredDocuments"
           :key="doc.id"
           :to="`/documents/${doc.id}`"
         >
           <template #prepend>
-            <v-icon :icon="getStatusIcon(doc.status)" :color="getStatusColor(doc.status)" />
+            <VIcon
+              :icon="getStatusIcon(doc.status)"
+              :color="getStatusColor(doc.status)"
+            />
           </template>
-          <v-list-item-title>{{ doc.title }}</v-list-item-title>
-          <v-list-item-subtitle>{{ doc.status }} • {{ formatDate(doc.updated_at) }}</v-list-item-subtitle>
-        </v-list-item>
-      </v-list>
-      <v-card-text v-else class="text-center text-medium-emphasis py-4">
+          <VListItemTitle>{{ doc.title }}</VListItemTitle>
+          <VListItemSubtitle>{{ doc.status }} • {{ formatDate(doc.updated_at) }}</VListItemSubtitle>
+        </VListItem>
+      </VList>
+      <VCardText
+        v-else
+        class="text-center text-medium-emphasis py-4"
+      >
         No documents found matching "{{ searchQuery }}"
-      </v-card-text>
-    </v-card>
+      </VCardText>
+    </VCard>
 
     <!-- KPI Cards -->
-    <v-row class="mb-6">
-      <v-col cols="6" md="3">
-        <v-card class="stat-card stat-card-draft" elevation="0">
-          <v-card-text>
+    <VRow class="mb-6">
+      <VCol
+        cols="6"
+        md="3"
+      >
+        <VCard
+          class="stat-card stat-card-draft"
+          elevation="0"
+        >
+          <VCardText>
             <div class="d-flex align-center justify-space-between">
               <div>
-                <div class="stat-label">Drafts</div>
-                <div class="stat-value">{{ stats.drafts }}</div>
+                <div class="stat-label">
+                  Drafts
+                </div>
+                <div class="stat-value">
+                  {{ stats.drafts }}
+                </div>
               </div>
-              <v-avatar color="grey-lighten-3" size="48">
-                <v-icon icon="mdi-file-edit" color="grey-darken-1" />
-              </v-avatar>
+              <VAvatar
+                color="grey-lighten-3"
+                size="48"
+              >
+                <VIcon
+                  icon="mdi-file-edit"
+                  color="grey-darken-1"
+                />
+              </VAvatar>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="6" md="3">
-        <v-card class="stat-card stat-card-pending" elevation="0">
-          <v-card-text>
+      <VCol
+        cols="6"
+        md="3"
+      >
+        <VCard
+          class="stat-card stat-card-pending"
+          elevation="0"
+        >
+          <VCardText>
             <div class="d-flex align-center justify-space-between">
               <div>
-                <div class="stat-label">Awaiting</div>
-                <div class="stat-value">{{ stats.awaitingSignatures }}</div>
+                <div class="stat-label">
+                  Awaiting
+                </div>
+                <div class="stat-value">
+                  {{ stats.awaitingSignatures }}
+                </div>
               </div>
-              <v-avatar color="blue-lighten-4" size="48">
-                <v-icon icon="mdi-clock-outline" color="blue" />
-              </v-avatar>
+              <VAvatar
+                color="blue-lighten-4"
+                size="48"
+              >
+                <VIcon
+                  icon="mdi-clock-outline"
+                  color="blue"
+                />
+              </VAvatar>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="6" md="3">
-        <v-card class="stat-card stat-card-completed" elevation="0">
-          <v-card-text>
+      <VCol
+        cols="6"
+        md="3"
+      >
+        <VCard
+          class="stat-card stat-card-completed"
+          elevation="0"
+        >
+          <VCardText>
             <div class="d-flex align-center justify-space-between">
               <div>
-                <div class="stat-label">Completed</div>
-                <div class="stat-value">{{ stats.completed }}</div>
+                <div class="stat-label">
+                  Completed
+                </div>
+                <div class="stat-value">
+                  {{ stats.completed }}
+                </div>
               </div>
-              <v-avatar color="green-lighten-4" size="48">
-                <v-icon icon="mdi-check-circle" color="success" />
-              </v-avatar>
+              <VAvatar
+                color="green-lighten-4"
+                size="48"
+              >
+                <VIcon
+                  icon="mdi-check-circle"
+                  color="success"
+                />
+              </VAvatar>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="6" md="3">
-        <v-card class="stat-card stat-card-rate" elevation="0">
-          <v-card-text>
+      <VCol
+        cols="6"
+        md="3"
+      >
+        <VCard
+          class="stat-card stat-card-rate"
+          elevation="0"
+        >
+          <VCardText>
             <div class="d-flex align-center justify-space-between">
               <div>
-                <div class="stat-label">Completion Rate</div>
-                <div class="stat-value">{{ stats.completionRate }}%</div>
+                <div class="stat-label">
+                  Completion Rate
+                </div>
+                <div class="stat-value">
+                  {{ stats.completionRate }}%
+                </div>
               </div>
-              <v-progress-circular
+              <VProgressCircular
                 :model-value="stats.completionRate"
                 color="primary"
                 size="48"
                 width="4"
               >
                 <span class="text-caption">{{ stats.completionRate }}%</span>
-              </v-progress-circular>
+              </VProgressCircular>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </VCardText>
+        </VCard>
+      </VCol>
+    </VRow>
 
     <!-- Expiring Soon Alert -->
-    <v-alert 
+    <VAlert 
       v-if="documents.expiring.length > 0"
       type="warning" 
       variant="tonal" 
@@ -292,213 +382,311 @@ const deleteDraft = async (id) => {
       <div class="d-flex align-center justify-space-between">
         <div>
           <strong>{{ documents.expiring.length }} document(s) expiring soon!</strong>
-          <div class="text-body-2">These documents will expire within 7 days</div>
+          <div class="text-body-2">
+            These documents will expire within 7 days
+          </div>
         </div>
-        <v-btn variant="text" color="warning" size="small" to="/documents?filter=expiring">
+        <VBtn
+          variant="text"
+          color="warning"
+          size="small"
+          to="/documents?filter=expiring"
+        >
           View All
-        </v-btn>
+        </VBtn>
       </div>
-    </v-alert>
+    </VAlert>
 
     <!-- Main Content Grid -->
-    <v-row>
+    <VRow>
       <!-- Documents Awaiting Signatures -->
-      <v-col cols="12" lg="8">
-        <v-card class="mb-6">
-          <v-card-title class="d-flex align-center justify-space-between">
+      <VCol
+        cols="12"
+        lg="8"
+      >
+        <VCard class="mb-6">
+          <VCardTitle class="d-flex align-center justify-space-between">
             <div class="d-flex align-center">
-              <v-icon icon="mdi-file-clock" color="info" class="mr-2" />
+              <VIcon
+                icon="mdi-file-clock"
+                color="info"
+                class="mr-2"
+              />
               Awaiting Signatures
             </div>
-            <v-btn variant="text" size="small" to="/documents?status=IN_PROGRESS">
+            <VBtn
+              variant="text"
+              size="small"
+              to="/documents?status=IN_PROGRESS"
+            >
               View All
-            </v-btn>
-          </v-card-title>
+            </VBtn>
+          </VCardTitle>
 
-          <v-card-text v-if="loading" class="text-center py-8">
-            <v-progress-circular indeterminate color="primary" />
-          </v-card-text>
+          <VCardText
+            v-if="loading"
+            class="text-center py-8"
+          >
+            <VProgressCircular
+              indeterminate
+              color="primary"
+            />
+          </VCardText>
 
           <template v-else>
-            <v-list v-if="documents.awaiting.length > 0" lines="two">
-              <v-list-item
+            <VList
+              v-if="documents.awaiting.length > 0"
+              lines="two"
+            >
+              <VListItem
                 v-for="doc in documents.awaiting"
                 :key="doc.id"
                 :to="`/documents/${doc.id}`"
                 class="document-item"
               >
                 <template #prepend>
-                  <v-avatar color="info-lighten-4" size="40">
-                    <v-icon icon="mdi-file-document" color="info" />
-                  </v-avatar>
+                  <VAvatar
+                    color="info-lighten-4"
+                    size="40"
+                  >
+                    <VIcon
+                      icon="mdi-file-document"
+                      color="info"
+                    />
+                  </VAvatar>
                 </template>
 
-                <v-list-item-title class="font-weight-medium">
+                <VListItemTitle class="font-weight-medium">
                   {{ doc.title }}
-                </v-list-item-title>
-                <v-list-item-subtitle>
+                </VListItemTitle>
+                <VListItemSubtitle>
                   <span v-if="doc.signers">{{ doc.signers.length }} signer(s)</span>
                   <span class="mx-1">•</span>
                   <span>{{ formatDate(doc.updated_at) }}</span>
-                </v-list-item-subtitle>
+                </VListItemSubtitle>
 
                 <template #append>
                   <div class="d-flex align-center gap-2">
-                    <v-chip 
+                    <VChip 
                       v-if="getDaysUntilExpiry(doc.expires_at) <= 3"
                       color="error" 
                       size="x-small"
                     >
                       {{ getDaysUntilExpiry(doc.expires_at) }}d left
-                    </v-chip>
-                    <v-icon icon="mdi-chevron-right" color="grey" />
+                    </VChip>
+                    <VIcon
+                      icon="mdi-chevron-right"
+                      color="grey"
+                    />
                   </div>
                 </template>
-              </v-list-item>
-            </v-list>
+              </VListItem>
+            </VList>
             
-            <div v-else class="text-center py-8 text-medium-emphasis">
-              <v-icon icon="mdi-check-all" size="48" class="mb-2" />
+            <div
+              v-else
+              class="text-center py-8 text-medium-emphasis"
+            >
+              <VIcon
+                icon="mdi-check-all"
+                size="48"
+                class="mb-2"
+              />
               <div>No documents awaiting signatures</div>
-              <v-btn 
+              <VBtn 
                 color="primary" 
                 variant="tonal" 
                 class="mt-4"
                 to="/upload"
               >
-                <v-icon icon="mdi-plus" class="mr-1" />
+                <VIcon
+                  icon="mdi-plus"
+                  class="mr-1"
+                />
                 Upload Document
-              </v-btn>
+              </VBtn>
             </div>
           </template>
-        </v-card>
+        </VCard>
 
         <!-- Draft Documents -->
-        <v-card>
-          <v-card-title class="d-flex align-center justify-space-between">
+        <VCard>
+          <VCardTitle class="d-flex align-center justify-space-between">
             <div class="d-flex align-center">
-              <v-icon icon="mdi-file-edit" color="grey" class="mr-2" />
+              <VIcon
+                icon="mdi-file-edit"
+                color="grey"
+                class="mr-2"
+              />
               Draft Documents
             </div>
-            <v-btn variant="text" size="small" to="/documents?status=DRAFT">
+            <VBtn
+              variant="text"
+              size="small"
+              to="/documents?status=DRAFT"
+            >
               View All
-            </v-btn>
-          </v-card-title>
+            </VBtn>
+          </VCardTitle>
 
-          <v-card-text v-if="documents.drafts.length > 0">
-            <v-row>
-              <v-col
+          <VCardText v-if="documents.drafts.length > 0">
+            <VRow>
+              <VCol
                 v-for="doc in documents.drafts.slice(0, 4)"
                 :key="doc.id"
                 cols="12"
                 sm="6"
               >
-                <v-card variant="outlined" class="draft-card">
-                  <v-card-text>
+                <VCard
+                  variant="outlined"
+                  class="draft-card"
+                >
+                  <VCardText>
                     <div class="text-subtitle-2 font-weight-medium mb-1 text-truncate">
                       {{ doc.title }}
                     </div>
                     <div class="text-caption text-medium-emphasis">
                       Created {{ formatDate(doc.created_at) }}
                     </div>
-                  </v-card-text>
-                  <v-card-actions>
-                    <v-btn
+                  </VCardText>
+                  <VCardActions>
+                    <VBtn
                       size="small"
                       color="primary"
                       variant="tonal"
                       :to="`/prepare/${doc.id}`"
                     >
                       Continue
-                    </v-btn>
-                    <v-spacer />
-                    <v-btn
+                    </VBtn>
+                    <VSpacer />
+                    <VBtn
                       size="small"
                       icon="mdi-delete-outline"
                       variant="text"
                       color="error"
                       @click="deleteDraft(doc.id)"
                     />
-                  </v-card-actions>
-                </v-card>
-              </v-col>
-            </v-row>
-          </v-card-text>
+                  </VCardActions>
+                </VCard>
+              </VCol>
+            </VRow>
+          </VCardText>
           
-          <v-card-text v-else class="text-center py-6 text-medium-emphasis">
+          <VCardText
+            v-else
+            class="text-center py-6 text-medium-emphasis"
+          >
             No draft documents
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
       <!-- Right Sidebar -->
-      <v-col cols="12" lg="4">
+      <VCol
+        cols="12"
+        lg="4"
+      >
         <!-- Quick Actions -->
-        <v-card class="mb-6">
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-lightning-bolt" color="primary" class="mr-2" />
+        <VCard class="mb-6">
+          <VCardTitle class="d-flex align-center">
+            <VIcon
+              icon="mdi-lightning-bolt"
+              color="primary"
+              class="mr-2"
+            />
             Quick Actions
-          </v-card-title>
-          <v-card-text>
-            <v-btn 
+          </VCardTitle>
+          <VCardText>
+            <VBtn 
               block 
               color="primary" 
               class="mb-2"
               to="/upload"
             >
-              <v-icon icon="mdi-upload" class="mr-2" />
+              <VIcon
+                icon="mdi-upload"
+                class="mr-2"
+              />
               Upload Document
-            </v-btn>
-            <v-btn 
+            </VBtn>
+            <VBtn 
               block 
               variant="outlined" 
               class="mb-2"
               to="/templates"
             >
-              <v-icon icon="mdi-file-document-multiple" class="mr-2" />
+              <VIcon
+                icon="mdi-file-document-multiple"
+                class="mr-2"
+              />
               Browse Templates
-            </v-btn>
-            <v-btn 
+            </VBtn>
+            <VBtn 
               block 
               variant="text"
               to="/documents"
             >
-              <v-icon icon="mdi-folder" class="mr-2" />
+              <VIcon
+                icon="mdi-folder"
+                class="mr-2"
+              />
               View All Documents
-            </v-btn>
-          </v-card-text>
-        </v-card>
+            </VBtn>
+          </VCardText>
+        </VCard>
 
         <!-- Recent Completions -->
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon icon="mdi-check-circle" color="success" class="mr-2" />
+        <VCard>
+          <VCardTitle class="d-flex align-center">
+            <VIcon
+              icon="mdi-check-circle"
+              color="success"
+              class="mr-2"
+            />
             Recently Completed
-          </v-card-title>
+          </VCardTitle>
           
-          <v-list v-if="documents.completed.length > 0" density="compact">
-            <v-list-item
+          <VList
+            v-if="documents.completed.length > 0"
+            density="compact"
+          >
+            <VListItem
               v-for="doc in documents.completed.slice(0, 5)"
               :key="doc.id"
               :to="`/documents/${doc.id}`"
             >
               <template #prepend>
-                <v-icon icon="mdi-check" color="success" size="small" />
+                <VIcon
+                  icon="mdi-check"
+                  color="success"
+                  size="small"
+                />
               </template>
-              <v-list-item-title class="text-body-2">{{ doc.title }}</v-list-item-title>
-              <v-list-item-subtitle class="text-caption">
+              <VListItemTitle class="text-body-2">
+                {{ doc.title }}
+              </VListItemTitle>
+              <VListItemSubtitle class="text-caption">
                 {{ formatDate(doc.completed_at || doc.updated_at) }}
-              </v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
+              </VListItemSubtitle>
+            </VListItem>
+          </VList>
           
-          <v-card-text v-else class="text-center py-4 text-medium-emphasis">
-            <v-icon icon="mdi-file-check-outline" size="32" class="mb-2" />
-            <div class="text-caption">No completed documents yet</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          <VCardText
+            v-else
+            class="text-center py-4 text-medium-emphasis"
+          >
+            <VIcon
+              icon="mdi-file-check-outline"
+              size="32"
+              class="mb-2"
+            />
+            <div class="text-caption">
+              No completed documents yet
+            </div>
+          </VCardText>
+        </VCard>
+      </VCol>
+    </VRow>
   </div>
 </template>
 

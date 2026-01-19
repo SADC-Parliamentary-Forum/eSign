@@ -9,24 +9,24 @@ import VuePdfEmbed from 'vue-pdf-embed'
 const props = defineProps({
   pdfSource: {
     type: String,
-    required: true
+    required: true,
   },
   fields: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   selectedSigner: {
     type: Object,
-    default: null
+    default: null,
   },
   disabled: {
     type: Boolean,
-    default: false
+    default: false,
   },
   signerColors: {
     type: Object,
-    default: () => ({})
-  }
+    default: () => ({}),
+  },
 })
 
 const emit = defineEmits(['update:fields', 'fieldCreated', 'fieldDeleted', 'pageCountChanged'])
@@ -50,7 +50,7 @@ const fieldTypeIcons = {
   'INITIALS': 'mdi-alphabetical-variant',
   'DATE': 'mdi-calendar',
   'TEXT': 'mdi-form-textbox',
-  'CHECKBOX': 'mdi-checkbox-marked-outline'
+  'CHECKBOX': 'mdi-checkbox-marked-outline',
 }
 
 function handleDocumentLoad(pdf) {
@@ -103,13 +103,13 @@ function endDrawing(e) {
     y: minY,
     width,
     height,
-    page: drawStart.value.page
+    page: drawStart.value.page,
   }
   
   // Position popup near the drawn area
   popupPosition.value = {
     x: e.clientX,
-    y: e.clientY
+    y: e.clientY,
   }
   
   showFieldTypePopup.value = true
@@ -131,10 +131,11 @@ function onFieldTypeSelected(type) {
     document_signer_id: props.selectedSigner.id,
     signer_color: props.selectedSigner.color,
     required: true,
-    label: null
+    label: null,
   }
   
   const updatedFields = [...props.fields, newField]
+
   emit('update:fields', updatedFields)
   emit('fieldCreated', newField)
   
@@ -153,6 +154,7 @@ function selectField(field) {
 
 function deleteField(fieldId) {
   const updatedFields = props.fields.filter(f => f.id !== fieldId)
+
   emit('update:fields', updatedFields)
   emit('fieldDeleted', fieldId)
   selectedFieldId.value = null
@@ -176,10 +178,12 @@ function duplicateFieldToAllPages(field) {
       id: crypto.randomUUID(),
       page_number: i,
     }
+
     newFields.push(newField)
   }
   
   const updatedFields = [...props.fields, ...newFields]
+
   emit('update:fields', updatedFields)
   
   // Optional: Show a small toast/snackbar here if we had one
@@ -194,6 +198,7 @@ function getFieldColor(field) {
   if (field.signer_color) {
     return field.signer_color
   }
+  
   return { bg: '#FFF9C4', border: '#FBC02D', text: '#F57F17' }
 }
 
@@ -226,13 +231,16 @@ const drawingRect = computed(() => {
     top: minY + '%',
     width: width + '%',
     height: height + '%',
-    page: drawStart.value.page
+    page: drawStart.value.page,
   }
 })
 </script>
 
 <template>
-  <div class="pdf-canvas" ref="pdfContainer">
+  <div
+    ref="pdfContainer"
+    class="pdf-canvas"
+  >
     <!-- PDF Pages -->
     <div 
       v-for="page in pageCount" 
@@ -244,8 +252,8 @@ const drawingRect = computed(() => {
         :source="pdfSource" 
         :page="page"
         width="800"
-        @loaded="handleDocumentLoad"
         class="pdf-layer"
+        @loaded="handleDocumentLoad"
       />
       
       <!-- Interactive Overlay Layer -->
@@ -278,14 +286,18 @@ const drawingRect = computed(() => {
           @click.stop="selectField(field)"
         >
           <div class="field-content d-flex align-center justify-center h-100">
-            <v-icon :icon="fieldTypeIcons[field.type]" size="16" class="mr-1" />
+            <VIcon
+              :icon="fieldTypeIcons[field.type]"
+              size="16"
+              class="mr-1"
+            />
             <span class="field-label text-caption font-weight-medium">
               {{ field.type }}
             </span>
           </div>
           
           <!-- Duplicate Button -->
-          <v-btn
+          <VBtn
             v-if="selectedFieldId === field.id && !disabled"
             icon="mdi-content-copy"
             size="x-small"
@@ -297,7 +309,7 @@ const drawingRect = computed(() => {
           />
 
           <!-- Delete Button -->
-          <v-btn
+          <VBtn
             v-if="selectedFieldId === field.id && !disabled"
             icon="mdi-delete"
             size="x-small"
@@ -329,50 +341,65 @@ const drawingRect = computed(() => {
     </div>
 
     <!-- Field Type Selector Popup -->
-    <v-dialog
+    <VDialog
       v-model="showFieldTypePopup"
       max-width="280"
       :style="{ position: 'fixed', left: popupPosition.x + 'px', top: popupPosition.y + 'px' }"
     >
-      <v-card class="field-type-dialog">
-        <v-card-title class="text-subtitle-1 pb-1 d-flex align-center">
-          <v-icon icon="mdi-form-select" class="mr-2" size="20" />
+      <VCard class="field-type-dialog">
+        <VCardTitle class="text-subtitle-1 pb-1 d-flex align-center">
+          <VIcon
+            icon="mdi-form-select"
+            class="mr-2"
+            size="20"
+          />
           Select Field Type
-        </v-card-title>
+        </VCardTitle>
         
-        <v-divider />
+        <VDivider />
 
-        <v-list density="compact">
-          <v-list-item
+        <VList density="compact">
+          <VListItem
             v-for="(icon, type) in fieldTypeIcons"
             :key="type"
             :prepend-icon="icon"
-            @click="onFieldTypeSelected(type)"
             class="field-type-option"
+            @click="onFieldTypeSelected(type)"
           >
-            <v-list-item-title>{{ type }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
+            <VListItemTitle>{{ type }}</VListItemTitle>
+          </VListItem>
+        </VList>
 
-        <v-divider />
+        <VDivider />
 
-        <v-card-actions>
-          <v-btn block variant="text" @click="onFieldTypeCancelled">
+        <VCardActions>
+          <VBtn
+            block
+            variant="text"
+            @click="onFieldTypeCancelled"
+          >
             Cancel
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
 
     <!-- No Signer Selected Hint -->
     <div 
       v-if="!disabled && !selectedSigner && pageCount > 0"
       class="no-signer-hint"
     >
-      <v-alert type="info" variant="tonal" density="compact">
-        <v-icon icon="mdi-information" class="mr-2" />
+      <VAlert
+        type="info"
+        variant="tonal"
+        density="compact"
+      >
+        <VIcon
+          icon="mdi-information"
+          class="mr-2"
+        />
         Select a signer from the left panel to start placing signature fields
-      </v-alert>
+      </VAlert>
     </div>
   </div>
 </template>

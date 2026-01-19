@@ -45,6 +45,7 @@ export const useApi = createFetch({
         if (!window.location.pathname.includes('/login'))
           window.location.href = '/login'
       }
+      
       return ctx
     },
   },

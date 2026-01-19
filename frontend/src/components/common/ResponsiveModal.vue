@@ -20,46 +20,46 @@ const internalValue = computed({
 
 <template>
   <!-- Bottom sheet for mobile, dialog for desktop -->
-  <v-bottom-sheet
+  <VBottomSheet
     v-if="isMobile"
     v-model="internalValue"
     :persistent="persistent"
   >
-    <v-card rounded="t-xl">
-      <v-card-title class="d-flex align-center justify-space-between">
+    <VCard rounded="t-xl">
+      <VCardTitle class="d-flex align-center justify-space-between">
         <span>{{ title }}</span>
-        <v-btn
+        <VBtn
           icon="mdi-close"
           variant="text"
           size="small"
           @click="internalValue = false"
         />
-      </v-card-title>
-      <v-card-text>
+      </VCardTitle>
+      <VCardText>
         <slot />
-      </v-card-text>
-      <v-card-actions v-if="$slots.actions">
+      </VCardText>
+      <VCardActions v-if="$slots.actions">
         <slot name="actions" />
-      </v-card-actions>
-    </v-card>
-  </v-bottom-sheet>
+      </VCardActions>
+    </VCard>
+  </VBottomSheet>
 
   <!-- Dialog for desktop -->
-  <v-dialog
+  <VDialog
     v-else
     v-model="internalValue"
     :persistent="persistent"
     max-width="600"
   >
-    <v-card>
-      <v-card-title>{{ title }}</v-card-title>
-      <v-card-text>
+    <VCard>
+      <VCardTitle>{{ title }}</VCardTitle>
+      <VCardText>
         <slot />
-      </v-card-text>
-      <v-card-actions v-if="$slots.actions">
-        <v-spacer />
+      </VCardText>
+      <VCardActions v-if="$slots.actions">
+        <VSpacer />
         <slot name="actions" />
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>

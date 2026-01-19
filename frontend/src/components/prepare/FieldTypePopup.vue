@@ -4,19 +4,20 @@
  * Appears after drawing a rectangle on the PDF
  */
 import { onMounted, onUnmounted } from 'vue'
+
 const props = defineProps({
   modelValue: {
     type: Boolean,
-    default: false
+    default: false,
   },
   position: {
     type: Object,
-    default: () => ({ x: 0, y: 0 })
+    default: () => ({ x: 0, y: 0 }),
   },
   signerColor: {
     type: Object,
-    default: () => ({ border: '#1976D2', bg: '#E3F2FD' })
-  }
+    default: () => ({ border: '#1976D2', bg: '#E3F2FD' }),
+  },
 })
 
 const emit = defineEmits(['update:modelValue', 'select', 'cancel'])
@@ -26,31 +27,31 @@ const fieldTypes = [
     type: 'SIGNATURE', 
     icon: 'mdi-draw', 
     label: 'Signature',
-    description: 'Full signature'
+    description: 'Full signature',
   },
   { 
     type: 'INITIALS', 
     icon: 'mdi-alphabetical-variant', 
     label: 'Initials',
-    description: 'Initials only'
+    description: 'Initials only',
   },
   { 
     type: 'DATE', 
     icon: 'mdi-calendar', 
     label: 'Date',
-    description: 'Auto-fill date'
+    description: 'Auto-fill date',
   },
   { 
     type: 'TEXT', 
     icon: 'mdi-form-textbox', 
     label: 'Text',
-    description: 'Free text input'
+    description: 'Free text input',
   },
   { 
     type: 'CHECKBOX', 
     icon: 'mdi-checkbox-marked-outline', 
     label: 'Checkbox',
-    description: 'Yes/No selection'
+    description: 'Yes/No selection',
   },
 ]
 
@@ -81,9 +82,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <v-menu
+  <VMenu
     :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
     :close-on-content-click="false"
     location="bottom start"
     :style="{ 
@@ -91,50 +91,58 @@ onUnmounted(() => {
       left: position.x + 'px',
       top: position.y + 'px'
     }"
+    @update:model-value="$emit('update:modelValue', $event)"
   >
-    <v-card 
+    <VCard 
       class="field-type-popup" 
       min-width="220"
       elevation="8"
     >
-      <v-card-title class="text-subtitle-2 pb-1 pt-3">
-        <v-icon icon="mdi-form-select" size="18" class="mr-2" />
+      <VCardTitle class="text-subtitle-2 pb-1 pt-3">
+        <VIcon
+          icon="mdi-form-select"
+          size="18"
+          class="mr-2"
+        />
         Select Field Type
-      </v-card-title>
+      </VCardTitle>
       
-      <v-divider class="my-1" />
+      <VDivider class="my-1" />
 
-      <v-list density="compact" class="py-1">
-        <v-list-item
+      <VList
+        density="compact"
+        class="py-1"
+      >
+        <VListItem
           v-for="field in fieldTypes"
           :key="field.type"
           :prepend-icon="field.icon"
-          @click="selectType(field.type)"
           class="field-type-item"
+          @click="selectType(field.type)"
         >
-          <v-list-item-title class="text-body-2">
+          <VListItemTitle class="text-body-2">
             {{ field.label }}
-          </v-list-item-title>
-          <v-list-item-subtitle class="text-caption">
+          </VListItemTitle>
+          <VListItemSubtitle class="text-caption">
             {{ field.description }}
-          </v-list-item-subtitle>
-        </v-list-item>
-      </v-list>
+          </VListItemSubtitle>
+        </VListItem>
+      </VList>
 
-      <v-divider class="my-1" />
+      <VDivider class="my-1" />
 
-      <v-card-actions class="pa-2">
-        <v-btn
+      <VCardActions class="pa-2">
+        <VBtn
           size="small"
           variant="text"
           block
           @click="cancel"
         >
           Cancel
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-menu>
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VMenu>
 </template>
 
 <style scoped>

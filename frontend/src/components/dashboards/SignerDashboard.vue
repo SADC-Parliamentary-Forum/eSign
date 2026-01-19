@@ -23,6 +23,7 @@ const loadPendingDocuments = async () => {
   try {
     // Get documents where user needs to sign
     const steps = await workflowStore.fetchUserPendingSteps()
+
     pendingDocuments.value = steps.map(step => ({
       ...step.workflow.document,
       workflowStep: step,
@@ -40,6 +41,7 @@ const loadOverdueDocuments = async () => {
   try {
     // Filter expired documents
     const now = new Date()
+
     overdueDocuments.value = pendingDocuments.value.filter(doc => {
       return doc.expires_at && new Date(doc.expires_at) < now
     })
@@ -52,6 +54,7 @@ const loadOverdueDocuments = async () => {
 const loadRecentlyCompleted = async () => {
   try {
     const response = await $api('/documents?status=COMPLETED&limit=5')
+
     recentlyCompleted.value = response
   }
   catch (error) {
@@ -70,6 +73,7 @@ const formatDueDate = date => {
   if (diff < 0) return 'Overdue'
   if (days > 0) return `Due in ${days}d`
   if (hours > 0) return `Due in ${hours}h`
+  
   return 'Due soon'
 }
 
@@ -82,226 +86,257 @@ const getDueDateColor = date => {
   
   if (diff < 0) return 'error'
   if (hours < 24) return 'warning'
+  
   return 'info'
 }
 </script>
 
 <template>
-  <v-container fluid>
+  <VContainer fluid>
     <!-- Summary Cards -->
-    <v-row>
-      <v-col cols="12" md="4">
-        <v-card color="warning-lighten-4">
-          <v-card-text>
+    <VRow>
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <VCard color="warning-lighten-4">
+          <VCardText>
             <div class="d-flex align-center">
-              <v-avatar color="warning" size="48">
-                <v-icon>mdi-clock-alert</v-icon>
-              </v-avatar>
+              <VAvatar
+                color="warning"
+                size="48"
+              >
+                <VIcon>mdi-clock-alert</VIcon>
+              </VAvatar>
               <div class="ml-4">
-                <div class="text-overline">Pending Signatures</div>
+                <div class="text-overline">
+                  Pending Signatures
+                </div>
                 <div class="text-h3 font-weight-bold">
                   {{ workflowStore.pendingStepsCount }}
                 </div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" md="4">
-        <v-card color="error-lighten-4">
-          <v-card-text>
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <VCard color="error-lighten-4">
+          <VCardText>
             <div class="d-flex align-center">
-              <v-avatar color="error" size="48">
-                <v-icon>mdi-alert</v-icon>
-              </v-avatar>
+              <VAvatar
+                color="error"
+                size="48"
+              >
+                <VIcon>mdi-alert</VIcon>
+              </VAvatar>
               <div class="ml-4">
-                <div class="text-overline">Overdue</div>
+                <div class="text-overline">
+                  Overdue
+                </div>
                 <div class="text-h3 font-weight-bold">
                   {{ overdueDocuments.length }}
                 </div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+          </VCardText>
+        </VCard>
+      </VCol>
 
-      <v-col cols="12" md="4">
-        <v-card color="success-lighten-4">
-          <v-card-text>
+      <VCol
+        cols="12"
+        md="4"
+      >
+        <VCard color="success-lighten-4">
+          <VCardText>
             <div class="d-flex align-center">
-              <v-avatar color="success" size="48">
-                <v-icon>mdi-check-circle</v-icon>
-              </v-avatar>
+              <VAvatar
+                color="success"
+                size="48"
+              >
+                <VIcon>mdi-check-circle</VIcon>
+              </VAvatar>
               <div class="ml-4">
-                <div class="text-overline">Completed</div>
+                <div class="text-overline">
+                  Completed
+                </div>
                 <div class="text-h3 font-weight-bold">
                   {{ recentlyCompleted.length }}
                 </div>
               </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </VCardText>
+        </VCard>
+      </VCol>
+    </VRow>
 
     <!-- Primary CTA: Documents Requiring Action -->
-    <v-row class="mt-4">
-      <v-col cols="12">
-        <dashboard-widget
+    <VRow class="mt-4">
+      <VCol cols="12">
+        <DashboardWidget
           title="Documents Requiring Your Signature"
           icon="mdi-pen"
           color="primary"
           :loading="loading"
         >
-          <v-list v-if="pendingDocuments.length > 0">
-            <v-list-item
+          <VList v-if="pendingDocuments.length > 0">
+            <VListItem
               v-for="doc in pendingDocuments"
               :key="doc.id"
               :to="`/documents/${doc.id}`"
               class="mb-2"
             >
               <template #prepend>
-                <v-avatar :color="getDueDateColor(doc.expires_at)">
-                  <v-icon>mdi-file-document</v-icon>
-                </v-avatar>
+                <VAvatar :color="getDueDateColor(doc.expires_at)">
+                  <VIcon>mdi-file-document</VIcon>
+                </VAvatar>
               </template>
 
-              <v-list-item-title class="font-weight-medium">
+              <VListItemTitle class="font-weight-medium">
                 {{ doc.title }}
-              </v-list-item-title>
+              </VListItemTitle>
               
-              <v-list-item-subtitle>
+              <VListItemSubtitle>
                 Role: <strong>{{ doc.workflowStep.role }}</strong>
                 <span v-if="doc.amount">
                   • Amount: ${{ doc.amount.toLocaleString() }}
                 </span>
-              </v-list-item-subtitle>
+              </VListItemSubtitle>
 
               <template #append>
                 <div class="d-flex flex-column align-end">
-                  <v-chip
+                  <VChip
                     :color="getDueDateColor(doc.expires_at)"
                     size="small"
                     class="mb-1"
                   >
                     {{ formatDueDate(doc.expires_at) }}
-                  </v-chip>
+                  </VChip>
                   
-                  <v-btn
+                  <VBtn
                     color="primary"
                     size="small"
                     :to="`/documents/${doc.id}`"
                   >
-                    <v-icon start>
+                    <VIcon start>
                       mdi-pen
-                    </v-icon>
+                    </VIcon>
                     Review & Sign
-                  </v-btn>
+                  </VBtn>
                 </div>
               </template>
-            </v-list-item>
-          </v-list>
+            </VListItem>
+          </VList>
 
-          <v-empty-state
+          <VEmptyState
             v-else
             icon="mdi-check-all"
             title="All caught up!"
             text="You have no pending signatures"
           />
-        </dashboard-widget>
-      </v-col>
-    </v-row>
+        </DashboardWidget>
+      </VCol>
+    </VRow>
 
     <!-- Overdue Signatures (if any) -->
-    <v-row v-if="overdueDocuments.length > 0" class="mt-2">
-      <v-col cols="12">
-        <dashboard-widget
+    <VRow
+      v-if="overdueDocuments.length > 0"
+      class="mt-2"
+    >
+      <VCol cols="12">
+        <DashboardWidget
           title="Overdue Signatures"
           icon="mdi-alert"
           color="error"
         >
-          <v-alert
+          <VAlert
             type="error"
             variant="tonal"
             class="mb-4"
           >
             <strong>{{ overdueDocuments.length }}</strong> document(s) require urgent attention
-          </v-alert>
+          </VAlert>
 
-          <v-list>
-            <v-list-item
+          <VList>
+            <VListItem
               v-for="doc in overdueDocuments"
               :key="doc.id"
               :to="`/documents/${doc.id}`"
             >
               <template #prepend>
-                <v-icon color="error">
+                <VIcon color="error">
                   mdi-alert-circle
-                </v-icon>
+                </VIcon>
               </template>
 
-              <v-list-item-title>{{ doc.title }}</v-list-item-title>
-              <v-list-item-subtitle>
+              <VListItemTitle>{{ doc.title }}</VListItemTitle>
+              <VListItemSubtitle>
                 Expired {{ formatDueDate(doc.expires_at) }}
-              </v-list-item-subtitle>
+              </VListItemSubtitle>
 
               <template #append>
-                <v-btn
+                <VBtn
                   color="error"
                   variant="outlined"
                   size="small"
                 >
                   Sign Now
-                </v-btn>
+                </VBtn>
               </template>
-            </v-list-item>
-          </v-list>
-        </dashboard-widget>
-      </v-col>
-    </v-row>
+            </VListItem>
+          </VList>
+        </DashboardWidget>
+      </VCol>
+    </VRow>
 
     <!-- Recently Completed -->
-    <v-row class="mt-2">
-      <v-col cols="12">
-        <dashboard-widget
+    <VRow class="mt-2">
+      <VCol cols="12">
+        <DashboardWidget
           title="Recently Completed"
           icon="mdi-check-circle"
           color="success"
           :action="{ label: 'View All', to: '/documents?status=COMPLETED' }"
         >
-          <v-list v-if="recentlyCompleted.length > 0">
-            <v-list-item
+          <VList v-if="recentlyCompleted.length > 0">
+            <VListItem
               v-for="doc in recentlyCompleted"
               :key="doc.id"
               :to="`/documents/${doc.id}`"
             >
               <template #prepend>
-                <v-icon color="success">
+                <VIcon color="success">
                   mdi-check-circle
-                </v-icon>
+                </VIcon>
               </template>
 
-              <v-list-item-title>{{ doc.title }}</v-list-item-title>
-              <v-list-item-subtitle>
+              <VListItemTitle>{{ doc.title }}</VListItemTitle>
+              <VListItemSubtitle>
                 Completed {{ formatDueDate(doc.completed_at) }}
-              </v-list-item-subtitle>
+              </VListItemSubtitle>
 
               <template #append>
-                <v-btn
+                <VBtn
                   icon="mdi-download"
                   variant="text"
                   size="small"
                 />
               </template>
-            </v-list-item>
-          </v-list>
+            </VListItem>
+          </VList>
 
-          <div v-else class="text-center py-4 text-medium-emphasis">
+          <div
+            v-else
+            class="text-center py-4 text-medium-emphasis"
+          >
             No completed documents yet
           </div>
-        </dashboard-widget>
-      </v-col>
-    </v-row>
-  </v-container>
+        </DashboardWidget>
+      </VCol>
+    </VRow>
+  </VContainer>
 </template>

@@ -15,7 +15,7 @@ const authStore = useAuthStore()
 const { mdAndUp } = useDisplay()
 
 // --- State ---
-const drawer = ref(false)
+const drawer = ref(true)
 const document = ref(null)
 const signers = ref([])
 const fields = ref([])
@@ -252,8 +252,7 @@ function handleDocumentLoad(pdf) {
 function onFieldClick(field) {
   if (!canSign.value) return
   
-  const isMine = field.signer_email === currentUser.value?.email 
-               || field.document_signer_id === currentUser.value?.id
+  const isMine = isMyField(field)
 
   if (!isMine) return
 
@@ -276,7 +275,8 @@ function onFieldClick(field) {
     }
   } else if (field.type === 'CHECKBOX') {
     const current = fieldValues.value[field.id]?.value
-    fieldValues.value[field.id] = { value: !current, type: field.type }
+    // fieldValues.value[field.id] = { value: !current, type: field.type }
+    fillField(field, { value: !current, type: field.type })
   } else if (field.type === 'DATE') {
     activeFieldId.value = field.id
     const current = fieldValues.value[field.id]?.value
@@ -285,6 +285,8 @@ function onFieldClick(field) {
   }
 }
 
+
+// ... (keep drawing/canvas methods)
 function initCanvas() {
   if (!signatureCanvas.value) return
   ctx = signatureCanvas.value.getContext('2d')
@@ -330,7 +332,7 @@ function handleFileUpload(e) {
 }
 
 function generateTypeSignature() {
-  const tCanvas = window.document.createElement('canvas') // Fix: Use window.document
+  const tCanvas = window.document.createElement('canvas')
   tCanvas.width = 450
   tCanvas.height = 150
   const tCtx = tCanvas.getContext('2d')
@@ -349,8 +351,8 @@ function generateTypeSignature() {
   return tCanvas.toDataURL('image/png')
 }
 
-// Just trigger re-render of preview if needed, mostly handled by reactivity
 function updateTypePreview() { }
+
 
 async function saveSignature() {
   let signatureValue = null
@@ -387,17 +389,26 @@ async function saveSignature() {
 
   if (!signatureValue) return
 
-  fieldValues.value[activeFieldId.value] = { 
-      value: signatureValue, 
-      type: 'SIGNATURE',
-      method: method // Store method metadata too if backend supports it
+  // fieldValues.value[activeFieldId.value] = { ... }
+  const field = fields.value.find(f => f.id === activeFieldId.value)
+  if (field) {
+      fillField(field, { 
+        value: signatureValue, 
+        type: 'SIGNATURE',
+        method: method
+      })
   }
+
   showSignatureDialog.value = false
 }
 
 function saveDate() {
     if (!tempDate.value) return
-    fieldValues.value[activeFieldId.value] = { value: tempDate.value, type: 'DATE' }
+    // fieldValues.value[activeFieldId.value] = { value: tempDate.value, type: 'DATE' }
+    const field = fields.value.find(f => f.id === activeFieldId.value)
+    if (field) {
+        fillField(field, { value: tempDate.value, type: 'DATE' })
+    }
     showDateDialog.value = false
 }
 
@@ -607,6 +618,32 @@ function getFieldBorder(field) {
   return 'none'
 }
 
+
+
+function fillField(field, valueObj) {
+  // Update the target field
+  fieldValues.value[field.id] = valueObj
+  
+  // Auto-fill grouped fields or fields with same label (if label exists)
+  if (field.group_id || field.label) {
+    const grouped = fields.value.filter(f => 
+        f.id !== field.id && 
+        isMyField(f) && (
+            (field.group_id && f.group_id === field.group_id) ||
+            (field.label && f.label === field.label)
+        )
+    )
+    
+    if (grouped.length > 0) {
+        // console.log('Auto-filling linked fields:', grouped.map(f => f.id))
+        grouped.forEach(gField => {
+            fieldValues.value[gField.id] = { ...valueObj }
+        })
+    }
+  }
+}
+
+
 function getFieldValueModel(field) {
   // Ensure we have a reactive object for v-model
   if (!fieldValues.value[field.id]) {
@@ -614,11 +651,15 @@ function getFieldValueModel(field) {
   }
   return fieldValues.value[field.id]
 }
+
+function onTextFieldInput(e, field) {
+    const val = e.target.value
+    fillField(field, { value: val, type: 'TEXT' })
+}
 </script>
 
 <template>
   <div class="h-100 d-flex flex-column bg-background">
-    <!-- Premium Header -->
     <v-toolbar color="surface" elevation="1" height="72" class="border-b">
       <div class="px-6 w-100 d-flex align-center fill-height">
         <!-- Back Button -->
@@ -831,7 +872,8 @@ function getFieldValueModel(field) {
                     <!-- Text Input -->
                     <input 
                        v-else-if="field.type === 'TEXT'"
-                       v-model="getFieldValueModel(field).value"
+                       :value="getFieldValueModel(field).value"
+                       @input="onTextFieldInput($event, field)"
                        class="w-100 h-100 px-2 text-body-2 bg-transparent outline-none"
                        :disabled="!isMyField(field)"
                        placeholder="Enter text..."

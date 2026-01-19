@@ -5,7 +5,7 @@ const props = defineProps({
   score: {
     type: Number,
     required: true,
-    validator: (value) => value >= 0 && value <= 100,
+    validator: value => value >= 0 && value <= 100,
   },
   breakdown: {
     type: Object,
@@ -24,6 +24,7 @@ const props = defineProps({
 const scoreColor = computed(() => {
   if (props.score >= 80) return 'success'
   if (props.score >= 50) return 'warning'
+  
   return 'error'
 })
 
@@ -31,6 +32,7 @@ const scoreLabel = computed(() => {
   if (props.score >= 80) return 'Excellent'
   if (props.score >= 60) return 'Good'
   if (props.score >= 40) return 'Fair'
+  
   return 'Low'
 })
 
@@ -68,10 +70,10 @@ const breakdownItems = computed(() => {
 
 <template>
   <div class="trust-score-indicator">
-    <v-card :variant="showDetails ? 'elevated' : 'flat'">
-      <v-card-text class="text-center">
+    <VCard :variant="showDetails ? 'elevated' : 'flat'">
+      <VCardText class="text-center">
         <!-- Circular Progress -->
-        <v-progress-circular
+        <VProgressCircular
           :model-value="score"
           :size="size"
           :width="size / 10"
@@ -85,7 +87,7 @@ const breakdownItems = computed(() => {
               {{ scoreLabel }}
             </div>
           </div>
-        </v-progress-circular>
+        </VProgressCircular>
 
         <!-- Score Label -->
         <div class="mt-2 text-subtitle-2 font-weight-medium">
@@ -93,41 +95,52 @@ const breakdownItems = computed(() => {
         </div>
 
         <!-- Trust Badge -->
-        <v-chip
+        <VChip
           :color="scoreColor"
           size="small"
           class="mt-2"
         >
-          <v-icon start icon="mdi-shield-check" />
+          <VIcon
+            start
+            icon="mdi-shield-check"
+          />
           {{ scoreLabel }} Security
-        </v-chip>
+        </VChip>
 
         <!-- Breakdown Details -->
-        <v-expand-transition>
-          <div v-if="showDetails && breakdown" class="mt-4">
-            <v-divider class="mb-3" />
+        <VExpandTransition>
+          <div
+            v-if="showDetails && breakdown"
+            class="mt-4"
+          >
+            <VDivider class="mb-3" />
             
-            <div class="text-subtitle-2 mb-2">Score Breakdown</div>
+            <div class="text-subtitle-2 mb-2">
+              Score Breakdown
+            </div>
             
-            <v-list density="compact">
-              <v-list-item
+            <VList density="compact">
+              <VListItem
                 v-for="item in breakdownItems"
                 :key="item.label"
               >
                 <template #prepend>
-                  <v-icon :icon="item.icon" size="small" />
+                  <VIcon
+                    :icon="item.icon"
+                    size="small"
+                  />
                 </template>
 
-                <v-list-item-title class="text-caption">
+                <VListItemTitle class="text-caption">
                   {{ item.label }}
-                </v-list-item-title>
+                </VListItemTitle>
 
-                <v-list-item-subtitle class="text-caption">
+                <VListItemSubtitle class="text-caption">
                   {{ item.value }}/100 ({{ item.weight }} weight)
-                </v-list-item-subtitle>
+                </VListItemSubtitle>
 
                 <template #append>
-                  <v-progress-linear
+                  <VProgressLinear
                     :model-value="item.value"
                     :color="item.value >= 80 ? 'success' : item.value >= 50 ? 'warning' : 'error'"
                     height="6"
@@ -135,19 +148,24 @@ const breakdownItems = computed(() => {
                     style="width: 80px;"
                   />
                 </template>
-              </v-list-item>
-            </v-list>
+              </VListItem>
+            </VList>
 
             <!-- Formula Explanation -->
-            <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+            <VAlert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mt-3"
+            >
               <div class="text-caption">
                 <strong>Formula:</strong> (Level × 40%) + (Verification × 30%) + (Timestamps × 20%) + (Certificates × 10%)
               </div>
-            </v-alert>
+            </VAlert>
           </div>
-        </v-expand-transition>
-      </v-card-text>
-    </v-card>
+        </VExpandTransition>
+      </VCardText>
+    </VCard>
   </div>
 </template>
 

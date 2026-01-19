@@ -24,9 +24,9 @@ const props = defineProps({
 </script>
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center">
-      <v-icon
+  <VCard>
+    <VCardTitle class="d-flex align-center">
+      <VIcon
         v-if="icon"
         :icon="icon"
         :color="color"
@@ -34,9 +34,9 @@ const props = defineProps({
       />
       {{ title }}
       
-      <v-spacer />
+      <VSpacer />
       
-      <v-btn
+      <VBtn
         v-if="action"
         variant="text"
         size="small"
@@ -44,19 +44,19 @@ const props = defineProps({
         @click="action.onClick"
       >
         {{ action.label }}
-      </v-btn>
-    </v-card-title>
+      </VBtn>
+    </VCardTitle>
 
-    <v-divider />
+    <VDivider />
 
-    <v-card-text>
-      <v-progress-linear
+    <VCardText>
+      <VProgressLinear
         v-if="loading"
         indeterminate
         color="primary"
       />
       
       <slot v-else />
-    </v-card-text>
-  </v-card>
+    </VCardText>
+  </VCard>
 </template>

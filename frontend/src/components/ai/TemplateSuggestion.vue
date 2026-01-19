@@ -19,53 +19,54 @@ const apply = () => {
 const getConfidenceColor = confidence => {
   if (confidence >= 90) return 'success'
   if (confidence >= 70) return 'info'
+  
   return 'warning'
 }
 
 const getConfidenceIcon = strength => {
   switch (strength) {
-    case 'STRONG':
-      return 'mdi-star'
-    case 'MODERATE':
-      return 'mdi-star-half-full'
-    default:
-      return 'mdi-star-outline'
+  case 'STRONG':
+    return 'mdi-star'
+  case 'MODERATE':
+    return 'mdi-star-half-full'
+  default:
+    return 'mdi-star-outline'
   }
 }
 </script>
 
 <template>
-  <v-card
+  <VCard
     variant="outlined"
     class="ai-suggestion-card"
     :class="{ 'strong-match': suggestion.strength === 'STRONG' }"
   >
-    <v-card-title class="d-flex align-center">
-      <v-icon
-        :icon="'mdi-lightbulb'"
+    <VCardTitle class="d-flex align-center">
+      <VIcon
+        icon="mdi-lightbulb"
         :color="getConfidenceColor(suggestion.confidence)"
         class="mr-2"
       />
       {{ suggestion.template.name }}
       
-      <v-spacer />
+      <VSpacer />
       
-      <v-chip
+      <VChip
         :color="getConfidenceColor(suggestion.confidence)"
         :prepend-icon="getConfidenceIcon(suggestion.strength)"
         size="small"
       >
         {{ Math.round(suggestion.confidence) }}%
-      </v-chip>
-    </v-card-title>
+      </VChip>
+    </VCardTitle>
 
-    <v-card-subtitle v-if="suggestion.template.description">
+    <VCardSubtitle v-if="suggestion.template.description">
       {{ suggestion.template.description }}
-    </v-card-subtitle>
+    </VCardSubtitle>
 
-    <v-card-text>
+    <VCardText>
       <div class="confidence-bar mb-2">
-        <v-progress-linear
+        <VProgressLinear
           :model-value="suggestion.confidence"
           :color="getConfidenceColor(suggestion.confidence)"
           height="8"
@@ -75,9 +76,9 @@ const getConfidenceIcon = strength => {
 
       <div class="text-caption text-medium-emphasis">
         Match Strength: <strong>{{ suggestion.strength }}</strong>
-        <v-tooltip location="top">
+        <VTooltip location="top">
           <template #activator="{ props: tooltipProps }">
-            <v-icon
+            <VIcon
               v-bind="tooltipProps"
               icon="mdi-information"
               size="x-small"
@@ -97,32 +98,32 @@ const getConfidenceIcon = strength => {
               <strong>Weak Match:</strong> Template may not be suitable for this document.
             </div>
           </div>
-        </v-tooltip>
+        </VTooltip>
       </div>
-    </v-card-text>
+    </VCardText>
 
-    <v-card-actions>
-      <v-btn
+    <VCardActions>
+      <VBtn
         variant="outlined"
         @click="$emit('preview', suggestion.template)"
       >
         Preview
-      </v-btn>
+      </VBtn>
       
-      <v-spacer />
+      <VSpacer />
       
-      <v-btn
+      <VBtn
         :color="suggestion.strength === 'STRONG' ? 'primary' : 'default'"
         :variant="suggestion.strength === 'STRONG' ? 'flat' : 'outlined'"
         @click="apply"
       >
-        <v-icon start>
+        <VIcon start>
           mdi-check
-        </v-icon>
+        </VIcon>
         Apply Template
-      </v-btn>
-    </v-card-actions>
-  </v-card>
+      </VBtn>
+    </VCardActions>
+  </VCard>
 </template>
 
 <style scoped>

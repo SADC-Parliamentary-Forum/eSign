@@ -27,8 +27,9 @@ const loading = ref(false)
 
 async function handleRegister() {
   if (form.value.password !== form.value.password_confirmation) {
-      error.value = 'Passwords do not match'
-      return
+    error.value = 'Passwords do not match'
+    
+    return
   }
 
   loading.value = true
@@ -36,15 +37,16 @@ async function handleRegister() {
   
   try {
     const success = await authStore.register({
-        name: form.value.name,
-        email: form.value.email,
-        password: form.value.password,
-        password_confirmation: form.value.password_confirmation
+      name: form.value.name,
+      email: form.value.email,
+      password: form.value.password,
+      password_confirmation: form.value.password_confirmation,
     })
     
     if (success) {
-        const returnUrl = route.query.returnUrl || '/'
-        router.push(returnUrl)
+      const returnUrl = route.query.returnUrl || '/'
+
+      router.push(returnUrl)
     }
   } catch (e) {
     error.value = e.message || 'Registration failed'
@@ -76,7 +78,13 @@ async function handleRegister() {
       </VCardText>
 
       <VCardText>
-        <VAlert v-if="error" type="error" class="mb-4">{{ error }}</VAlert>
+        <VAlert
+          v-if="error"
+          type="error"
+          class="mb-4"
+        >
+          {{ error }}
+        </VAlert>
         
         <VForm @submit.prevent="handleRegister">
           <VRow>
@@ -134,7 +142,10 @@ async function handleRegister() {
             </VCol>
 
             <!-- login link -->
-            <VCol cols="12" class="text-center text-base">
+            <VCol
+              cols="12"
+              class="text-center text-base"
+            >
               <span>Already have an account?</span>
               <RouterLink
                 class="text-primary ms-2"

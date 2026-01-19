@@ -13,7 +13,7 @@ const emit = defineEmits(['update:modelValue', 'verified'])
 
 const show = computed({
   get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val),
+  set: val => emit('update:modelValue', val),
 })
 
 const loading = ref(false)
@@ -29,7 +29,7 @@ onMounted(() => {
   }
 })
 
-watch(show, (newVal) => {
+watch(show, newVal => {
   if (newVal) {
     sendOTP()
   }
@@ -65,6 +65,7 @@ async function sendOTP() {
 async function verifyOTP() {
   if (code.value.length !== 6) {
     error.value = 'Please enter a 6-digit code'
+    
     return
   }
 
@@ -120,6 +121,7 @@ function stopCountdown() {
 const formattedTime = computed(() => {
   const minutes = Math.floor(timeRemaining.value / 60)
   const seconds = timeRemaining.value % 60
+  
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 })
 
@@ -132,23 +134,30 @@ async function resend() {
 </script>
 
 <template>
-  <v-dialog
+  <VDialog
     v-model="show"
     max-width="500"
     persistent
   >
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-lock-check" class="mr-2" />
+    <VCard>
+      <VCardTitle class="d-flex align-center">
+        <VIcon
+          icon="mdi-lock-check"
+          class="mr-2"
+        />
         Enter Verification Code
-      </v-card-title>
+      </VCardTitle>
 
-      <v-card-text>
-        <v-alert type="info" variant="tonal" class="mb-4">
+      <VCardText>
+        <VAlert
+          type="info"
+          variant="tonal"
+          class="mb-4"
+        >
           A 6-digit verification code has been sent to your email. Please enter it below.
-        </v-alert>
+        </VAlert>
 
-        <v-otp-input
+        <VOtpInput
           v-model="code"
           :length="6"
           :loading="loading"
@@ -158,20 +167,34 @@ async function resend() {
 
         <div class="d-flex justify-space-between align-center mt-3 text-caption">
           <div>
-            <v-icon icon="mdi-clock-outline" size="small" class="mr-1" />
+            <VIcon
+              icon="mdi-clock-outline"
+              size="small"
+              class="mr-1"
+            />
             Expires in {{ formattedTime }}
           </div>
           <div>
-            <v-icon icon="mdi-alert-circle-outline" size="small" class="mr-1" />
+            <VIcon
+              icon="mdi-alert-circle-outline"
+              size="small"
+              class="mr-1"
+            />
             {{ attemptsRemaining }} attempts left
           </div>
         </div>
 
-        <v-alert v-if="error" type="error" variant="tonal" class="mt-3" density="compact">
+        <VAlert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          class="mt-3"
+          density="compact"
+        >
           {{ error }}
-        </v-alert>
+        </VAlert>
 
-        <v-btn
+        <VBtn
           variant="text"
           size="small"
           class="mt-3"
@@ -179,27 +202,27 @@ async function resend() {
           @click="resend"
         >
           Didn't receive code? Resend
-        </v-btn>
-      </v-card-text>
+        </VBtn>
+      </VCardText>
 
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
+      <VCardActions>
+        <VSpacer />
+        <VBtn
           variant="text"
           :disabled="loading"
           @click="show = false"
         >
           Cancel
-        </v-btn>
-        <v-btn
+        </VBtn>
+        <VBtn
           color="primary"
           :loading="loading"
           :disabled="code.length !== 6"
           @click="verifyOTP"
         >
           Verify
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>

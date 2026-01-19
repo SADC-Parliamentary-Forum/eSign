@@ -12,13 +12,16 @@ const loading = ref(false)
 const fetchNotifications = async () => {
   try {
     loading.value = true
+
     const res = await fetch('/api/notifications', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
     })
+
     if (res.ok) {
-        const data = await res.json()
-        notifications.value = data.data
-        unreadCount.value = data.unread_count
+      const data = await res.json()
+
+      notifications.value = data.data
+      unreadCount.value = data.unread_count
     }
   } catch (e) {
     console.error('Failed to fetch notifications', e)
@@ -27,7 +30,7 @@ const fetchNotifications = async () => {
   }
 }
 
-const markAsRead = async (notification) => {
+const markAsRead = async notification => {
   if (notification.read_at) return
   
   try {
@@ -35,8 +38,8 @@ const markAsRead = async (notification) => {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     })
     notification.read_at = new Date().toISOString()
     unreadCount.value = Math.max(0, unreadCount.value - 1)
@@ -45,7 +48,7 @@ const markAsRead = async (notification) => {
   }
 }
 
-const handleNotificationClick = (notification) => {
+const handleNotificationClick = notification => {
   markAsRead(notification)
   if (notification.data.document_id) {
     router.push(`/documents/${notification.data.document_id}`)
@@ -74,13 +77,23 @@ onMounted(() => {
       class="text-medium-emphasis"
       size="small"
     >
-      <VIcon icon="ri-notification-line" size="24" />
+      <VIcon
+        icon="ri-notification-line"
+        size="24"
+      />
 
-      <VMenu activator="parent" width="380" location="bottom end" offset="14px">
+      <VMenu
+        activator="parent"
+        width="380"
+        location="bottom end"
+        offset="14px"
+      >
         <VCard class="d-flex flex-column">
           <!-- Header -->
           <VCardItem class="py-3">
-            <VCardTitle class="text-h6">Notifications</VCardTitle>
+            <VCardTitle class="text-h6">
+              Notifications
+            </VCardTitle>
             <template #append>
               <VChip
                 v-if="unreadCount > 0"
@@ -96,17 +109,35 @@ onMounted(() => {
           <VDivider />
 
           <!-- List -->
-          <PerfectScrollbar :options="{ wheelPropagation: false }" style="max-height: 380px;">
-            <VList v-if="notifications.length > 0" lines="two" class="py-0">
-              <template v-for="(notification, index) in notifications" :key="notification.id">
+          <PerfectScrollbar
+            :options="{ wheelPropagation: false }"
+            style="max-height: 380px;"
+          >
+            <VList
+              v-if="notifications.length > 0"
+              lines="two"
+              class="py-0"
+            >
+              <template
+                v-for="(notification, index) in notifications"
+                :key="notification.id"
+              >
                 <VListItem
                   :value="notification"
                   :class="{ 'bg-var-theme-background': !notification.read_at }"
                   @click="handleNotificationClick(notification)"
                 >
                   <template #prepend>
-                    <VAvatar color="primary" variant="tonal" size="32" class="me-3">
-                      <VIcon icon="ri-file-text-line" size="18" />
+                    <VAvatar
+                      color="primary"
+                      variant="tonal"
+                      size="32"
+                      class="me-3"
+                    >
+                      <VIcon
+                        icon="ri-file-text-line"
+                        size="18"
+                      />
                     </VAvatar>
                   </template>
 
@@ -132,9 +163,18 @@ onMounted(() => {
             </VList>
 
             <!-- Empty State -->
-            <div v-else class="pa-6 text-center text-medium-emphasis">
-              <VIcon icon="ri-notification-off-line" size="40" class="mb-2" />
-              <div class="text-body-2">No notifications</div>
+            <div
+              v-else
+              class="pa-6 text-center text-medium-emphasis"
+            >
+              <VIcon
+                icon="ri-notification-off-line"
+                size="40"
+                class="mb-2"
+              />
+              <div class="text-body-2">
+                No notifications
+              </div>
             </div>
           </PerfectScrollbar>
           

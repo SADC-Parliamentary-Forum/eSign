@@ -9,35 +9,43 @@ const { showWarning, timeRemaining, formatTimeRemaining, extendSession } = useSe
 
 <template>
   <!-- Session Timeout Warning Dialog -->
-  <v-dialog
+  <VDialog
     v-model="showWarning"
     max-width="500"
     persistent
   >
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-clock-alert" color="warning" class="mr-2" />
+    <VCard>
+      <VCardTitle class="d-flex align-center">
+        <VIcon
+          icon="mdi-clock-alert"
+          color="warning"
+          class="mr-2"
+        />
         Session Expiring Soon
-      </v-card-title>
+      </VCardTitle>
 
-      <v-card-text>
-        <v-alert type="warning" variant="tonal" class="mb-4">
+      <VCardText>
+        <VAlert
+          type="warning"
+          variant="tonal"
+          class="mb-4"
+        >
           Your session will expire in <strong>{{ formatTimeRemaining }}</strong> due to inactivity.
-        </v-alert>
+        </VAlert>
 
         <p>Click "Stay Logged In" to continue your session, or you will be automatically logged out.</p>
-      </v-card-text>
+      </VCardText>
 
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
+      <VCardActions>
+        <VSpacer />
+        <VBtn
           color="primary"
           variant="elevated"
           @click="extendSession"
         >
           Stay Logged In
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>

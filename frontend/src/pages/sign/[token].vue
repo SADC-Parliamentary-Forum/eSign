@@ -48,12 +48,14 @@ const declineReason = ref('')
 
 // Registration form
 const showRegister = ref(false)
+
 const registerForm = ref({
   name: '',
   email: '',
   password: '',
-  password_confirmation: ''
+  password_confirmation: '',
 })
+
 const registering = ref(false)
 
 // Quick sign mode (use saved signature directly)
@@ -69,7 +71,8 @@ function handleFileUpload(event) {
   if (!file) return
   
   const reader = new FileReader()
-  reader.onload = (e) => {
+
+  reader.onload = e => {
     uploadedSignature.value = e.target.result
   }
   reader.readAsDataURL(file)
@@ -89,6 +92,7 @@ async function fetchDocument() {
     
     if (!res.ok) {
       error.value = data.message || 'Failed to load document'
+      
       return
     }
     
@@ -96,6 +100,7 @@ async function fetchDocument() {
     signer.value = data.signer
     fields.value = data.fields || []
     requiresAccount.value = data.requires_account
+
     const requiresVerification = data.requires_verification
 
     // Enforce Authentication
@@ -103,13 +108,16 @@ async function fetchDocument() {
       if (!authStore.isAuthenticated) {
         // Redirect to login with return URL
         const returnUrl = encodeURIComponent(route.fullPath)
+
         window.location.href = `/auth/login?returnUrl=${returnUrl}`
+        
         return
       }
 
       // Enforce Email Match
       if (authStore.user?.email !== signer.value.email) {
         error.value = `You are logged in as ${authStore.user?.email}, but this document was sent to ${signer.value.email}. Please log out and log in with the correct account.`
+        
         return
       }
 
@@ -119,11 +127,12 @@ async function fetchDocument() {
         // Try fetching fresh user data to be sure
         await authStore.fetchUser()
         if (!authStore.user?.email_verified_at) {
-           // Redirect to verification page (assuming /auth/verify-email exists or similar)
-           // For now, let's show an error instructing them to verify
-           error.value = 'Your email address is not verified. Please check your email inbox for a verification link.'
-           // Ideally: router.push('/auth/verify-email')
-           return
+          // Redirect to verification page (assuming /auth/verify-email exists or similar)
+          // For now, let's show an error instructing them to verify
+          error.value = 'Your email address is not verified. Please check your email inbox for a verification link.'
+
+          // Ideally: router.push('/auth/verify-email')
+          return
         }
       }
     }
@@ -146,16 +155,19 @@ async function fetchSavedSignatures() {
   loadingSignatures.value = true
   try {
     const res = await fetch('/api/signatures/mine', {
-      headers: { 'Authorization': `Bearer ${authToken}` }
+      headers: { 'Authorization': `Bearer ${authToken}` },
     })
+
     if (res.ok) {
       const data = await res.json()
+
       savedSignatures.value = (Array.isArray(data) ? data : data.data || [])
         .filter(s => s.type === 'signature')
       
       // Auto-select default signature
       if (savedSignatures.value.length > 0) {
         const defaultSig = savedSignatures.value.find(s => s.is_default)
+
         selectedSignatureId.value = defaultSig?.id || savedSignatures.value[0].id
         useSavedSignature.value = true
       }
@@ -186,6 +198,7 @@ async function quickApprove() {
   if (savedSignatures.value.length === 0) {
     // No saved signature, go to regular signing
     startSigning()
+    
     return
   }
 
@@ -210,9 +223,11 @@ function initCanvas() {
 
 function startDrawing(e) {
   isDrawing = true
+
   const rect = canvas.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
   const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+
   ctx.beginPath()
   ctx.moveTo(x, y)
 }
@@ -220,9 +235,11 @@ function startDrawing(e) {
 function draw(e) {
   if (!isDrawing) return
   e.preventDefault()
+
   const rect = canvas.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
   const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+
   ctx.lineTo(x, y)
   ctx.stroke()
 }
@@ -247,12 +264,14 @@ async function register() {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(registerForm.value)
+      body: JSON.stringify(registerForm.value),
     })
+
     const data = await res.json()
     
     if (!res.ok) {
       error.value = data.message || 'Registration failed'
+      
       return
     }
     
@@ -274,6 +293,7 @@ async function register() {
 async function submitSignature() {
   if (requiresAccount.value && !authStore.isAuthenticated) {
     showRegister.value = true
+    
     return
   }
   
@@ -293,16 +313,19 @@ async function submitSignature() {
     if (authToken) {
       try {
         const res = await fetch(`/api/signatures/mine/${selectedSignatureId.value}`, {
-          headers: { 'Authorization': `Bearer ${authToken}` }
+          headers: { 'Authorization': `Bearer ${authToken}` },
         })
+
         if (res.ok) {
           const sig = await res.json()
+
           signatureData = sig.image_data
         }
       } catch (e) {
         error.value = 'Failed to load saved signature'
         submitting.value = false
         quickSignMode.value = false
+        
         return
       }
     }
@@ -318,6 +341,7 @@ async function submitSignature() {
     error.value = 'Please draw a signature or select a saved signature'
     submitting.value = false
     quickSignMode.value = false
+    
     return
   }
   
@@ -328,22 +352,25 @@ async function submitSignature() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
       },
       body: JSON.stringify({ 
         signature_data: signatureData,
         user_signature_id: userSignatureId,
-        save_to_profile: saveToProfile.value
-      })
+        save_to_profile: saveToProfile.value,
+      }),
     })
+
     const data = await res.json()
     
     if (!res.ok) {
       if (data.requires_registration) {
         showRegister.value = true
+        
         return
       }
       error.value = data.message || 'Signing failed'
+      
       return
     }
     
@@ -364,6 +391,7 @@ async function openDeclineDialog() {
 async function confirmDecline() {
   if (!declineReason.value.trim()) {
     error.value = 'Please provide a reason for declining'
+    
     return
   }
   
@@ -372,7 +400,7 @@ async function confirmDecline() {
     const res = await fetch(`/api/sign/${token.value}/decline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: declineReason.value })
+      body: JSON.stringify({ reason: declineReason.value }),
     })
     
     if (res.ok) {
@@ -389,7 +417,7 @@ async function confirmDecline() {
 function getMyFieldsForPage(page) {
   return fields.value.filter(f => 
     f.page_number === page && 
-    (f.signer_email === signer.value?.email || f.document_signer_id === signer.value?.id)
+    (f.signer_email === signer.value?.email || f.document_signer_id === signer.value?.id),
   )
 }
 
@@ -397,6 +425,7 @@ function getMyFieldsForPage(page) {
 const selectedSignaturePreview = computed(() => {
   if (!selectedSignatureId.value) return null
   const sig = savedSignatures.value.find(s => s.id === selectedSignatureId.value)
+  
   return sig?.image_data || null
 })
 
@@ -407,40 +436,72 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
 <template>
   <div class="sign-page">
     <!-- Loading -->
-    <div v-if="loading" class="loading-state">
-      <v-progress-circular indeterminate color="primary" size="64" />
-      <div class="text-body-1 text-medium-emphasis mt-4">Loading document...</div>
+    <div
+      v-if="loading"
+      class="loading-state"
+    >
+      <VProgressCircular
+        indeterminate
+        color="primary"
+        size="64"
+      />
+      <div class="text-body-1 text-medium-emphasis mt-4">
+        Loading document...
+      </div>
     </div>
 
     <!-- Error -->
-    <v-card v-else-if="error && !document" class="error-card mx-auto my-8" max-width="500">
-      <v-card-text class="text-center py-10">
-        <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
-        <h3 class="text-h6 mb-2">Unable to Load Document</h3>
-        <p class="text-body-2 text-medium-emphasis">{{ error }}</p>
-      </v-card-text>
-    </v-card>
+    <VCard
+      v-else-if="error && !document"
+      class="error-card mx-auto my-8"
+      max-width="500"
+    >
+      <VCardText class="text-center py-10">
+        <VIcon
+          icon="mdi-alert-circle"
+          size="64"
+          color="error"
+          class="mb-4"
+        />
+        <h3 class="text-h6 mb-2">
+          Unable to Load Document
+        </h3>
+        <p class="text-body-2 text-medium-emphasis">
+          {{ error }}
+        </p>
+      </VCardText>
+    </VCard>
 
     <!-- Landing View: Three Actions -->
-    <div v-else-if="currentView === 'landing'" class="landing-view">
-      <v-card class="mx-auto" max-width="600">
+    <div
+      v-else-if="currentView === 'landing'"
+      class="landing-view"
+    >
+      <VCard
+        class="mx-auto"
+        max-width="600"
+      >
         <!-- Header -->
-        <v-card-item class="bg-primary text-white">
+        <VCardItem class="bg-primary text-white">
           <template #prepend>
-            <v-avatar color="primary-darken-1">
-              <v-icon icon="mdi-file-sign" />
-            </v-avatar>
+            <VAvatar color="primary-darken-1">
+              <VIcon icon="mdi-file-sign" />
+            </VAvatar>
           </template>
-          <v-card-title class="text-h5">Document Signing Request</v-card-title>
-          <v-card-subtitle class="text-white">
+          <VCardTitle class="text-h5">
+            Document Signing Request
+          </VCardTitle>
+          <VCardSubtitle class="text-white">
             You've been asked to sign a document
-          </v-card-subtitle>
-        </v-card-item>
+          </VCardSubtitle>
+        </VCardItem>
 
-        <v-card-text class="pa-6">
+        <VCardText class="pa-6">
           <!-- Document Info -->
           <div class="document-info mb-6">
-            <div class="text-h6 mb-1">{{ document.title }}</div>
+            <div class="text-h6 mb-1">
+              {{ document.title }}
+            </div>
             <div class="text-body-2 text-medium-emphasis">
               From: {{ document.user?.name || 'Document Owner' }}
             </div>
@@ -448,118 +509,186 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
 
           <!-- Signer Info -->
           <div class="signer-info d-flex align-center mb-6 pa-4 bg-grey-lighten-4 rounded-lg">
-            <v-avatar color="primary" class="mr-3">
+            <VAvatar
+              color="primary"
+              class="mr-3"
+            >
               <span class="text-white font-weight-bold">
                 {{ signer.name.charAt(0).toUpperCase() }}
               </span>
-            </v-avatar>
+            </VAvatar>
             <div class="flex-grow-1">
-              <div class="font-weight-medium">{{ signer.name }}</div>
-              <div class="text-body-2 text-medium-emphasis">{{ signer.email }}</div>
+              <div class="font-weight-medium">
+                {{ signer.name }}
+              </div>
+              <div class="text-body-2 text-medium-emphasis">
+                {{ signer.email }}
+              </div>
             </div>
-            <v-chip :color="signer.can_sign ? 'success' : 'warning'" size="small">
+            <VChip
+              :color="signer.can_sign ? 'success' : 'warning'"
+              size="small"
+            >
               {{ signer.can_sign ? 'Ready to Sign' : 'Waiting' }}
-            </v-chip>
+            </VChip>
           </div>
 
           <!-- Saved Signature Notice -->
-          <v-alert 
+          <VAlert 
             v-if="hasSavedSignatures" 
             type="success" 
             variant="tonal" 
             class="mb-4"
           >
             <div class="d-flex align-center">
-              <v-icon icon="mdi-check-circle" class="mr-2" />
+              <VIcon
+                icon="mdi-check-circle"
+                class="mr-2"
+              />
               <div class="flex-grow-1">
-                <div class="font-weight-medium">Saved Signature Available</div>
-                <div class="text-body-2">Click "Approve" to sign instantly with your saved signature</div>
+                <div class="font-weight-medium">
+                  Saved Signature Available
+                </div>
+                <div class="text-body-2">
+                  Click "Approve" to sign instantly with your saved signature
+                </div>
               </div>
             </div>
-          </v-alert>
+          </VAlert>
 
           <!-- Action Buttons - Three Clear Options -->
           <div class="actions-grid">
             <!-- View Document -->
-            <v-card 
+            <VCard 
               class="action-card pa-4 text-center cursor-pointer"
               variant="outlined"
               @click="startViewing"
             >
-              <v-icon icon="mdi-file-eye" size="48" color="info" class="mb-3" />
-              <div class="text-h6 mb-1">View</div>
+              <VIcon
+                icon="mdi-file-eye"
+                size="48"
+                color="info"
+                class="mb-3"
+              />
+              <div class="text-h6 mb-1">
+                View
+              </div>
               <div class="text-body-2 text-medium-emphasis">
                 Read the document before deciding
               </div>
-            </v-card>
+            </VCard>
 
             <!-- Approve / Sign -->
-            <v-card 
+            <VCard 
               v-if="signer.can_sign"
               class="action-card pa-4 text-center cursor-pointer"
               variant="outlined"
               color="success"
               @click="hasSavedSignatures ? quickApprove() : startSigning()"
             >
-              <v-icon icon="mdi-check-circle" size="48" color="success" class="mb-3" />
-              <div class="text-h6 mb-1">Approve</div>
+              <VIcon
+                icon="mdi-check-circle"
+                size="48"
+                color="success"
+                class="mb-3"
+              />
+              <div class="text-h6 mb-1">
+                Approve
+              </div>
               <div class="text-body-2 text-medium-emphasis">
                 {{ hasSavedSignatures ? 'Sign with saved signature' : 'Sign the document now' }}
               </div>
-              <v-progress-circular 
+              <VProgressCircular 
                 v-if="quickSignMode && submitting" 
                 indeterminate 
                 size="20" 
                 class="mt-2" 
               />
-            </v-card>
+            </VCard>
 
             <!-- Reject -->
-            <v-card 
+            <VCard 
               class="action-card pa-4 text-center cursor-pointer"
               variant="outlined"
               color="error"
               @click="openDeclineDialog"
             >
-              <v-icon icon="mdi-close-circle" size="48" color="error" class="mb-3" />
-              <div class="text-h6 mb-1">Reject</div>
+              <VIcon
+                icon="mdi-close-circle"
+                size="48"
+                color="error"
+                class="mb-3"
+              />
+              <div class="text-h6 mb-1">
+                Reject
+              </div>
               <div class="text-body-2 text-medium-emphasis">
                 Decline to sign
               </div>
-            </v-card>
+            </VCard>
           </div>
 
           <!-- Not Your Turn Alert -->
-          <v-alert v-if="!signer.can_sign" type="info" variant="tonal" class="mt-4">
-            <v-icon icon="mdi-clock" class="mr-2" />
+          <VAlert
+            v-if="!signer.can_sign"
+            type="info"
+            variant="tonal"
+            class="mt-4"
+          >
+            <VIcon
+              icon="mdi-clock"
+              class="mr-2"
+            />
             It's not your turn to sign yet. You'll be notified when it's your turn.
-          </v-alert>
+          </VAlert>
 
           <!-- Error Alert -->
-          <v-alert v-if="error" type="error" variant="tonal" class="mt-4" closable @click:close="error = ''">
+          <VAlert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            class="mt-4"
+            closable
+            @click:close="error = ''"
+          >
             {{ error }}
-          </v-alert>
-        </v-card-text>
-      </v-card>
+          </VAlert>
+        </VCardText>
+      </VCard>
     </div>
 
     <!-- Preview View: Document Viewer -->
-    <div v-else-if="currentView === 'preview'" class="preview-view">
-      <v-toolbar color="surface" elevation="1" density="compact">
-        <v-btn icon="mdi-arrow-left" @click="backToLanding" />
-        <v-toolbar-title class="text-subtitle-1">{{ document.title }}</v-toolbar-title>
-        <v-spacer />
-        <v-btn 
+    <div
+      v-else-if="currentView === 'preview'"
+      class="preview-view"
+    >
+      <VToolbar
+        color="surface"
+        elevation="1"
+        density="compact"
+      >
+        <VBtn
+          icon="mdi-arrow-left"
+          @click="backToLanding"
+        />
+        <VToolbarTitle class="text-subtitle-1">
+          {{ document.title }}
+        </VToolbarTitle>
+        <VSpacer />
+        <VBtn 
           v-if="signer.can_sign"
           color="success" 
           variant="elevated"
-          @click="hasSavedSignatures ? quickApprove() : startSigning()"
           :loading="quickSignMode && submitting"
+          @click="hasSavedSignatures ? quickApprove() : startSigning()"
         >
-          <v-icon icon="mdi-check" class="mr-2" />
+          <VIcon
+            icon="mdi-check"
+            class="mr-2"
+          />
           {{ hasSavedSignatures ? 'Approve with Saved Signature' : 'Proceed to Sign' }}
-        </v-btn>
-      </v-toolbar>
+        </VBtn>
+      </VToolbar>
 
       <div class="pdf-viewer-container pa-8 text-center bg-grey-lighten-3">
         <div 
@@ -589,34 +718,56 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             <span class="field-badge">{{ field.type }}</span>
           </div>
 
-          <div class="page-number">Page {{ page }} of {{ pageCount }}</div>
+          <div class="page-number">
+            Page {{ page }} of {{ pageCount }}
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Sign View: Signature Capture -->
-    <div v-else-if="currentView === 'sign'" class="sign-view">
-      <v-card class="mx-auto" max-width="600">
-        <v-card-item>
+    <div
+      v-else-if="currentView === 'sign'"
+      class="sign-view"
+    >
+      <VCard
+        class="mx-auto"
+        max-width="600"
+      >
+        <VCardItem>
           <template #prepend>
-            <v-btn icon="mdi-arrow-left" variant="text" @click="currentView = 'preview'" />
+            <VBtn
+              icon="mdi-arrow-left"
+              variant="text"
+              @click="currentView = 'preview'"
+            />
           </template>
-          <v-card-title>Sign Document</v-card-title>
-          <v-card-subtitle>{{ document.title }}</v-card-subtitle>
-        </v-card-item>
+          <VCardTitle>Sign Document</VCardTitle>
+          <VCardSubtitle>{{ document.title }}</VCardSubtitle>
+        </VCardItem>
 
-        <v-divider />
+        <VDivider />
 
-        <v-card-text>
+        <VCardText>
           <!-- Consent Notice -->
-          <v-alert type="warning" variant="tonal" class="mb-4">
-            <v-icon icon="mdi-information" class="mr-2" />
+          <VAlert
+            type="warning"
+            variant="tonal"
+            class="mb-4"
+          >
+            <VIcon
+              icon="mdi-information"
+              class="mr-2"
+            />
             By signing, you agree to be legally bound by this document.
-          </v-alert>
+          </VAlert>
 
           <!-- Saved Signatures Option -->
-          <div v-if="hasSavedSignatures" class="mb-6">
-            <v-switch
+          <div
+            v-if="hasSavedSignatures"
+            class="mb-6"
+          >
+            <VSwitch
               v-model="useSavedSignature"
               label="Use my saved signature"
               color="primary"
@@ -624,8 +775,11 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
               class="mb-3"
             />
 
-            <div v-if="useSavedSignature" class="saved-signatures-section">
-              <v-select
+            <div
+              v-if="useSavedSignature"
+              class="saved-signatures-section"
+            >
+              <VSelect
                 v-model="selectedSignatureId"
                 :items="savedSignatures"
                 item-title="name"
@@ -637,23 +791,37 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
               />
 
               <!-- Preview selected signature -->
-              <div v-if="selectedSignaturePreview" class="signature-preview pa-3 rounded border">
-                <div class="text-caption text-medium-emphasis mb-2">Preview:</div>
+              <div
+                v-if="selectedSignaturePreview"
+                class="signature-preview pa-3 rounded border"
+              >
+                <div class="text-caption text-medium-emphasis mb-2">
+                  Preview:
+                </div>
                 <img 
                   :src="selectedSignaturePreview" 
                   alt="Signature preview" 
                   class="signature-image"
-                />
+                >
               </div>
             </div>
           </div>
 
           <!-- Draw/Upload Signature (if not using saved) -->
           <div v-if="!useSavedSignature">
-            <v-tabs v-model="signatureMode" density="compact" color="primary" class="mb-4">
-              <v-tab value="draw">Draw</v-tab>
-              <v-tab value="upload">Upload Image</v-tab>
-            </v-tabs>
+            <VTabs
+              v-model="signatureMode"
+              density="compact"
+              color="primary"
+              class="mb-4"
+            >
+              <VTab value="draw">
+                Draw
+              </VTab>
+              <VTab value="upload">
+                Upload Image
+              </VTab>
+            </VTabs>
 
             <div v-if="signatureMode === 'draw'">
               <p class="text-body-2 text-medium-emphasis mb-3">
@@ -676,20 +844,30 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
               </div>
             </div>
 
-            <div v-else class="upload-section pa-4 border rounded mb-4 text-center">
-              <v-file-input
+            <div
+              v-else
+              class="upload-section pa-4 border rounded mb-4 text-center"
+            >
+              <VFileInput
                 label="Upload Signature Image"
                 accept="image/*"
                 prepend-icon="mdi-camera"
                 variant="outlined"
                 @change="handleFileUpload"
               />
-              <div v-if="uploadedSignature" class="mt-4">
-                <img :src="uploadedSignature" alt="Uploaded Signature" style="max-height: 100px; max-width: 100%; border: 1px dashed #ccc; padding: 5px;" />
+              <div
+                v-if="uploadedSignature"
+                class="mt-4"
+              >
+                <img
+                  :src="uploadedSignature"
+                  alt="Uploaded Signature"
+                  style="max-height: 100px; max-width: 100%; border: 1px dashed #ccc; padding: 5px;"
+                >
               </div>
             </div>
 
-            <v-checkbox
+            <VCheckbox
               v-if="authStore.isAuthenticated"
               v-model="saveToProfile"
               label="Save this signature to my profile for future use"
@@ -700,91 +878,168 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             />
           </div>
 
-          <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
+          <VAlert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            class="mb-4"
+          >
             {{ error }}
-          </v-alert>
+          </VAlert>
 
           <div class="d-flex gap-2">
-            <v-btn v-if="!useSavedSignature" variant="text" @click="clearCanvas">
-              <v-icon icon="mdi-eraser" class="mr-1" />
+            <VBtn
+              v-if="!useSavedSignature"
+              variant="text"
+              @click="clearCanvas"
+            >
+              <VIcon
+                icon="mdi-eraser"
+                class="mr-1"
+              />
               Clear
-            </v-btn>
-            <v-spacer />
-            <v-btn variant="outlined" @click="currentView = 'preview'">
+            </VBtn>
+            <VSpacer />
+            <VBtn
+              variant="outlined"
+              @click="currentView = 'preview'"
+            >
               Back
-            </v-btn>
-            <v-btn 
+            </VBtn>
+            <VBtn 
               color="success" 
               size="large"
               :loading="submitting" 
               @click="submitSignature"
             >
-              <v-icon icon="mdi-check" class="mr-2" />
+              <VIcon
+                icon="mdi-check"
+                class="mr-2"
+              />
               Complete Signing
-            </v-btn>
+            </VBtn>
           </div>
-        </v-card-text>
-      </v-card>
+        </VCardText>
+      </VCard>
     </div>
 
     <!-- Decline Dialog -->
-    <v-dialog v-model="showDeclineDialog" max-width="450" persistent>
-      <v-card>
-        <v-card-title class="text-h6 bg-error text-white">
-          <v-icon icon="mdi-close-circle" class="mr-2" />
+    <VDialog
+      v-model="showDeclineDialog"
+      max-width="450"
+      persistent
+    >
+      <VCard>
+        <VCardTitle class="text-h6 bg-error text-white">
+          <VIcon
+            icon="mdi-close-circle"
+            class="mr-2"
+          />
           Decline to Sign
-        </v-card-title>
-        <v-card-text class="pt-4">
+        </VCardTitle>
+        <VCardText class="pt-4">
           <p class="text-body-1 mb-4">
             Please provide a reason for declining this document. The sender will be notified.
           </p>
-          <v-textarea
+          <VTextarea
             v-model="declineReason"
             label="Reason for declining"
             variant="outlined"
             rows="3"
             placeholder="Enter your reason..."
           />
-          <v-alert v-if="error" type="error" variant="tonal" class="mt-3">
+          <VAlert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            class="mt-3"
+          >
             {{ error }}
-          </v-alert>
-        </v-card-text>
-        <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="showDeclineDialog = false">Cancel</v-btn>
-          <v-spacer />
-          <v-btn 
+          </VAlert>
+        </VCardText>
+        <VCardActions class="pa-4">
+          <VBtn
+            variant="text"
+            @click="showDeclineDialog = false"
+          >
+            Cancel
+          </VBtn>
+          <VSpacer />
+          <VBtn 
             color="error" 
             :loading="submitting"
             :disabled="!declineReason.trim()"
             @click="confirmDecline"
           >
             Confirm Decline
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
 
     <!-- Registration Dialog -->
-    <v-dialog v-model="showRegister" max-width="400" persistent>
-      <v-card>
-        <v-card-title class="pt-4">Create Account to Sign</v-card-title>
-        <v-card-text>
+    <VDialog
+      v-model="showRegister"
+      max-width="400"
+      persistent
+    >
+      <VCard>
+        <VCardTitle class="pt-4">
+          Create Account to Sign
+        </VCardTitle>
+        <VCardText>
           <p class="text-body-2 text-medium-emphasis mb-4">
             Create an account to sign this document. Your signature will be saved for future use.
           </p>
-          <v-text-field v-model="registerForm.name" label="Full Name" class="mb-3" />
-          <v-text-field v-model="registerForm.email" label="Email" type="email" class="mb-3" />
-          <v-text-field v-model="registerForm.password" label="Password" type="password" class="mb-3" />
-          <v-text-field v-model="registerForm.password_confirmation" label="Confirm Password" type="password" />
-          <v-alert v-if="error" type="error" variant="tonal" class="mt-3">{{ error }}</v-alert>
-        </v-card-text>
-        <v-card-actions class="pa-4">
-          <v-btn variant="text" @click="showRegister = false">Cancel</v-btn>
-          <v-spacer />
-          <v-btn color="primary" :loading="registering" @click="register">Create Account</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+          <VTextField
+            v-model="registerForm.name"
+            label="Full Name"
+            class="mb-3"
+          />
+          <VTextField
+            v-model="registerForm.email"
+            label="Email"
+            type="email"
+            class="mb-3"
+          />
+          <VTextField
+            v-model="registerForm.password"
+            label="Password"
+            type="password"
+            class="mb-3"
+          />
+          <VTextField
+            v-model="registerForm.password_confirmation"
+            label="Confirm Password"
+            type="password"
+          />
+          <VAlert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            class="mt-3"
+          >
+            {{ error }}
+          </VAlert>
+        </VCardText>
+        <VCardActions class="pa-4">
+          <VBtn
+            variant="text"
+            @click="showRegister = false"
+          >
+            Cancel
+          </VBtn>
+          <VSpacer />
+          <VBtn
+            color="primary"
+            :loading="registering"
+            @click="register"
+          >
+            Create Account
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 

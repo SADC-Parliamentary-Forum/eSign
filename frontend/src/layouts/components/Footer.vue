@@ -16,7 +16,7 @@
 
     <!-- Right: Version/Clean -->
     <div class="text-caption text-disabled d-none d-md-block">
-       Secure eSign Portal
+      Secure eSign Portal
     </div>
   </div>
 </template>

@@ -17,6 +17,7 @@ onMounted(async () => {
   if (!id || !hash || !expires || !signature) {
     error.value = 'Invalid verification link.'
     loading.value = false
+    
     return
   }
 
@@ -29,8 +30,8 @@ onMounted(async () => {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     })
 
     const data = await res.json()
@@ -61,12 +62,19 @@ onMounted(async () => {
 
 <template>
   <div class="auth-wrapper d-flex align-center justify-center pa-4">
-    <VCard class="auth-card pa-4 pt-7" max-width="448">
+    <VCard
+      class="auth-card pa-4 pt-7"
+      max-width="448"
+    >
       <VCardItem class="justify-center">
         <template #prepend>
           <div class="d-flex">
             <!-- App Logo -->
-             <VIcon icon="ri-mail-check-line" size="40" color="primary" />
+            <VIcon
+              icon="ri-mail-check-line"
+              size="40"
+              color="primary"
+            />
           </div>
         </template>
         <VCardTitle class="font-weight-bold text-h5 text-primary">
@@ -76,27 +84,56 @@ onMounted(async () => {
 
       <VCardText class="pt-2 text-center">
         <div v-if="loading">
-          <VProgressCircular indeterminate color="primary" class="mb-4" />
-          <p class="text-body-1">Verifying your email...</p>
+          <VProgressCircular
+            indeterminate
+            color="primary"
+            class="mb-4"
+          />
+          <p class="text-body-1">
+            Verifying your email...
+          </p>
         </div>
 
         <div v-else-if="verified">
-          <VIcon icon="ri-checkbox-circle-fill" size="64" color="success" class="mb-4" />
-          <h3 class="text-h6 font-weight-bold text-success mb-2">Verified!</h3>
+          <VIcon
+            icon="ri-checkbox-circle-fill"
+            size="64"
+            color="success"
+            class="mb-4"
+          />
+          <h3 class="text-h6 font-weight-bold text-success mb-2">
+            Verified!
+          </h3>
           <p class="text-body-2 mb-4">
             Your email has been successfully verified. 
             Redirecting you to the login page...
           </p>
-          <VBtn block to="/login">
+          <VBtn
+            block
+            to="/login"
+          >
             Go to Login
           </VBtn>
         </div>
 
         <div v-else>
-          <VIcon icon="ri-error-warning-fill" size="64" color="error" class="mb-4" />
-          <h3 class="text-h6 font-weight-bold text-error mb-2">Verification Failed</h3>
-          <p class="text-body-2 mb-4">{{ error }}</p>
-          <VBtn block variant="outlined" to="/login">
+          <VIcon
+            icon="ri-error-warning-fill"
+            size="64"
+            color="error"
+            class="mb-4"
+          />
+          <h3 class="text-h6 font-weight-bold text-error mb-2">
+            Verification Failed
+          </h3>
+          <p class="text-body-2 mb-4">
+            {{ error }}
+          </p>
+          <VBtn
+            block
+            variant="outlined"
+            to="/login"
+          >
             Back to Login
           </VBtn>
         </div>

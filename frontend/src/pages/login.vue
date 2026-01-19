@@ -32,6 +32,7 @@ async function handleLogin() {
   
   if (success) {
     const returnUrl = route.query.returnUrl || '/'
+
     router.push(returnUrl)
   } else {
     error.value = 'Invalid email or password'
@@ -63,7 +64,13 @@ async function handleLogin() {
       </VCardText>
 
       <VCardText>
-        <VAlert v-if="error" type="error" class="mb-4">{{ error }}</VAlert>
+        <VAlert
+          v-if="error"
+          type="error"
+          class="mb-4"
+        >
+          {{ error }}
+        </VAlert>
         
         <VForm @submit.prevent="handleLogin">
           <VRow>
@@ -116,7 +123,10 @@ async function handleLogin() {
             </VCol>
 
             <!-- create account link -->
-            <VCol cols="12" class="text-center text-base">
+            <VCol
+              cols="12"
+              class="text-center text-base"
+            >
               <span>New on our platform?</span>
               <RouterLink
                 class="text-primary ms-2"
