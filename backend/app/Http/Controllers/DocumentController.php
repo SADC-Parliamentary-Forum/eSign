@@ -524,5 +524,223 @@ class DocumentController extends Controller
             'errors' => $errors
         ]);
     }
+
+    /**
+     * Bulk download completed documents as a ZIP file with combined audit trail.
+     */
+    public function bulkDownload(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'exists:documents,id'
+        ]);
+
+        $ids = $validated['ids'];
+        $user = $request->user();
+
+        // Fetch all requested documents
+        $documents = Document::whereIn('id', $ids)
+            ->where('status', 'COMPLETED')
+            ->with(['signers', 'signatures', 'workflowLogs'])
+            ->get();
+
+        if ($documents->isEmpty()) {
+            return response()->json([
+                'message' => 'No completed documents found in the selection.'
+            ], 422);
+        }
+
+        // Verify user has access to all documents
+        $accessibleDocs = $documents->filter(function ($doc) use ($user) {
+            return $user->can('view', $doc);
+        });
+
+        if ($accessibleDocs->count() !== $documents->count()) {
+            return response()->json([
+                'message' => 'You do not have access to all selected documents.'
+            ], 403);
+        }
+
+        try {
+            $zipPath = $this->createBulkDownloadBundle($accessibleDocs);
+            
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('minio');
+            
+            $filename = 'SignedDocuments_' . date('Y-m-d_His') . '.zip';
+            
+            return $disk->download($zipPath, $filename);
+        } catch (\Exception $e) {
+            \Log::error('Bulk download error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error creating download bundle: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create a ZIP bundle containing multiple signed documents and combined audit trail.
+     */
+    private function createBulkDownloadBundle($documents)
+    {
+        $tempDir = storage_path('app/temp/' . Str::random(20));
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $zipPath = 'evidence/bulk/' . Str::random(40) . '.zip';
+        $localZipPath = $tempDir . '/bundle.zip';
+
+        $zip = new \ZipArchive();
+        if ($zip->open($localZipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new \Exception('Could not create ZIP file');
+        }
+
+        // Create combined audit trail
+        $combinedAuditTrail = $this->generateCombinedAuditTrail($documents);
+
+        // Add each document's signed PDF to the ZIP
+        $docIndex = 1;
+        foreach ($documents as $document) {
+            // Get the signed PDF
+            $pdfPath = $document->file_path;
+            if (Storage::disk('minio')->exists($pdfPath)) {
+                $pdfContent = Storage::disk('minio')->get($pdfPath);
+                $safeTitle = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $document->title);
+                $filename = sprintf('%02d_%s.pdf', $docIndex, substr($safeTitle, 0, 50));
+                $zip->addFromString('Documents/' . $filename, $pdfContent);
+            }
+            $docIndex++;
+        }
+
+        // Add combined audit trail PDF
+        $auditPdfContent = $this->generateAuditTrailPdf($combinedAuditTrail, $documents);
+        $zip->addFromString('Combined_Audit_Trail.pdf', $auditPdfContent);
+
+        // Add audit trail as JSON for machine readability
+        $zip->addFromString('audit_trail.json', json_encode($combinedAuditTrail, JSON_PRETTY_PRINT));
+
+        // Add summary text file
+        $summaryText = $this->generateSummaryText($documents);
+        $zip->addFromString('README.txt', $summaryText);
+
+        $zip->close();
+
+        // Upload to MinIO
+        Storage::disk('minio')->put($zipPath, file_get_contents($localZipPath));
+
+        // Cleanup temp files
+        unlink($localZipPath);
+        rmdir($tempDir);
+
+        return $zipPath;
+    }
+
+    /**
+     * Generate combined audit trail data for multiple documents.
+     */
+    private function generateCombinedAuditTrail($documents)
+    {
+        $auditData = [
+            'generated_at' => now()->toIso8601String(),
+            'total_documents' => $documents->count(),
+            'documents' => [],
+        ];
+
+        foreach ($documents as $document) {
+            $docAudit = [
+                'id' => $document->id,
+                'title' => $document->title,
+                'status' => $document->status,
+                'created_at' => $document->created_at->toIso8601String(),
+                'completed_at' => $document->completed_at?->toIso8601String(),
+                'file_hash' => $document->file_hash,
+                'signature_level' => $document->signature_level,
+                'signers' => [],
+                'events' => [],
+            ];
+
+            // Add signer information
+            foreach ($document->signers as $signer) {
+                $docAudit['signers'][] = [
+                    'name' => $signer->name,
+                    'email' => $signer->email,
+                    'status' => $signer->status,
+                    'signed_at' => $signer->signed_at?->toIso8601String(),
+                    'ip_address' => $signer->ip_address,
+                    'user_agent' => $signer->user_agent,
+                ];
+            }
+
+            // Add workflow events
+            foreach ($document->workflowLogs ?? [] as $log) {
+                $docAudit['events'][] = [
+                    'action' => $log->action,
+                    'actor' => $log->actor,
+                    'timestamp' => $log->created_at->toIso8601String(),
+                    'details' => $log->details,
+                    'ip_address' => $log->ip_address,
+                ];
+            }
+
+            $auditData['documents'][] = $docAudit;
+        }
+
+        return $auditData;
+    }
+
+    /**
+     * Generate PDF version of the combined audit trail.
+     */
+    private function generateAuditTrailPdf($auditData, $documents)
+    {
+        $html = view('pdf.combined-audit-trail', [
+            'auditData' => $auditData,
+            'documents' => $documents,
+            'generatedAt' => now(),
+        ])->render();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->output();
+    }
+
+    /**
+     * Generate summary text file for the bundle.
+     */
+    private function generateSummaryText($documents)
+    {
+        $summary = "SADC PF eSign - Bulk Download Summary\n";
+        $summary .= "=====================================\n\n";
+        $summary .= "Generated: " . now()->format('Y-m-d H:i:s T') . "\n";
+        $summary .= "Total Documents: " . $documents->count() . "\n\n";
+        $summary .= "Contents:\n";
+        $summary .= "---------\n";
+        $summary .= "- Documents/          - Signed PDF documents\n";
+        $summary .= "- Combined_Audit_Trail.pdf - Audit trail for all documents\n";
+        $summary .= "- audit_trail.json    - Machine-readable audit data\n\n";
+        $summary .= "Document List:\n";
+        $summary .= "--------------\n";
+
+        $docIndex = 1;
+        foreach ($documents as $doc) {
+            $summary .= sprintf(
+                "%d. %s\n   Status: %s | Completed: %s\n   Signers: %d\n\n",
+                $docIndex,
+                $doc->title,
+                $doc->status,
+                $doc->completed_at?->format('Y-m-d H:i:s') ?? 'N/A',
+                $doc->signers->count()
+            );
+            $docIndex++;
+        }
+
+        $summary .= "\n---\n";
+        $summary .= "This bundle was generated by SADC Parliamentary Forum eSign Platform.\n";
+        $summary .= "For verification, please refer to the Combined_Audit_Trail.pdf file.\n";
+
+        return $summary;
+    }
 }
 

@@ -122,7 +122,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Documents
     // -------------------------------------------------------------------------
     Route::get('documents/stats', [App\Http\Controllers\DocumentStatsController::class, 'index']);
+    Route::get('documents/stats/weekly', [App\Http\Controllers\DocumentStatsController::class, 'weekly']);
     Route::post('documents/bulk-delete', [App\Http\Controllers\DocumentController::class, 'bulkDestroy']);
+    Route::post('documents/bulk-download', [App\Http\Controllers\DocumentController::class, 'bulkDownload']);
     Route::get('documents/activity', [App\Http\Controllers\DocumentActivityController::class, 'index']);
     Route::get('documents/pending', [DocumentController::class, 'pending']);
     Route::apiResource('documents', DocumentController::class)->except(['update']);

@@ -56,4 +56,50 @@ class DocumentStatsController extends Controller
 
         return response()->json($stats);
     }
+
+    /**
+     * Get weekly document statistics for dashboard charts.
+     */
+    public function weekly(): JsonResponse
+    {
+        $userId = auth()->id();
+        $weeklyData = [];
+
+        // Get data for the last 7 days
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->toDateString();
+            $count = Document::where('user_id', $userId)
+                ->whereDate('created_at', $date)
+                ->count();
+            $weeklyData[] = $count;
+        }
+
+        // Calculate this week vs last week
+        $thisWeekStart = now()->startOfWeek();
+        $lastWeekStart = now()->subWeek()->startOfWeek();
+        $lastWeekEnd = now()->subWeek()->endOfWeek();
+
+        $thisWeek = Document::where('user_id', $userId)
+            ->where('created_at', '>=', $thisWeekStart)
+            ->count();
+
+        $lastWeek = Document::where('user_id', $userId)
+            ->whereBetween('created_at', [$lastWeekStart, $lastWeekEnd])
+            ->count();
+
+        $trend = 0;
+        if ($lastWeek > 0) {
+            $trend = round((($thisWeek - $lastWeek) / $lastWeek) * 100);
+        } elseif ($thisWeek > 0) {
+            $trend = 100;
+        }
+
+        return response()->json([
+            'data' => $weeklyData,
+            'labels' => collect(range(6, 0))->map(fn($i) => now()->subDays($i)->format('D'))->toArray(),
+            'thisWeek' => $thisWeek,
+            'lastWeek' => $lastWeek,
+            'trend' => $trend,
+        ]);
+    }
 }

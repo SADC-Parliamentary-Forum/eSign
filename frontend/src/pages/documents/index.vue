@@ -11,6 +11,7 @@ const totalDocuments = ref(0)
 const deleteLoading = ref(null) // ID of doc being deleted
 const downloadLoading = ref(null) // ID of doc being downloaded
 const bulkDeleteLoading = ref(false)
+const bulkDownloadLoading = ref(false)
 const selected = ref([])
 
 // Filters
@@ -180,6 +181,55 @@ async function performBulkDelete() {
     showSnackbar('Failed to delete documents: ' + (e.message || 'Unknown error'), 'error')
   } finally {
     bulkDeleteLoading.value = false
+  }
+}
+
+// Computed: get only completed documents from selection
+const selectedCompletedDocs = computed(() => {
+  return documents.value.filter(d => selected.value.includes(d.id) && d.status === 'COMPLETED')
+})
+
+async function bulkDownload() {
+  if (selectedCompletedDocs.value.length === 0) {
+    showSnackbar('Please select at least one completed document to download', 'warning')
+    return
+  }
+
+  bulkDownloadLoading.value = true
+  try {
+    const token = localStorage.getItem('token')
+    const ids = selectedCompletedDocs.value.map(d => d.id)
+
+    const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/bulk-download`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids }),
+    })
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.message || 'Download failed')
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `SignedDocuments_${new Date().toISOString().split('T')[0]}.zip`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    
+    showSnackbar(`Downloaded ${ids.length} document(s) with audit trail`)
+  } catch (e) {
+    console.error('Bulk download failed:', e)
+    showSnackbar('Failed to download documents: ' + (e.message || 'Unknown error'), 'error')
+  } finally {
+    bulkDownloadLoading.value = false
   }
 }
 
@@ -387,17 +437,31 @@ function formatRelativeDate(dateString) {
         </div>
       </div>
       
-      <VBtn
-        v-if="selected.length > 0"
-        color="error"
-        prepend-icon="ri-delete-bin-line"
-        variant="tonal"
-        size="small"
-        :loading="bulkDeleteLoading"
-        @click="bulkDelete"
-      >
-        Delete Selected
-      </VBtn>
+      <div class="d-flex gap-2">
+        <VBtn
+          v-if="selectedCompletedDocs.length > 0"
+          color="success"
+          prepend-icon="ri-download-line"
+          variant="tonal"
+          size="small"
+          :loading="bulkDownloadLoading"
+          @click="bulkDownload"
+        >
+          Download ({{ selectedCompletedDocs.length }})
+        </VBtn>
+        
+        <VBtn
+          v-if="selected.length > 0"
+          color="error"
+          prepend-icon="ri-delete-bin-line"
+          variant="tonal"
+          size="small"
+          :loading="bulkDeleteLoading"
+          @click="bulkDelete"
+        >
+          Delete Selected
+        </VBtn>
+      </div>
     </div>
 
     <!-- Loading State -->

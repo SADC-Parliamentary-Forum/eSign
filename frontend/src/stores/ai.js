@@ -29,6 +29,12 @@ export const useAIStore = defineStore('ai', {
         return this.suggestions
       }
 
+      // Validate file before attempting
+      if (!file || !file.name) {
+        console.warn('AI: No valid file provided for analysis')
+        return []
+      }
+
       this.loading = true
       this.error = null
 
@@ -45,14 +51,16 @@ export const useAIStore = defineStore('ai', {
         this.error = error.message || 'Failed to analyze document'
         console.error('Failed to get template suggestions:', error)
 
-        // Retry logic
-        if (this.retryCount < 2) {
+        // Retry logic - but don't retry 422 errors (validation errors)
+        if (this.retryCount < 2 && !error.message?.includes('422')) {
           this.retryCount++
           console.log(`Retrying AI analysis (attempt ${this.retryCount})...`)
           return this.suggestTemplates(file, true)
         }
 
-        throw error
+        // Don't throw - just return empty array so flow can continue
+        this.suggestions = []
+        return []
       } finally {
         this.loading = false
       }

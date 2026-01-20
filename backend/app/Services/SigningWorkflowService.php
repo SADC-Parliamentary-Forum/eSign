@@ -156,14 +156,19 @@ class SigningWorkflowService
                     'notified_at' => now(),
                 ]);
 
-                // Send notification
-                if ($signer->user) {
-                    $signer->user->notify(new SigningRequestNotification($document, $signer));
-                }
+                try {
+                    // Send notification
+                    if ($signer->user) {
+                        $signer->user->notify(new SigningRequestNotification($document, $signer));
+                    }
 
-                // Always send email (even for registered users, for multi-channel)
-                Notification::route('mail', $signer->email)
-                    ->notify(new SigningRequestNotification($document, $signer));
+                    // Always send email (even for registered users, for multi-channel)
+                    Notification::route('mail', $signer->email)
+                        ->notify(new SigningRequestNotification($document, $signer));
+                } catch (\Exception $e) {
+                    // Log error but don't fail the transaction/request
+                    \Log::error('Failed to send signing notification to ' . $signer->email . ': ' . $e->getMessage());
+                }
             }
         }
     }
@@ -173,7 +178,11 @@ class SigningWorkflowService
      */
     protected function notifyOwnerOfSignature(Document $document, DocumentSigner $signer): void
     {
-        $document->user->notify(new DocumentSignedNotification($document, $signer));
+        try {
+            $document->user->notify(new DocumentSignedNotification($document, $signer));
+        } catch (\Exception $e) {
+            \Log::error('Failed to send signature notification to owner: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -181,8 +190,12 @@ class SigningWorkflowService
      */
     protected function notifyOwnerOfDecline(Document $document, DocumentSigner $signer, ?string $reason): void
     {
-        // Could create a specific DeclinedNotification
-        $document->user->notify(new DocumentSignedNotification($document, $signer, true, $reason));
+        try {
+            // Could create a specific DeclinedNotification
+            $document->user->notify(new DocumentSignedNotification($document, $signer, true, $reason));
+        } catch (\Exception $e) {
+            \Log::error('Failed to send decline notification to owner: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -196,30 +209,42 @@ class SigningWorkflowService
             'additional_emails' => [],
         ];
 
-        // Notify owner if enabled
-        if ($recipients['notify_owner'] ?? true) {
-            $document->user->notify(new DocumentCompletedNotification($document));
-        }
+        try {
+            // Notify owner if enabled
+            if ($recipients['notify_owner'] ?? true) {
+                $document->user->notify(new DocumentCompletedNotification($document));
+            }
 
-        // Notify signers if enabled
-        if ($recipients['notify_signers'] ?? true) {
-            foreach ($document->signers as $signer) {
-                if ($signer->user) {
-                    $signer->user->notify(new DocumentCompletedNotification($document));
-                } else {
-                    Notification::route('mail', $signer->email)
-                        ->notify(new DocumentCompletedNotification($document));
+            // Notify signers if enabled
+            if ($recipients['notify_signers'] ?? true) {
+                foreach ($document->signers as $signer) {
+                    try {
+                        if ($signer->user) {
+                            $signer->user->notify(new DocumentCompletedNotification($document));
+                        } else {
+                            Notification::route('mail', $signer->email)
+                                ->notify(new DocumentCompletedNotification($document));
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to send completion notification to signer ' . $signer->email . ': ' . $e->getMessage());
+                    }
                 }
             }
-        }
 
-        // Notify additional emails
-        $additionalEmails = $recipients['additional_emails'] ?? [];
-        foreach ($additionalEmails as $email) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                Notification::route('mail', $email)
-                    ->notify(new DocumentCompletedNotification($document));
+            // Notify additional emails
+            $additionalEmails = $recipients['additional_emails'] ?? [];
+            foreach ($additionalEmails as $email) {
+                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    try {
+                        Notification::route('mail', $email)
+                            ->notify(new DocumentCompletedNotification($document));
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to send completion notification to ' . $email . ': ' . $e->getMessage());
+                    }
+                }
             }
+        } catch (\Exception $e) {
+            \Log::error('Failed in notifyAllOfCompletion: ' . $e->getMessage());
         }
     }
 

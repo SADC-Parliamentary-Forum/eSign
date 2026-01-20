@@ -88,15 +88,21 @@ async function handleUpload() {
     }
 
     // Check for AI template suggestions (only for fresh file uploads)
+    // Make this non-blocking - if AI fails, just continue
     if (file.value && !appliedTemplate.value && !isSelfSign.value) {
-      await analyzeForTemplates()
-      if (aiStore.hasSuggestions) {
-        showTemplateSuggestions.value = true
+      try {
+        await analyzeForTemplates()
+        if (aiStore.hasSuggestions) {
+          showTemplateSuggestions.value = true
 
-        // Store documentId for later
-        sessionStorage.setItem('pendingDocumentId', res.id)
-        
-        return
+          // Store documentId for later
+          sessionStorage.setItem('pendingDocumentId', res.id)
+          
+          return
+        }
+      } catch (aiError) {
+        // AI suggestion failed - just continue without blocking
+        console.warn('AI template suggestions unavailable:', aiError)
       }
     }
 
