@@ -40,6 +40,7 @@ class Document extends Model
         'legal_hold_reason',
         'archived_at',
         'is_self_sign',
+        'completion_recipients',
     ];
 
     protected $casts = [
@@ -54,6 +55,7 @@ class Document extends Model
         'archived_at' => 'datetime',
         'is_legal_hold' => 'boolean',
         'is_self_sign' => 'boolean',
+        'completion_recipients' => 'array',
     ];
 
     /**

@@ -221,6 +221,11 @@ function duplicateFieldToAllPages(field) {
 const sequentialSigning = ref(false)
 const expiresInDays = ref(30)
 
+// Completion notification recipients
+const notifyOwner = ref(true)
+const notifySigners = ref(true)
+const additionalEmails = ref('')
+
 // Mobile drawer states
 const showLeftDrawer = ref(false)
 const showRightDrawer = ref(false)
@@ -559,7 +564,14 @@ async function submitDocument() {
       method: 'POST',
       body: {
         sequential: sequentialSigning.value,
-        expires_in_days: expiresInDays.value
+        expires_in_days: expiresInDays.value,
+        completion_recipients: {
+          notify_owner: notifyOwner.value,
+          notify_signers: notifySigners.value,
+          additional_emails: additionalEmails.value
+            ? additionalEmails.value.split(',').map(e => e.trim()).filter(e => e)
+            : []
+        }
       }
     })
     
@@ -1084,6 +1096,41 @@ onUnmounted(() => {
             density="compact"
             :min="1"
             :max="365"
+          />
+
+          <v-divider class="my-4" />
+
+          <div class="text-subtitle-2 mb-2">Completion Notifications:</div>
+          <div class="text-caption text-medium-emphasis mb-3">
+            Who should receive the signed document and audit trail?
+          </div>
+
+          <v-checkbox
+            v-model="notifyOwner"
+            label="Notify me (document owner)"
+            color="primary"
+            hide-details
+            density="compact"
+            class="mb-2"
+          />
+
+          <v-checkbox
+            v-model="notifySigners"
+            label="Notify all signers"
+            color="primary"
+            hide-details
+            density="compact"
+            class="mb-3"
+          />
+
+          <v-text-field
+            v-model="additionalEmails"
+            label="Additional recipients (comma-separated)"
+            placeholder="email1@example.com, email2@example.com"
+            variant="outlined"
+            density="compact"
+            hint="Optional: Add CC recipients"
+            persistent-hint
           />
         </v-card-text>
 

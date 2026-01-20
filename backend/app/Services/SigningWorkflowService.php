@@ -190,15 +190,34 @@ class SigningWorkflowService
      */
     protected function notifyAllOfCompletion(Document $document): void
     {
-        // Notify owner
-        $document->user->notify(new DocumentCompletedNotification($document));
+        $recipients = $document->completion_recipients ?? [
+            'notify_owner' => true,
+            'notify_signers' => true,
+            'additional_emails' => [],
+        ];
 
-        // Notify all signers
-        foreach ($document->signers as $signer) {
-            if ($signer->user) {
-                $signer->user->notify(new DocumentCompletedNotification($document));
-            } else {
-                Notification::route('mail', $signer->email)
+        // Notify owner if enabled
+        if ($recipients['notify_owner'] ?? true) {
+            $document->user->notify(new DocumentCompletedNotification($document));
+        }
+
+        // Notify signers if enabled
+        if ($recipients['notify_signers'] ?? true) {
+            foreach ($document->signers as $signer) {
+                if ($signer->user) {
+                    $signer->user->notify(new DocumentCompletedNotification($document));
+                } else {
+                    Notification::route('mail', $signer->email)
+                        ->notify(new DocumentCompletedNotification($document));
+                }
+            }
+        }
+
+        // Notify additional emails
+        $additionalEmails = $recipients['additional_emails'] ?? [];
+        foreach ($additionalEmails as $email) {
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                Notification::route('mail', $email)
                     ->notify(new DocumentCompletedNotification($document));
             }
         }

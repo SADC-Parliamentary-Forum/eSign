@@ -332,6 +332,11 @@ class DocumentController extends Controller
             'sequential' => 'nullable|boolean',
             'expires_in_days' => 'nullable|integer|min:1|max:365',
             'message' => 'nullable|string|max:1000',
+            'completion_recipients' => 'nullable|array',
+            'completion_recipients.notify_owner' => 'nullable|boolean',
+            'completion_recipients.notify_signers' => 'nullable|boolean',
+            'completion_recipients.additional_emails' => 'nullable|array',
+            'completion_recipients.additional_emails.*' => 'nullable|email',
         ]);
 
         try {
@@ -344,6 +349,7 @@ class DocumentController extends Controller
                     'expires_at' => isset($validated['expires_in_days'])
                         ? now()->addDays($validated['expires_in_days'])
                         : null,
+                    'completion_recipients' => $validated['completion_recipients'] ?? null,
                 ]);
 
                 // Notify appropriate signers

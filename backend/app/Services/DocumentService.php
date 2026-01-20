@@ -354,4 +354,23 @@ class DocumentService
             @rmdir($tempDir);
         }
     }
+
+    /**
+     * Generate audit trail PDF content.
+     */
+    public function generateAuditTrailPdf(Document $document): string
+    {
+        return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.audit_trail', [
+            'document' => $document->load(['user', 'signers', 'workflowLogs'])
+        ])->output();
+    }
+
+    /**
+     * Get the signed PDF content (with signatures stamped).
+     */
+    public function getSignedPdfContent(Document $document): string
+    {
+        // For completed documents, the file is already stamped
+        return Storage::disk('minio')->get($document->file_path);
+    }
 }
