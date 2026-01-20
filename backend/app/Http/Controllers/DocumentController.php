@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\DocumentService;
 use App\Services\SigningWorkflowService;
+use App\Services\DocumentConversionService;
 use App\Models\Document;
 use App\Models\Template;
 // Removed SignatureField
@@ -17,11 +18,16 @@ class DocumentController extends Controller
 {
     protected DocumentService $documentService;
     protected SigningWorkflowService $workflowService;
+    protected DocumentConversionService $conversionService;
 
-    public function __construct(DocumentService $documentService, SigningWorkflowService $workflowService)
-    {
+    public function __construct(
+        DocumentService $documentService,
+        SigningWorkflowService $workflowService,
+        DocumentConversionService $conversionService
+    ) {
         $this->documentService = $documentService;
         $this->workflowService = $workflowService;
+        $this->conversionService = $conversionService;
     }
 
     /**
@@ -148,6 +154,12 @@ class DocumentController extends Controller
                 throw new \Exception('Failed to store file or find template.');
             }
 
+            // Convert Word documents to PDF
+            $originalPath = $path;
+            $conversionResult = $this->conversionService->convertToPdfIfNeeded($path, 'minio');
+            $path = $conversionResult['path'];
+            $wasConverted = $conversionResult['converted'] ?? false;
+
             $size = 0;
             if (isset($file)) {
                 $size = (int) $file->getSize();
@@ -162,6 +174,12 @@ class DocumentController extends Controller
                 /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
                 $disk = Storage::disk('minio');
                 $mimeType = $disk->mimeType($template->file_path);
+            }
+
+            // If file was converted to PDF, update mime type and size
+            if ($wasConverted) {
+                $mimeType = 'application/pdf';
+                $size = (int) Storage::disk('minio')->size($path);
             }
 
             $createData = [
@@ -563,12 +581,12 @@ class DocumentController extends Controller
 
         try {
             $zipPath = $this->createBulkDownloadBundle($accessibleDocs);
-            
+
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('minio');
-            
+
             $filename = 'SignedDocuments_' . date('Y-m-d_His') . '.zip';
-            
+
             return $disk->download($zipPath, $filename);
         } catch (\Exception $e) {
             \Log::error('Bulk download error: ' . $e->getMessage());

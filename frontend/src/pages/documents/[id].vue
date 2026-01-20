@@ -101,10 +101,18 @@ const myFields = computed(() => {
 })
 
 const canSign = computed(() => {
+  // Must be in progress to sign
   if (document.value?.status !== 'IN_PROGRESS') return false
   
+  // Must be a signer on this document
+  if (!mySigner.value) return false
+  
+  // Already signed?
+  if (mySigner.value.signed_at) return false
+  
+  // Sequential signing check
   if (document.value.sequential_signing) {
-     if (mySigner.value && mySigner.value.signing_order !== document.value.current_signing_order) {
+     if (mySigner.value.signing_order !== document.value.current_signing_order) {
        return false
      }
   }
@@ -740,6 +748,25 @@ function onTextFieldInput(e, field) {
               @click="finishSigning" 
            >
               Finish Signing
+           </v-btn>
+        </div>
+
+        <!-- Download Evidence Button in Toolbar for Completed Documents -->
+        <div v-else-if="document?.status === 'COMPLETED'" class="d-flex align-center gap-2">
+           <v-chip color="success" variant="flat" size="small" class="font-weight-bold">
+              <v-icon start icon="mdi-check-circle" size="16" />
+              Completed
+           </v-chip>
+           <v-btn
+              color="success"
+              variant="flat"
+              height="44"
+              class="px-4 font-weight-bold text-none"
+              prepend-icon="mdi-download"
+              :loading="downloadingEvidence"
+              @click="downloadEvidence"
+           >
+              Download Evidence
            </v-btn>
         </div>
       </div>
