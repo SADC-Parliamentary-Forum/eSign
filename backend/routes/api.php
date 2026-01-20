@@ -108,6 +108,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('templates/{id}/archive', [TemplateController::class, 'archive']);
     Route::get('templates/{id}/threshold-matrix', [TemplateController::class, 'getThresholdMatrix']);
     Route::get('templates/{id}/versions', [TemplateController::class, 'getVersions']);
+    Route::get('templates/{id}/pdf', [TemplateController::class, 'streamPdf']);
 
     // -------------------------------------------------------------------------
     // Workflows

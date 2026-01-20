@@ -354,5 +354,23 @@ class TemplateController extends Controller
 
         return response()->json($versions);
     }
+    /**
+     * Stream the template PDF file.
+     */
+    public function streamPdf(Request $request, $id)
+    {
+        $template = Template::availableTo($request->user()->id)->findOrFail($id);
+
+        if (!Storage::disk('minio')->exists($template->file_path)) {
+            return response()->json(['message' => 'File not found'], 404);
+        }
+
+        $fileContent = Storage::disk('minio')->get($template->file_path);
+        $mimeType = Storage::disk('minio')->mimeType($template->file_path);
+
+        return response($fileContent)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="' . $template->name . '.pdf"');
+    }
 }
 
