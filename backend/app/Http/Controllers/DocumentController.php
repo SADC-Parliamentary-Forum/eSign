@@ -52,6 +52,10 @@ class DocumentController extends Controller
             $query->where('title', 'like', '%' . $request->search . '%');
         }
 
+        if ($request->has('folder_id')) {
+            $query->where('folder_id', $request->folder_id);
+        }
+
         $sortBy = $request->input('sort', 'updated_at');
         $sortOrder = $request->input('order', 'desc');
         $query->orderBy($sortBy, $sortOrder);

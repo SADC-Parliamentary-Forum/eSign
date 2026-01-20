@@ -97,6 +97,13 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     });
 
     // -------------------------------------------------------------------------
+    // Folders
+    // -------------------------------------------------------------------------
+    Route::apiResource('folders', App\Http\Controllers\FolderController::class);
+    Route::post('folders/{id}/move-documents', [App\Http\Controllers\FolderController::class, 'moveDocuments']);
+    Route::get('folders/{id}/download', [App\Http\Controllers\FolderController::class, 'download']);
+
+    // -------------------------------------------------------------------------
     // Templates
     // -------------------------------------------------------------------------
     Route::apiResource('templates', TemplateController::class);

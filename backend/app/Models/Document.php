@@ -13,6 +13,7 @@ class Document extends Model
 
     protected $fillable = [
         'user_id',
+        'folder_id',
         'template_id',
         'workflow_id',
         'title',
@@ -72,6 +73,14 @@ class Document extends Model
     public function template()
     {
         return $this->belongsTo(Template::class);
+    }
+
+    /**
+     * Get the folder this document belongs to.
+     */
+    public function folder()
+    {
+        return $this->belongsTo(Folder::class);
     }
 
     /**

@@ -21,6 +21,54 @@ const sortBy = ref('updated_at')
 const sortDesc = ref(true)
 const page = ref(1)
 const itemsPerPage = ref(10)
+const currentFolderId = ref(null)
+const folders = ref([])
+const folderBreadcrumbs = ref([])
+const showCreateFolderDialog = ref(false)
+const folderForm = ref({ name: '', color: '#6366f1' })
+const folderLoading = ref(false)
+
+// Move Dialog State
+const showMoveDialog = ref(false)
+const moveDialogLoading = ref(false)
+const moveDialogFolderId = ref(null) // Current folder we are looking at in the dialog
+const moveDialogFolders = ref([])
+const moveDialogBreadcrumbs = ref([])
+const isMoving = ref(false)
+const currentFolder = ref(null) // Full details of current folder
+
+// Edit/Delete Folder State
+const showEditFolderDialog = ref(false)
+
+// Load Folders
+async function loadFolders() {
+  try {
+    const params = new URLSearchParams()
+    if (currentFolderId.value) params.append('parent_id', currentFolderId.value)
+    
+    // If we're inside a folder, we fetch the folder details to get breadcrumbs
+    if (currentFolderId.value) {
+        const res = await $api(`/folders/${currentFolderId.value}`)
+        currentFolder.value = res.folder // Assuming API returns { folder: ..., breadcrumbs: ... }
+        folderBreadcrumbs.value = res.breadcrumbs || []
+        
+        const listRes = await $api(`/folders?${params.toString()}`)
+        folders.value = listRes.folders
+    } else {
+        currentFolder.value = null
+        folderBreadcrumbs.value = []
+        const res = await $api('/folders')
+        folders.value = res.folders
+    }
+  } catch (e) {
+    console.error('Failed to load folders', e)
+  }
+}
+const editFolderForm = ref({ id: null, name: '', color: '' })
+const editFolderLoading = ref(false)
+const showDeleteFolderDialog = ref(false)
+const folderToDelete = ref(null)
+const deleteFolderLoading = ref(false)
 
 const statuses = [
   { title: 'All Statuses', value: '' },
@@ -44,12 +92,13 @@ onMounted(async () => {
   if (route.query.sort) sortBy.value = route.query.sort
   if (route.query.order) sortDesc.value = route.query.order === 'desc'
   if (route.query.page) page.value = parseInt(route.query.page)
+  if (route.query.folder) currentFolderId.value = route.query.folder
   
-  await loadDocuments()
+  await Promise.all([loadDocuments(), loadFolders()])
 })
 
 // Sync URL with filters
-watch([statusFilter, sortBy, sortDesc, page, searchQuery], () => {
+watch([statusFilter, sortBy, sortDesc, page, searchQuery, currentFolderId], () => {
   const query = {
     ...route.query,
     status: statusFilter.value || undefined,
@@ -57,6 +106,7 @@ watch([statusFilter, sortBy, sortDesc, page, searchQuery], () => {
     sort: sortBy.value,
     order: sortDesc.value ? 'desc' : 'asc',
     page: page.value,
+    folder: currentFolderId.value || undefined,
   }
   
   // Remove undefined keys
@@ -83,6 +133,7 @@ async function loadDocuments() {
     const params = new URLSearchParams()
     if (searchQuery.value) params.append('search', searchQuery.value)
     if (statusFilter.value) params.append('status', statusFilter.value)
+    if (currentFolderId.value) params.append('folder_id', currentFolderId.value)
     params.append('sort', sortBy.value)
     params.append('order', sortDesc.value ? 'desc' : 'asc')
     params.append('page', page.value)
@@ -322,10 +373,262 @@ function formatRelativeDate(dateString) {
   
   return formatDate(dateString)
 }
+
+
+
+async function createFolder() {
+  if (!folderForm.value.name) return
+  folderLoading.value = true
+  try {
+    await $api('/folders', {
+        method: 'POST',
+        body: {
+            name: folderForm.value.name,
+            color: folderForm.value.color,
+            parent_id: currentFolderId.value
+        }
+    })
+    showCreateFolderDialog.value = false
+    folderForm.value = { name: '', color: '#6366f1' }
+    showSnackbar('Folder created')
+    loadFolders()
+  } catch (e) {
+    showSnackbar(e.message, 'error')
+  } finally {
+    folderLoading.value = false
+  }
+}
+
+
+
+// Watch move dialog to reset state
+watch(showMoveDialog, (val) => {
+    if (val) {
+        moveDialogFolderId.value = null // Start at root
+        loadMoveDialogFolders()
+    }
+})
+
+// Load folders for Move Dialog
+async function loadMoveDialogFolders() {
+    moveDialogLoading.value = true
+    try {
+        const params = new URLSearchParams()
+        if (moveDialogFolderId.value) params.append('parent_id', moveDialogFolderId.value)
+        
+        let path = []
+        if (moveDialogFolderId.value) {
+            const res = await $api(`/folders/${moveDialogFolderId.value}`)
+            path = res.breadcrumbs || []
+            const listRes = await $api(`/folders?${params.toString()}`)
+            moveDialogFolders.value = listRes.folders
+        } else {
+            const res = await $api('/folders')
+            moveDialogFolders.value = res.folders
+        }
+        moveDialogBreadcrumbs.value = path
+    } catch (e) {
+        console.error(e)
+    } finally {
+        moveDialogLoading.value = false
+    }
+}
+
+async function moveSelectedDocuments() {
+  isMoving.value = true
+  try {
+     const targetId = moveDialogFolderId.value // Move to CURRENTLY OPEN folder in dialog
+     await $api(`/folders/${targetId || 'root'}/move-documents`, {
+         method: 'POST',
+         body: { document_ids: selected.value }
+     })
+     showMoveDialog.value = false
+     selected.value = []
+     showSnackbar('Documents moved successfully')
+     loadDocuments()
+     loadFolders() // Refresh sidebar
+  } catch (e) {
+     showSnackbar(e.message, 'error')
+  } finally {
+     isMoving.value = false
+  }
+}
+
+async function startDownLoadFolder(folder) {
+    try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/folders/${folder.id}/download`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (!response.ok) throw new Error('Download failed')
+        
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${folder.name}.zip`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+    } catch (e) {
+        showSnackbar('Failed to download folder', 'error')
+    }
+}
+
+function openEditFolder(folder) {
+    editFolderForm.value = { id: folder.id, name: folder.name, color: folder.color }
+    showEditFolderDialog.value = true
+}
+
+async function updateFolder() {
+    if (!editFolderForm.value.name) return
+    editFolderLoading.value = true
+    try {
+        await $api(`/folders/${editFolderForm.value.id}`, {
+            method: 'PUT',
+            body: {
+                name: editFolderForm.value.name,
+                color: editFolderForm.value.color
+            }
+        })
+        showEditFolderDialog.value = false
+        showSnackbar('Folder updated')
+        loadFolders()
+    } catch (e) {
+        showSnackbar(e.message, 'error')
+    } finally {
+        editFolderLoading.value = false
+    }
+}
+
+function openDeleteFolder(folder) {
+    folderToDelete.value = folder
+    showDeleteFolderDialog.value = true
+}
+
+async function deleteFolder() {
+    if (!folderToDelete.value) return
+    deleteFolderLoading.value = true
+    try {
+        await $api(`/folders/${folderToDelete.value.id}`, { method: 'DELETE' })
+        showDeleteFolderDialog.value = false
+        showSnackbar('Folder deleted')
+        if (currentFolderId.value === folderToDelete.value.id) {
+            currentFolderId.value = folderToDelete.value.parent_id // Go up
+        } else {
+            loadFolders()
+        }
+        folderToDelete.value = null
+    } catch (e) {
+        showSnackbar(e.message, 'error')
+    } finally {
+        deleteFolderLoading.value = false
+    }
+}
+
 </script>
 
 <template>
-  <VContainer class="py-6">
+  <VContainer class="py-6" fluid>
+    <VRow>
+      <!-- Folders Sidebar (Left) -->
+      <VCol cols="12" md="3">
+        <VCard class="mb-4">
+            <div class="pa-4">
+                <VBtn
+                    block
+                    color="primary"
+                    prepend-icon="mdi-folder-plus-outline"
+                    class="text-none"
+                    @click="showCreateFolderDialog = true"
+                >
+                    Create New Folder
+                </VBtn>
+            </div>
+            <VDivider />
+            <div class="px-4 py-2 text-overline text-medium-emphasis">
+                Folders
+            </div>
+            <VList density="compact" nav>
+                <VListItem
+                    prepend-icon="mdi-folder-home-outline"
+                    title="All Documents"
+                    :active="!currentFolderId"
+                    color="primary"
+                    @click="currentFolderId = null"
+                />
+            </VList>
+        </VCard>
+      </VCol>
+      
+      <!-- Main Content (Right) -->
+      <VCol cols="12" md="9">
+      
+      <!-- Breadcrumbs & Header -->
+      <div v-if="currentFolderId" class="mb-4">
+          <VBreadcrumbs :items="[{ title: 'All Documents', disabled: false, id: null }, ...folderBreadcrumbs.map(b => ({ title: b.name, disabled: false, id: b.id }))]" class="pa-0 mb-2">
+            <template #title="{ item }">
+                 <span class="cursor-pointer text-primary text-decoration-underline" @click="currentFolderId = item.id">{{ item.title }}</span>
+            </template>
+            <template #divider> <VIcon icon="mdi-chevron-right" /> </template>
+          </VBreadcrumbs>
+          <div class="d-flex align-center gap-2">
+            <VIcon v-if="currentFolder" icon="mdi-folder" :color="currentFolder.color" size="large" />
+            <h2 class="text-h5 font-weight-bold">{{ folderBreadcrumbs.length ? folderBreadcrumbs[folderBreadcrumbs.length-1].name : 'Folder' }}</h2>
+            
+            <!-- Context Menu for Current Folder -->
+            <VMenu v-if="currentFolder" location="bottom end">
+                 <template #activator="{ props }">
+                     <VBtn icon="mdi-dots-vertical" variant="text" density="compact" v-bind="props" />
+                 </template>
+                 <VList density="compact">
+                     <VListItem prepend-icon="mdi-pencil" title="Rename Folder" @click="openEditFolder(currentFolder)" />
+                     <VListItem prepend-icon="mdi-delete" title="Delete Folder" color="error" @click="openDeleteFolder(currentFolder)" />
+                     <VDivider />
+                     <VListItem prepend-icon="mdi-download" title="Download ZIP" @click="startDownLoadFolder(currentFolder)" />
+                 </VList>
+             </VMenu>
+          </div>
+      </div>
+      
+      <!-- Folders Grid (Main View) -->
+      <div v-if="folders.length > 0" class="mb-6">
+        <h3 class="text-subtitle-2 text-medium-emphasis mb-3 text-uppercase">Folders</h3>
+        <VRow>
+            <VCol v-for="folder in folders" :key="folder.id" cols="12" sm="6" md="4" lg="3">
+                <VCard 
+                    variant="outlined" 
+                    class="folder-card" 
+                    @click="currentFolderId = folder.id"
+                    :style="{ borderLeft: `4px solid ${folder.color || '#6366f1'}` }"
+                >
+                    <div class="d-flex align-center pa-3">
+                        <VIcon icon="mdi-folder" :color="folder.color || 'primary'" size="large" class="mr-3" />
+                        <div class="text-truncate flex-grow-1 font-weight-medium">
+                            {{ folder.name }}
+                        </div>
+                        <VMenu location="bottom end">
+                             <template #activator="{ props }">
+                                 <div class="d-inline-flex" @click.stop>
+                                     <VBtn icon="mdi-dots-vertical" variant="text" size="x-small" v-bind="props" />
+                                 </div>
+                             </template>
+                             <VList density="compact">
+                                 <VListItem prepend-icon="mdi-pencil" title="Rename" @click="openEditFolder(folder)" />
+                                 <VListItem prepend-icon="mdi-delete" title="Delete" color="error" @click="openDeleteFolder(folder)" />
+                                 <VDivider />
+                                 <VListItem prepend-icon="mdi-download" title="Download ZIP" @click="startDownLoadFolder(folder)" />
+                             </VList>
+                         </VMenu>
+                    </div>
+                    <div class="px-3 pb-3 text-caption text-medium-emphasis">
+                        {{ folder.documents_count }} items
+                    </div>
+                </VCard>
+            </VCol>
+        </VRow>
+      </div>
     <!-- Header -->
     <div class="d-flex align-center justify-space-between mb-6">
       <div>
@@ -333,7 +636,7 @@ function formatRelativeDate(dateString) {
           Documents
         </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
-          Manage and track all your documents
+          {{ currentFolderId ? 'Items in this folder' : 'All your documents and folders' }}
         </p>
       </div>
       <VBtn
@@ -438,6 +741,18 @@ function formatRelativeDate(dateString) {
       </div>
       
       <div class="d-flex gap-2">
+        <VBtn
+          v-if="selected.length > 0"
+          color="primary"
+          prepend-icon="mdi-folder-move-outline"
+          variant="tonal"
+          size="small"
+          class="mr-2"
+          @click="showMoveDialog = true"
+        >
+          Move to
+        </VBtn>
+
         <VBtn
           v-if="selectedCompletedDocs.length > 0"
           color="success"
@@ -646,6 +961,157 @@ function formatRelativeDate(dateString) {
       </div>
     </template>
     
+      </VCol>
+    </VRow>
+    
+    <!-- Create Folder Dialog -->
+    <VDialog v-model="showCreateFolderDialog" max-width="400">
+        <VCard>
+            <VCardTitle class="px-4 pt-4">Create New Folder</VCardTitle>
+            <VCardText class="px-4 pb-2">
+                <VTextField v-model="folderForm.name" label="Folder Name" variant="outlined" autofocus class="mb-2" />
+                <div class="d-flex align-center gap-2 mb-2">
+                    <span>Color:</span>
+                    <VBtn v-for="color in ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']"
+                          :key="color"
+                          :color="color"
+                          size="x-small"
+                          variant="flat"
+                          icon
+                          :style="{ border: folderForm.color === color ? '2px solid black' : 'none' }"
+                          @click="folderForm.color = color"
+                    />
+                </div>
+            </VCardText>
+            <VCardActions class="px-4 pb-4">
+                <VSpacer />
+                <VBtn variant="text" @click="showCreateFolderDialog = false">Cancel</VBtn>
+                <VBtn color="primary" variant="elevated" :loading="folderLoading" @click="createFolder">Create</VBtn>
+            </VCardActions>
+        </VCard>
+    </VDialog>
+
+    <!-- Move Documents Dialog -->
+    <VDialog v-model="showMoveDialog" max-width="500">
+        <VCard>
+            <VCardTitle class="px-4 pt-4 d-flex align-center justify-space-between">
+                <span>Move {{ selected.length }} Documents</span>
+                <VBtn icon="mdi-close" variant="text" size="small" @click="showMoveDialog = false" />
+            </VCardTitle>
+            
+            <VDivider />
+            
+            <div class="px-4 py-2 bg-grey-lighten-4 d-flex align-center gap-2 text-caption">
+                <VIcon icon="mdi-folder-open-outline" size="small" />
+                <span class="font-weight-bold">Current Location:</span>
+                <VBreadcrumbs :items="[{ title: 'Root', disabled: false, id: null }, ...moveDialogBreadcrumbs.map(b => ({ title: b.name, disabled: false, id: b.id }))]" density="compact" class="pa-0">
+                    <template #title="{ item }">
+                         <span class="cursor-pointer text-primary" @click="moveDialogFolderId = item.id; loadMoveDialogFolders()">{{ item.title }}</span>
+                    </template>
+                    <template #divider> / </template>
+                </VBreadcrumbs>
+            </div>
+            
+            <VCardText class="px-0 pb-2" style="height: 300px; overflow-y: auto;">
+                <div v-if="moveDialogLoading" class="d-flex justify-center align-center h-100">
+                    <VProgressCircular indeterminate color="primary" />
+                </div>
+                <VList v-else density="compact" nav lines="one">
+                    <VListItem
+                        v-if="moveDialogFolderId"
+                        prepend-icon="mdi-arrow-up"
+                        title=".. (Go Up)"
+                        @click="moveDialogFolderId = moveDialogBreadcrumbs[moveDialogBreadcrumbs.length - 2]?.id || null; loadMoveDialogFolders()"
+                        class="mb-1"
+                    />
+
+                    <VListItem
+                        v-for="folder in moveDialogFolders"
+                        :key="folder.id"
+                        :value="folder.id"
+                        color="primary"
+                        @click="moveDialogFolderId = folder.id; loadMoveDialogFolders()"
+                    >
+                        <template #prepend>
+                            <VIcon icon="mdi-folder" :color="folder.color || 'primary'" />
+                        </template>
+                        <VListItemTitle>{{ folder.name }}</VListItemTitle>
+                        <template #append>
+                            <VIcon icon="mdi-chevron-right" size="small" color="medium-emphasis" />
+                        </template>
+                    </VListItem>
+                    
+                    <div v-if="moveDialogFolders.length === 0" class="text-center pa-8 text-medium-emphasis">
+                        <VIcon icon="mdi-folder-outline" size="large" class="mb-2" />
+                        <div>No subfolders</div>
+                    </div>
+                </VList>
+            </VCardText>
+            
+            <VDivider />
+            
+            <VCardActions class="px-4 pb-4 pt-3 bg-grey-lighten-5">
+                <div class="text-caption text-medium-emphasis">
+                    Moving to: <strong>{{ moveDialogBreadcrumbs.length ? moveDialogBreadcrumbs[moveDialogBreadcrumbs.length-1].name : 'Root' }}</strong>
+                </div>
+                <VSpacer />
+                <VBtn variant="text" @click="showMoveDialog = false">Cancel</VBtn>
+                <VBtn color="primary" variant="elevated" :loading="isMoving" @click="moveSelectedDocuments">
+                    Move Here
+                </VBtn>
+            </VCardActions>
+        </VCard>
+    </VDialog>
+
+    <!-- Edit Folder Dialog -->
+    <VDialog v-model="showEditFolderDialog" max-width="400">
+        <VCard>
+            <VCardTitle class="px-4 pt-4">Rename Folder</VCardTitle>
+            <VCardText class="px-4 pb-2">
+                <VTextField v-model="editFolderForm.name" label="Folder Name" variant="outlined" autofocus class="mb-2" />
+                <div class="d-flex align-center gap-2 mb-2">
+                    <span>Color:</span>
+                    <VBtn v-for="color in ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']"
+                          :key="color"
+                          :color="color"
+                          size="x-small"
+                          variant="flat"
+                          icon
+                          :class="{ 'ring-2 ring-black': editFolderForm.color === color }"
+                          :style="{ border: editFolderForm.color === color ? '2px solid black' : 'none' }"
+                          @click="editFolderForm.color = color"
+                    />
+                </div>
+            </VCardText>
+            <VCardActions class="px-4 pb-4">
+                <VSpacer />
+                <VBtn variant="text" @click="showEditFolderDialog = false">Cancel</VBtn>
+                <VBtn color="primary" variant="elevated" :loading="editFolderLoading" @click="updateFolder">Save</VBtn>
+            </VCardActions>
+        </VCard>
+    </VDialog>
+
+    <!-- Delete Folder Dialog -->
+    <VDialog v-model="showDeleteFolderDialog" max-width="400">
+        <VCard>
+            <VCardTitle class="px-4 pt-4 text-error">Delete Folder?</VCardTitle>
+            <VCardText class="px-4 pb-2">
+                <p class="mb-2">Are you sure you want to delete <strong>{{ folderToDelete?.name }}</strong>?</p>
+                <VAlert type="info" variant="tonal" density="compact" class="text-caption">
+                    Any documents inside this folder will be moved to the parent folder (or root). They will NOT be deleted.
+                </VAlert>
+                <div v-if="folderToDelete?.children_count > 0" class="mt-2 text-caption text-warning">
+                    {{ folderToDelete.children_count }} subfolder(s) will also be moved up.
+                </div>
+            </VCardText>
+            <VCardActions class="px-4 pb-4">
+                <VSpacer />
+                <VBtn variant="text" @click="showDeleteFolderDialog = false">Cancel</VBtn>
+                <VBtn color="error" variant="elevated" :loading="deleteFolderLoading" @click="deleteFolder">Delete Folder</VBtn>
+            </VCardActions>
+        </VCard>
+    </VDialog>
+
     <!-- Confirm Dialog -->
     <VDialog
       v-model="confirmDialog.show"
@@ -708,5 +1174,14 @@ function formatRelativeDate(dateString) {
 
 .document-item:last-child {
   border-bottom: none;
+}
+
+.folder-card {
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.folder-card:hover {
+    border-color: rgb(var(--v-theme-primary));
+    background-color: rgba(var(--v-theme-primary), 0.04);
 }
 </style>
