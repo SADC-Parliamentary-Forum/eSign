@@ -39,6 +39,19 @@ const currentFolder = ref(null) // Full details of current folder
 
 // Edit/Delete Folder State
 const showEditFolderDialog = ref(false)
+const folderMenu = ref({
+    show: false,
+    folder: null,
+    activator: null
+})
+
+function openFolderMenu(event, folder) {
+    folderMenu.value = {
+        show: true,
+        folder: folder,
+        activator: event.currentTarget
+    }
+}
 
 // Load Folders
 async function loadFolders() {
@@ -456,13 +469,10 @@ async function moveSelectedDocuments() {
 
 async function startDownLoadFolder(folder) {
     try {
-        const token = localStorage.getItem('token')
-        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/folders/${folder.id}/download`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const blob = await $api(`/folders/${folder.id}/download`, {
+            responseType: 'blob'
         })
-        if (!response.ok) throw new Error('Download failed')
         
-        const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -578,17 +588,7 @@ async function deleteFolder() {
             <h2 class="text-h5 font-weight-bold">{{ folderBreadcrumbs.length ? folderBreadcrumbs[folderBreadcrumbs.length-1].name : 'Folder' }}</h2>
             
             <!-- Context Menu for Current Folder -->
-            <VMenu v-if="currentFolder" location="bottom end">
-                 <template #activator="{ props }">
-                     <VBtn icon="mdi-dots-vertical" variant="text" density="compact" v-bind="props" />
-                 </template>
-                 <VList density="compact">
-                     <VListItem prepend-icon="mdi-pencil" title="Rename Folder" @click="openEditFolder(currentFolder)" />
-                     <VListItem prepend-icon="mdi-delete" title="Delete Folder" color="error" @click="openDeleteFolder(currentFolder)" />
-                     <VDivider />
-                     <VListItem prepend-icon="mdi-download" title="Download ZIP" @click="startDownLoadFolder(currentFolder)" />
-                 </VList>
-             </VMenu>
+             <VBtn icon="mdi-dots-vertical" variant="text" density="compact" @click.stop="openFolderMenu($event, currentFolder)" />
           </div>
       </div>
       
@@ -608,19 +608,9 @@ async function deleteFolder() {
                         <div class="text-truncate flex-grow-1 font-weight-medium">
                             {{ folder.name }}
                         </div>
-                        <VMenu location="bottom end">
-                             <template #activator="{ props }">
-                                 <div class="d-inline-flex" @click.stop>
-                                     <VBtn icon="mdi-dots-vertical" variant="text" size="x-small" v-bind="props" />
-                                 </div>
-                             </template>
-                             <VList density="compact">
-                                 <VListItem prepend-icon="mdi-pencil" title="Rename" @click="openEditFolder(folder)" />
-                                 <VListItem prepend-icon="mdi-delete" title="Delete" color="error" @click="openDeleteFolder(folder)" />
-                                 <VDivider />
-                                 <VListItem prepend-icon="mdi-download" title="Download ZIP" @click="startDownLoadFolder(folder)" />
-                             </VList>
-                         </VMenu>
+                        <div class="d-inline-flex">
+                            <VBtn icon="mdi-dots-vertical" variant="text" size="x-small" @click.stop="openFolderMenu($event, folder)" />
+                        </div>
                     </div>
                     <div class="px-3 pb-3 text-caption text-medium-emphasis">
                         {{ folder.documents_count }} items
@@ -1159,6 +1149,15 @@ async function deleteFolder() {
         />
       </template>
     </VSnackbar>
+    <!-- Global Folder Menu -->
+    <VMenu v-model="folderMenu.show" :activator="folderMenu.activator" location="bottom end">
+         <VList density="compact">
+             <VListItem prepend-icon="mdi-pencil" title="Rename" @click="openEditFolder(folderMenu.folder)" />
+             <VListItem prepend-icon="mdi-delete" title="Delete" color="error" @click="openDeleteFolder(folderMenu.folder)" />
+             <VDivider />
+             <VListItem prepend-icon="mdi-download" title="Download ZIP" @click="startDownLoadFolder(folderMenu.folder)" />
+         </VList>
+     </VMenu>
   </VContainer>
 </template>
 
