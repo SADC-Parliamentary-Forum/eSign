@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\MagicLinkController;
@@ -15,6 +16,9 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\DocumentFieldController;
 use App\Http\Controllers\NotificationController;
+
+// Broadcasting auth route for private channels
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 // ...
 
@@ -193,6 +197,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/logs/system', [App\Http\Controllers\SystemLogController::class, 'show']);
         Route::get('/roles', [App\Http\Controllers\RoleController::class, 'index']);
+        Route::get('/settings', [App\Http\Controllers\SettingsController::class, 'index']);
+        Route::put('/settings', [App\Http\Controllers\SettingsController::class, 'update']);
 
         // Moved from general protected area
         Route::apiResource('/users', UserController::class);

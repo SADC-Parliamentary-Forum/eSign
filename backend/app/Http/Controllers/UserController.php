@@ -22,22 +22,28 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string',
+            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:8',
-            'role_id' => 'required|exists:roles,id',
+            'role_id' => 'nullable|exists:roles,id',
             'mfa_enabled' => 'boolean',
+            'status' => 'nullable|in:ACTIVE,INACTIVE,INVITED',
+            'department' => 'nullable|string|max:255',
+            'job_title' => 'nullable|string|max:255',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role_id' => $validated['role_id'],
+            'role_id' => $validated['role_id'] ?? null,
             'mfa_enabled' => $validated['mfa_enabled'] ?? false,
+            'status' => $validated['status'] ?? 'ACTIVE',
+            'department' => $validated['department'] ?? null,
+            'job_title' => $validated['job_title'] ?? null,
         ]);
 
-        return response()->json($user, 201);
+        return response()->json($user->load('role'), 201);
     }
 
     /**
@@ -56,15 +62,26 @@ class UserController extends Controller
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => 'string',
+            'name' => 'string|max:255',
             'email' => 'email|unique:users,email,' . $id,
-            'role_id' => 'exists:roles,id',
+            'password' => 'nullable|string|min:8',
+            'role_id' => 'nullable|exists:roles,id',
             'mfa_enabled' => 'boolean',
+            'status' => 'nullable|in:ACTIVE,INACTIVE,INVITED',
+            'department' => 'nullable|string|max:255',
+            'job_title' => 'nullable|string|max:255',
         ]);
+
+        // Handle password separately
+        if (!empty($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
 
         $user->update($validated);
 
-        return response()->json($user);
+        return response()->json($user->load('role'));
     }
 
     /**

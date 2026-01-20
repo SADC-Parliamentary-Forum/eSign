@@ -36,6 +36,7 @@ declare module 'vue-router/auto-routes' {
     'sign-success': RouteRecordInfo<'sign-success', '/sign/success', Record<never, never>, Record<never, never>>,
     'signatures': RouteRecordInfo<'signatures', '/signatures', Record<never, never>, Record<never, never>>,
     'templates': RouteRecordInfo<'templates', '/templates', Record<never, never>, Record<never, never>>,
+    'templates-id': RouteRecordInfo<'templates-id', '/templates/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     'templates-create': RouteRecordInfo<'templates-create', '/templates/create', Record<never, never>, Record<never, never>>,
     'upload': RouteRecordInfo<'upload', '/upload', Record<never, never>, Record<never, never>>,
   }

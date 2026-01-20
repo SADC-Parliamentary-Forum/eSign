@@ -38,6 +38,11 @@ class SystemLogController extends Controller
                 $content = "[(Truncated) ... showing last 5MB]\n" . $content;
             }
 
+            // Reverse lines to show latest first
+            $lines = explode("\n", $content);
+            $lines = array_reverse(array_filter($lines));
+            $content = implode("\n", $lines);
+
             return response()->json(['content' => $content]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error reading logs: ' . $e->getMessage()], 500);

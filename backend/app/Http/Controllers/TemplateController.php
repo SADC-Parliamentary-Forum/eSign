@@ -365,12 +365,10 @@ class TemplateController extends Controller
             return response()->json(['message' => 'File not found'], 404);
         }
 
-        $fileContent = Storage::disk('minio')->get($template->file_path);
-        $mimeType = Storage::disk('minio')->mimeType($template->file_path);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('minio');
 
-        return response($fileContent)
-            ->header('Content-Type', $mimeType)
-            ->header('Content-Disposition', 'inline; filename="' . $template->name . '.pdf"');
+        return $disk->response($template->file_path, $template->name . '.pdf');
     }
 }
 
