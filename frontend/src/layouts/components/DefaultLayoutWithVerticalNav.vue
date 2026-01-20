@@ -3,19 +3,34 @@ import navItems from '@/navigation/vertical'
 import { useConfigStore } from '@core/stores/config'
 import { themeConfig } from '@themeConfig'
 import { useAuthStore } from '@/stores/auth'
-import { computed, ref, watch } from 'vue'
+import { useRealTimeNotifications } from '@/composables/useRealTimeNotifications'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 import NavBarI18n from '@core/components/I18n.vue'
+import NotificationCenter from '@/components/notifications/NotificationCenter.vue'
 
 // @layouts plugin
 import { VerticalNavLayout } from '@layouts'
 
 const configStore = useConfigStore()
 const authStore = useAuthStore()
+
+// Real-time notifications
+const { setupListeners, disconnect } = useRealTimeNotifications()
+
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    setupListeners()
+  }
+})
+
+onUnmounted(() => {
+  disconnect()
+})
 
 // Filter nav items based on role
 const filteredNavItems = computed(() => {
@@ -66,6 +81,7 @@ watch([
           v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
           :languages="themeConfig.app.i18n.langConfig"
         />
+        <NotificationCenter />
         <UserProfile />
       </div>
     </template>

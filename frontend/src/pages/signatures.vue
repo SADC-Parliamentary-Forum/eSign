@@ -21,6 +21,11 @@ const newSignature = ref({
   name: '',
 })
 
+// Delete confirmation dialog state
+const showDeleteDialog = ref(false)
+const deletingSignature = ref(null)
+const deleting = ref(false)
+
 onMounted(async () => {
   await fetchSignatures()
 })
@@ -237,13 +242,33 @@ async function saveSignature() {
 }
 
 async function deleteSignature(id) {
-  if (!confirm('Delete this signature?')) return
+  // Find the signature to show in confirmation dialog
+  const sig = signatures.value.find(s => s.id === id)
+  if (!sig) return
+  
+  deletingSignature.value = sig
+  showDeleteDialog.value = true
+}
+
+async function confirmDelete() {
+  if (!deletingSignature.value) return
+  
+  deleting.value = true
   try {
-    await $api(`/signatures/mine/${id}`, { method: 'DELETE' })
+    await $api(`/signatures/mine/${deletingSignature.value.id}`, { method: 'DELETE' })
     await fetchSignatures()
+    showDeleteDialog.value = false
+    deletingSignature.value = null
   } catch (e) {
     console.error('Failed to delete', e)
+  } finally {
+    deleting.value = false
   }
+}
+
+function cancelDelete() {
+  showDeleteDialog.value = false
+  deletingSignature.value = null
 }
 
 async function setDefault(id) {
@@ -570,6 +595,79 @@ async function viewSignature(id) {
         </VCardActions>
       </VCard>
     </VDialog>
+
+    <!-- Premium Delete Confirmation Dialog -->
+    <VDialog
+      v-model="showDeleteDialog"
+      max-width="400"
+      persistent
+    >
+      <VCard>
+        <VCardTitle class="d-flex align-center bg-error text-white py-4">
+          <VAvatar color="error-lighten-1" class="mr-3">
+            <VIcon icon="mdi-delete-alert" />
+          </VAvatar>
+          <span>Delete Signature</span>
+        </VCardTitle>
+        
+        <VCardText class="pt-6 pb-4">
+          <div class="text-center mb-4">
+            <div 
+              v-if="deletingSignature?.image_data"
+              class="signature-preview-delete mx-auto mb-4"
+            >
+              <img 
+                :src="deletingSignature.image_data" 
+                alt="Signature preview"
+                class="signature-image"
+              >
+            </div>
+            
+            <div class="text-h6 mb-2">
+              {{ deletingSignature?.name || 'This signature' }}
+            </div>
+            
+            <VChip 
+              v-if="deletingSignature?.is_default" 
+              color="warning" 
+              size="small"
+              class="mb-3"
+            >
+              <VIcon icon="mdi-star" size="14" class="mr-1" />
+              Default Signature
+            </VChip>
+          </div>
+          
+          <VAlert type="warning" variant="tonal" density="compact" class="mb-0">
+            <div class="text-body-2">
+              Are you sure you want to delete this {{ deletingSignature?.type || 'signature' }}? 
+              This action cannot be undone.
+            </div>
+          </VAlert>
+        </VCardText>
+        
+        <VDivider />
+        
+        <VCardActions class="pa-4">
+          <VBtn
+            variant="outlined"
+            @click="cancelDelete"
+            :disabled="deleting"
+          >
+            Cancel
+          </VBtn>
+          <VSpacer />
+          <VBtn
+            color="error"
+            :loading="deleting"
+            @click="confirmDelete"
+          >
+            <VIcon icon="mdi-delete" class="mr-1" />
+            Delete
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 
@@ -594,5 +692,24 @@ canvas {
 }
 .hover-card:hover {
   background-color: rgb(var(--v-theme-surface-variant), 0.1);
+}
+
+/* Delete confirmation dialog styles */
+.signature-preview-delete {
+  width: 200px;
+  height: 80px;
+  border: 2px solid rgba(var(--v-theme-error), 0.3);
+  border-radius: 8px;
+  background: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.signature-preview-delete .signature-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 </style>
