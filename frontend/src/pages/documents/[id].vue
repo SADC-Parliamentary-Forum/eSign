@@ -671,6 +671,16 @@ function onTextFieldInput(e, field) {
              <span class="text-h6 font-weight-bold text-high-emphasis text-truncate me-3" :title="document?.title">
                {{ document?.title || 'Loading...' }}
              </span>
+             <v-chip
+               v-if="document?.is_self_sign"
+               size="small"
+               color="secondary"
+               variant="flat"
+               class="font-weight-bold text-uppercase px-2 me-2"
+               style="height: 20px; font-size: 10px;"
+             >
+               Self-Signed
+             </v-chip>
              <v-chip 
                v-if="document?.status"
                size="small" 

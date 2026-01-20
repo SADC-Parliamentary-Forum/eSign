@@ -116,6 +116,7 @@ class DocumentController extends Controller
             'file' => 'required_without:template_id|file|mimes:pdf,docx,doc|max:20480',
             'template_id' => 'required_without:file|exists:templates,id',
             'signature_level' => 'nullable|string',
+            'is_self_sign' => 'nullable|boolean',
         ]);
 
         try {
@@ -172,6 +173,7 @@ class DocumentController extends Controller
                 'mime_type' => $mimeType,
                 'status' => 'DRAFT',
                 'signature_level' => isset($template) ? $template->required_signature_level : ($validated['signature_level'] ?? 'SIMPLE'),
+                'is_self_sign' => $validated['is_self_sign'] ?? false,
             ];
 
             $document = Document::create($createData);

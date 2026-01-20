@@ -22,6 +22,7 @@ const file = ref(null)
 const uploading = ref(false)
 const error = ref('')
 const signatureLevel = ref('SIMPLE')
+const isSelfSign = ref(false)
 
 // AI Template Suggestions
 const showTemplateSuggestions = ref(false)
@@ -66,6 +67,7 @@ async function handleUpload() {
       formData.append('file', file.value[0] || file.value)
       formData.append('title', title.value)
       formData.append('signature_level', signatureLevel.value)
+      formData.append('is_self_sign', isSelfSign.value ? '1' : '0')
       
       if (appliedTemplate.value) {
         formData.append('template_id', appliedTemplate.value.id)
@@ -80,12 +82,13 @@ async function handleUpload() {
           title: title.value,
           signature_level: signatureLevel.value,
           template_id: appliedTemplate.value.id,
+          is_self_sign: isSelfSign.value,
         },
       })
     }
 
     // Check for AI template suggestions (only for fresh file uploads)
-    if (file.value && !appliedTemplate.value) {
+    if (file.value && !appliedTemplate.value && !isSelfSign.value) {
       await analyzeForTemplates()
       if (aiStore.hasSuggestions) {
         showTemplateSuggestions.value = true
@@ -198,6 +201,15 @@ function onFileChange(files) {
         >
           <VCardText class="pa-6">
             <VForm @submit.prevent="handleUpload">
+              <!-- Signing Mode Selector -->
+              <div class="mb-6">
+                <div class="text-subtitle-1 font-weight-bold mb-2">How would you like to sign?</div>
+                <VRadioGroup v-model="isSelfSign" inline hide-details color="primary">
+                  <VRadio :value="true" label="Sign myself only" />
+                  <VRadio :value="false" label="Send to others for signing" />
+                </VRadioGroup>
+              </div>
+
               <!-- File Upload -->
               <VFileInput
                 :model-value="file"

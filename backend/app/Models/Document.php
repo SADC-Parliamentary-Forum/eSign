@@ -39,6 +39,7 @@ class Document extends Model
         'is_legal_hold',
         'legal_hold_reason',
         'archived_at',
+        'is_self_sign',
     ];
 
     protected $casts = [
@@ -52,6 +53,7 @@ class Document extends Model
         'voided_at' => 'datetime',
         'archived_at' => 'datetime',
         'is_legal_hold' => 'boolean',
+        'is_self_sign' => 'boolean',
     ];
 
     /**

@@ -454,6 +454,15 @@ function formatRelativeDate(dateString) {
             </VListItemTitle>
             
             <VListItemSubtitle class="mt-1">
+              <VChip
+                v-if="doc.is_self_sign"
+                size="x-small"
+                color="secondary"
+                variant="flat"
+                class="mr-2 font-weight-bold text-uppercase px-2"
+              >
+                Self-Signed
+              </VChip>
               <VChip 
                 :color="getStatusColor(doc.status)" 
                 size="x-small" 

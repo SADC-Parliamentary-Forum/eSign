@@ -9,10 +9,12 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const { mobile, smAndDown, mdAndDown } = useDisplay()
 
 // Use blank layout to remove app sidebar
@@ -302,9 +304,22 @@ async function fetchDocument() {
         ...s,
         color: signerColors[i % signerColors.length]
       }))
-      if (signers.value.length > 0) {
-        selectedSigner.value = signers.value[0]
+    } else if (res.is_self_sign) {
+      // Auto-add current user for self-sign
+      const user = authStore.user
+      if (user) {
+        signers.value = [{
+          id: crypto.randomUUID(),
+          name: user.name,
+          email: user.email,
+          color: signerColors[0],
+          role: 'Signer'
+        }]
       }
+    }
+
+    if (signers.value.length > 0) {
+      selectedSigner.value = signers.value[0]
     }
     
     // Load existing fields if any
@@ -548,8 +563,12 @@ async function submitDocument() {
       }
     })
     
-    // Success - redirect to dashboard
-    router.push('/')
+    // Success - redirect to dashboard (or signing page if self-sign)
+    if (document.value.is_self_sign) {
+        router.push(`/documents/${document.value.id}`)
+    } else {
+        router.push('/')
+    }
     
   } catch (e) {
     error.value = e.message || 'Failed to send document'
@@ -644,7 +663,7 @@ onUnmounted(() => {
           class="submit-btn"
         >
           <v-icon icon="ri-send-plane-line" class="mr-1" size="18" />
-          <span class="d-none d-sm-inline">Submit</span>
+          <span class="d-none d-sm-inline">{{ document?.is_self_sign ? 'Sign Now' : 'Submit' }}</span>
         </v-btn>
       </div>
     </header>
@@ -665,7 +684,7 @@ onUnmounted(() => {
         
         <!-- Add Signer Button - Always visible at top -->
         <v-btn 
-          v-if="!showAddSignerForm"
+          v-if="!showAddSignerForm && !document?.is_self_sign"
           block 
           color="primary" 
           variant="tonal"
@@ -724,6 +743,7 @@ onUnmounted(() => {
               <div class="signer-email">{{ signer.email }}</div>
             </div>
             <v-btn 
+              v-if="!document?.is_self_sign"
               icon="ri-close-line" 
               size="x-small" 
               variant="text" 
