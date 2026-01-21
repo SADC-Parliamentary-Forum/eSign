@@ -37,7 +37,7 @@ export const useTemplateStore = defineStore('templates', {
       this.error = null
       try {
         this.activeTemplate = await templateAPI.get(id)
-        
+
         return this.activeTemplate
       }
       catch (error) {
@@ -57,12 +57,32 @@ export const useTemplateStore = defineStore('templates', {
         const template = await templateAPI.create(data)
 
         this.templates.push(template)
-        
+
         return template
       }
       catch (error) {
         this.error = error.message
         console.error('Failed to create template:', error)
+        throw error
+      }
+      finally {
+        this.loading = false
+      }
+    },
+
+    async updateTemplate(id, data) {
+      this.loading = true
+      this.error = null
+      try {
+        const template = await templateAPI.update(id, data)
+
+        this.updateTemplateInList(template)
+
+        return template
+      }
+      catch (error) {
+        this.error = error.message
+        console.error('Failed to update template:', error)
         throw error
       }
       finally {
@@ -77,7 +97,7 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.submitForReview(id)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
@@ -97,7 +117,7 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.approve(id)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
@@ -117,7 +137,7 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.activate(id)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
@@ -137,12 +157,39 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.archive(id)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
         this.error = error.message
         console.error('Failed to archive template:', error)
+        throw error
+      }
+      finally {
+        this.loading = false
+      }
+    },
+
+    async deleteTemplate(id) {
+      this.loading = true
+      this.error = null
+      try {
+        await templateAPI.delete(id)
+
+        // Remove from list
+        const index = this.templates.findIndex(t => t.id === id)
+        if (index !== -1) {
+          this.templates.splice(index, 1)
+        }
+        if (this.activeTemplate?.id === id) {
+          this.activeTemplate = null
+        }
+
+        return true
+      }
+      catch (error) {
+        this.error = error.message
+        console.error('Failed to delete template:', error)
         throw error
       }
       finally {
@@ -157,7 +204,7 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.addRoles(id, roles)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
@@ -198,7 +245,7 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.addFieldMappings(id, mappings)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
@@ -218,7 +265,7 @@ export const useTemplateStore = defineStore('templates', {
         const { template } = await templateAPI.addThresholds(id, thresholds)
 
         this.updateTemplateInList(template)
-        
+
         return template
       }
       catch (error) {
@@ -227,6 +274,28 @@ export const useTemplateStore = defineStore('templates', {
         throw error
       }
       finally {
+        this.loading = false
+      }
+    },
+
+    async fetchVersions(id) {
+      try {
+        const versions = await templateAPI.getVersions(id)
+        return versions
+      } catch (e) {
+        console.error('Failed to fetch versions', e)
+        return []
+      }
+    },
+
+    async createVersion(id, data = {}) {
+      this.loading = true
+      try {
+        const res = await templateAPI.createVersion(id, data)
+        return res.template
+      } catch (e) {
+        throw e
+      } finally {
         this.loading = false
       }
     },

@@ -254,6 +254,13 @@ class TemplateService
                 $newMapping->save();
             }
 
+            // Copy visual fields (TemplateField)
+            foreach ($originalTemplate->fields as $field) {
+                $newField = $field->replicate();
+                $newField->template_id = $newTemplate->id;
+                $newField->save();
+            }
+
             // Copy thresholds
             foreach ($originalTemplate->thresholds as $threshold) {
                 $newThreshold = $threshold->replicate();

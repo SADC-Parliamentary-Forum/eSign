@@ -12,8 +12,17 @@ use App\Notifications\DocumentCompletedNotification;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\DB;
 
+use App\Services\DocumentService;
+
 class SigningWorkflowService
 {
+    protected $documentService;
+
+    public function __construct(DocumentService $documentService)
+    {
+        $this->documentService = $documentService;
+    }
+
     /**
      * Send document for signing to specified signers.
      */
@@ -117,13 +126,21 @@ class SigningWorkflowService
     /**
      * Advance the signing workflow to the next step.
      */
-    protected function advanceWorkflow(Document $document): void
+    public function advanceWorkflow(Document $document): void
     {
         $document->refresh();
 
         // Check if document is fully signed
         if ($document->isFullySigned()) {
             $document->markAsCompleted();
+
+            // Finalize Document (Stamp Signatures)
+            try {
+                $this->documentService->finalizeDocument($document);
+            } catch (\Exception $e) {
+                \Log::error("Failed to finalize document {$document->id}: " . $e->getMessage());
+            }
+
             $this->notifyAllOfCompletion($document);
             return;
         }
@@ -140,6 +157,14 @@ class SigningWorkflowService
                 $this->notifyCurrentSigners($document);
             }
         }
+    }
+
+    /**
+     * Alias for advanceWorkflow to check completion status.
+     */
+    public function checkDocumentCompletion(Document $document): void
+    {
+        $this->advanceWorkflow($document);
     }
 
     /**

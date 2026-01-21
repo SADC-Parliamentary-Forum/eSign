@@ -56,7 +56,7 @@ class EvidencePackageService
 
         // Save to storage
         $filename = 'evidence_packages/' . $document->id . '_' . now()->timestamp . '.pdf';
-        Storage::put($filename, $pdfContent);
+        Storage::disk('minio')->put($filename, $pdfContent);
 
         // Update document
         $document->update([

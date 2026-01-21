@@ -537,9 +537,27 @@ async function deleteFolder() {
     }
 }
 
+import BulkSignDialog from '@/components/documents/BulkSignDialog.vue'
+
+const showBulkSignDialog = ref(false)
+const selectedSignableDocs = computed(() => {
+    return documents.value.filter(d => selected.value.includes(d.id) && d.status === 'IN_PROGRESS')
+})
+
+function onBulkSigned(results) {
+    loadDocuments()
+    selected.value = []
+    showSnackbar(`Signed ${results.signed.length} documents successfully`)
+}
+
 </script>
 
 <template>
+  <BulkSignDialog 
+    v-model="showBulkSignDialog"
+    :document-ids="selectedSignableDocs.map(d => d.id)"
+    @signed="onBulkSigned"
+  />
   <VContainer class="py-6" fluid>
     <VRow>
       <!-- Folders Sidebar (Left) -->
@@ -731,6 +749,18 @@ async function deleteFolder() {
       </div>
       
       <div class="d-flex gap-2">
+        <VBtn
+          v-if="selectedSignableDocs.length > 0"
+          color="primary"
+          prepend-icon="mdi-fountain-pen-tip"
+          variant="flat"
+          size="small"
+          class="mr-2"
+          @click="showBulkSignDialog = true"
+        >
+          Sign Selected ({{ selectedSignableDocs.length }})
+        </VBtn>
+
         <VBtn
           v-if="selected.length > 0"
           color="primary"

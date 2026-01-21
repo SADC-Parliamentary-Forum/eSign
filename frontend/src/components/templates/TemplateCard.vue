@@ -149,7 +149,7 @@ const formatDate = date => {
       </VBtn>
 
       <VBtn
-        v-if="template.status === 'DRAFT'"
+        v-if="['DRAFT', 'REVIEW'].includes(template.status)"
         size="small"
         variant="text"
         @click="$emit('edit', template)"

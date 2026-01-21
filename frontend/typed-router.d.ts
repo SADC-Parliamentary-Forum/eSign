@@ -23,6 +23,7 @@ declare module 'vue-router/auto-routes' {
     'admin': RouteRecordInfo<'admin', '/admin', Record<never, never>, Record<never, never>>,
     'admin-compliance': RouteRecordInfo<'admin-compliance', '/admin/compliance', Record<never, never>, Record<never, never>>,
     'auth-verify-email': RouteRecordInfo<'auth-verify-email', '/auth/verify-email', Record<never, never>, Record<never, never>>,
+    'bulk-sign': RouteRecordInfo<'bulk-sign', '/bulk-sign', Record<never, never>, Record<never, never>>,
     'documents': RouteRecordInfo<'documents', '/documents', Record<never, never>, Record<never, never>>,
     'documents-id': RouteRecordInfo<'documents-id', '/documents/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     'login': RouteRecordInfo<'login', '/login', Record<never, never>, Record<never, never>>,

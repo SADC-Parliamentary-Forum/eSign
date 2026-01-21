@@ -11,6 +11,7 @@ const { mobile } = useDisplay()
 const loading = ref(true)
 const saving = ref(false)
 const template = ref(null)
+const versions = ref([])
 const activeTab = ref('overview')
 
 // PDF & Field Editor State
@@ -31,6 +32,24 @@ const isResizing = ref(false)
 const activeInteractionFieldId = ref(null)
 const dragOffset = ref({ x: 0, y: 0 })
 
+// Delete dialog state
+const deleteDialog = ref(false)
+const deleting = ref(false)
+
+// Snackbar state
+const snackbar = ref(false)
+const snackbarMessage = ref('')
+const snackbarColor = ref('success')
+
+const showSnackbar = (message, color = 'success') => {
+  snackbarMessage.value = message
+  snackbarColor.value = color
+  snackbar.value = true
+}
+
+const canEdit = computed(() => ['DRAFT', 'REVIEW'].includes(template.value?.status))
+const canDelete = computed(() => ['DRAFT', 'REVIEW', 'ARCHIVED'].includes(template.value?.status))
+
 // Field Types
 const fieldTypes = [
   { type: 'SIGNATURE', icon: 'mdi-draw', label: 'Signature' },
@@ -39,6 +58,11 @@ const fieldTypes = [
   { type: 'TEXT', icon: 'mdi-form-textbox', label: 'Text Box' },
   { type: 'CHECKBOX', icon: 'mdi-checkbox-marked', label: 'Checkbox' },
 ]
+
+// Watch ID change to reload
+watch(() => route.params.id, (newId) => {
+    if (newId) loadTemplate()
+})
 
 onMounted(async () => {
   await loadTemplate()
@@ -53,14 +77,18 @@ onUnmounted(() => {
 async function loadTemplate() {
   loading.value = true
   try {
-    const res = await templateStore.fetchTemplate(route.params.id)
+    // parallel fetch
+    const [res, vers] = await Promise.all([
+        templateStore.fetchTemplate(route.params.id),
+        templateStore.fetchVersions(route.params.id)
+    ])
+    
     template.value = res
+    versions.value = vers || []
     roles.value = res.roles || []
     thresholds.value = res.thresholds || []
     
     // Map backend fields to frontend format
-    // Backend: TemplateField model (x_position, y_position, width, height, signer_role)
-    // Frontend editor: x, y, width, height, role_name
     if (res.fields) {
       fields.value = res.fields.map(f => ({
         id: f.id || crypto.randomUUID(),
@@ -105,13 +133,18 @@ async function saveChanges() {
   if (!template.value) return
   saving.value = true
   try {
+    // Save template details (name, description)
+    await templateStore.updateTemplate(template.value.id, {
+      name: template.value.name,
+      description: template.value.description,
+    })
+    
     // Save roles
     if (roles.value.length > 0) {
       await templateStore.addRoles(template.value.id, roles.value)
     }
     
-    // Save fields
-    // Convert back to backend format
+    // Save fields - convert back to backend format
     const fieldPayload = fields.value.map(f => ({
       type: f.type.toLowerCase(),
       signer_role: f.role_name,
@@ -132,12 +165,61 @@ async function saveChanges() {
     
     // Reload
     await loadTemplate()
-    // Show success snackbar (if we had one)
+    showSnackbar('Template saved successfully', 'success')
   } catch (e) {
     console.error('Failed to save changes:', e)
+    showSnackbar('Failed to save changes: ' + e.message, 'error')
   } finally {
     saving.value = false
   }
+}
+
+async function deleteTemplate() {
+  deleting.value = true
+  try {
+    await templateStore.deleteTemplate(template.value.id)
+    showSnackbar('Template deleted successfully', 'success')
+    deleteDialog.value = false
+    // Navigate back to templates list
+    setTimeout(() => router.push('/templates'), 500)
+  } catch (e) {
+    console.error('Failed to delete template:', e)
+    showSnackbar('Failed to delete template: ' + e.message, 'error')
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function handleAction(action) {
+    if (!confirm(`Are you sure you want to ${action.toLowerCase().replace('_', ' ')} this template?`)) return
+    
+    saving.value = true
+    try {
+        if (action === 'SUBMIT') await templateStore.submitForReview(template.value.id)
+        else if (action === 'APPROVE') await templateStore.approveTemplate(template.value.id)
+        else if (action === 'ACTIVATE') await templateStore.activateTemplate(template.value.id)
+        else if (action === 'ARCHIVE') await templateStore.archiveTemplate(template.value.id)
+        
+        await loadTemplate()
+    } catch (e) {
+        alert(e.message)
+    } finally {
+        saving.value = false
+    }
+}
+
+async function createNewVersion() {
+    if (!confirm('Create a new draft version from this template?')) return
+    
+    saving.value = true
+    try {
+        const newTemplate = await templateStore.createVersion(template.value.id)
+        router.push(`/templates/${newTemplate.id}`)
+    } catch (e) {
+        alert(e.message)
+    } finally {
+        saving.value = false
+    }
 }
 
 // --- Interaction Handlers ---
@@ -350,9 +432,33 @@ function getFieldTypeIcon(type) {
         <div class="d-flex align-center gap-2">
           <VBtn icon="mdi-arrow-left" variant="text" to="/templates" />
           <h2 class="text-h4 font-weight-bold">{{ template.name }}</h2>
-          <VChip size="small" :color="template.status === 'ACTIVE' ? 'primary' : 'grey'">
+          
+          <VChip size="small" :color="template.status === 'ACTIVE' ? 'success' : 'grey'" class="mr-2">
             {{ template.status }}
           </VChip>
+          
+          <!-- Version Selector -->
+          <VMenu v-if="versions.length > 0">
+            <template #activator="{ props }">
+              <VBtn v-bind="props" variant="tonal" size="small" append-icon="mdi-chevron-down">
+                v{{ template.version }}
+              </VBtn>
+            </template>
+            <VList>
+               <VListItem 
+                 v-for="v in versions" 
+                 :key="v.id" 
+                 :to="`/templates/${v.id}`"
+                 :active="v.id == template.id"
+               >
+                 <VListItemTitle>v{{ v.version }} - {{ v.status }}</VListItemTitle>
+                 <template #append v-if="v.id == template.id">
+                    <VIcon icon="mdi-check" color="primary" size="small" />
+                 </template>
+               </VListItem>
+            </VList>
+          </VMenu>
+          <VChip v-else size="small" variant="outlined">v{{ template.version || 1 }}</VChip>
         </div>
         <div class="ml-12 text-body-1 text-medium-emphasis">
           {{ template.description }}
@@ -363,12 +469,79 @@ function getFieldTypeIcon(type) {
         <VBtn
           v-if="['DRAFT', 'REVIEW'].includes(template.status)"
           color="primary"
+          variant="text"
           :loading="saving"
           @click="saveChanges"
         >
-          Save Changes
+          Save Details
         </VBtn>
-        <!-- Additional actions: Submit for Review, Activate, etc. -->
+        
+        <!-- Governance Actions -->
+        <VBtn
+            v-if="template.status === 'DRAFT'"
+            color="info"
+            variant="flat"
+            prepend-icon="mdi-send"
+            :loading="saving"
+            @click="handleAction('SUBMIT')"
+        >
+            Submit for Review
+        </VBtn>
+
+        <VBtn
+            v-if="template.status === 'REVIEW'"
+            color="success"
+            variant="flat"
+            prepend-icon="mdi-check-decagram"
+            :loading="saving"
+            @click="handleAction('APPROVE')"
+        >
+            Approve Template
+        </VBtn>
+
+        <VBtn
+            v-if="template.status === 'APPROVED'"
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-rocket-launch"
+            :loading="saving"
+            @click="handleAction('ACTIVATE')"
+        >
+            Activate
+        </VBtn>
+        
+        <template v-if="template.status === 'ACTIVE'">
+            <VBtn
+                color="primary"
+                variant="outlined"
+                prepend-icon="mdi-plus-circle-multiple"
+                :loading="saving"
+                @click="createNewVersion"
+            >
+                New Version
+            </VBtn>
+            
+            <VBtn
+                color="error"
+                variant="text"
+                prepend-icon="mdi-archive"
+                :loading="saving"
+                @click="handleAction('ARCHIVE')"
+            >
+                Archive
+            </VBtn>
+        </template>
+        
+        <!-- Delete Button (for deletable statuses) -->
+        <VBtn
+            v-if="canDelete"
+            color="error"
+            variant="outlined"
+            prepend-icon="mdi-delete"
+            @click="deleteDialog = true"
+        >
+            Delete
+        </VBtn>
       </div>
     </div>
 
@@ -636,5 +809,58 @@ function getFieldTypeIcon(type) {
          </VCard>
       </VWindowItem>
     </VWindow>
+
+    <!-- Delete Confirmation Dialog -->
+    <VDialog v-model="deleteDialog" max-width="450" persistent>
+      <VCard>
+        <VCardTitle class="text-h5 d-flex align-center gap-2">
+          <VIcon color="error">mdi-alert-circle</VIcon>
+          Delete Template
+        </VCardTitle>
+        
+        <VCardText>
+          <p class="text-body-1 mb-2">
+            Are you sure you want to delete <strong>"{{ template?.name }}"</strong>?
+          </p>
+          <VAlert type="warning" variant="tonal" density="compact">
+            This action cannot be undone. All associated fields, roles, and configurations will be permanently removed.
+          </VAlert>
+        </VCardText>
+        
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="text"
+            :disabled="deleting"
+            @click="deleteDialog = false"
+          >
+            Cancel
+          </VBtn>
+          <VBtn
+            color="error"
+            variant="flat"
+            :loading="deleting"
+            @click="deleteTemplate"
+          >
+            Delete Template
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <!-- Snackbar for notifications -->
+    <VSnackbar
+      v-model="snackbar"
+      :color="snackbarColor"
+      :timeout="4000"
+      location="bottom end"
+    >
+      {{ snackbarMessage }}
+      <template #actions>
+        <VBtn variant="text" @click="snackbar = false">
+          Close
+        </VBtn>
+      </template>
+    </VSnackbar>
   </div>
 </template>

@@ -118,6 +118,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('templates/{id}/activate', [TemplateController::class, 'activate']);
     Route::post('templates/{id}/archive', [TemplateController::class, 'archive']);
     Route::get('templates/{id}/threshold-matrix', [TemplateController::class, 'getThresholdMatrix']);
+    Route::post('templates/{id}/version', [TemplateController::class, 'createNewVersion']);
+    Route::post('documents/{id}/sign-self', [DocumentController::class, 'finishSelfSign']);
     Route::get('templates/{id}/versions', [TemplateController::class, 'getVersions']);
     Route::get('templates/{id}/pdf', [TemplateController::class, 'streamPdf']);
 
@@ -136,6 +138,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('documents/stats', [App\Http\Controllers\DocumentStatsController::class, 'index']);
     Route::get('documents/stats/weekly', [App\Http\Controllers\DocumentStatsController::class, 'weekly']);
     Route::post('documents/bulk-delete', [App\Http\Controllers\DocumentController::class, 'bulkDestroy']);
+    Route::post('documents/bulk-sign', [App\Http\Controllers\DocumentController::class, 'bulkSign']);
     Route::post('documents/bulk-download', [App\Http\Controllers\DocumentController::class, 'bulkDownload']);
     Route::get('documents/activity', [App\Http\Controllers\DocumentActivityController::class, 'index']);
     Route::get('documents/pending', [DocumentController::class, 'pending']);
@@ -184,11 +187,11 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Evidence Packages (Phase 10: Legal Defensibility)
     // -------------------------------------------------------------------------
     // TODO: Implement EvidencePackageController
-    // Route::prefix('evidence')->group(function () {
-    //     Route::get('/documents/{id}', [EvidencePackageController::class, 'show']);
-    //     Route::post('/documents/{id}/generate', [EvidencePackageController::class, 'generate']);
-    //     Route::get('/documents/{id}/download', [EvidencePackageController::class, 'download']);
-    // });
+    Route::prefix('evidence')->group(function () {
+        Route::get('/documents/{id}', [App\Http\Controllers\EvidencePackageController::class, 'show']);
+        Route::post('/documents/{id}/generate', [App\Http\Controllers\EvidencePackageController::class, 'generate']);
+        Route::get('/documents/{id}/download', [App\Http\Controllers\EvidencePackageController::class, 'download']);
+    });
 
     // Delegations
     Route::get('/delegations', [App\Http\Controllers\DelegationController::class, 'index']);

@@ -48,6 +48,7 @@ export const templateAPI = {
   // Info
   getThresholdMatrix: id => $api(`/templates/${id}/threshold-matrix`),
   getVersions: id => $api(`/templates/${id}/versions`),
+  createVersion: (id, data) => $api(`/templates/${id}/version`, { method: 'POST', body: data }),
 }
 
 // Workflow Management API
@@ -65,14 +66,14 @@ export const aiAPI = {
     const formData = new FormData()
 
     formData.append('file', file)
-    
+
     return $api('/ai/suggest-template', { method: 'POST', body: formData })
   },
   analyzeDocument: file => {
     const formData = new FormData()
 
     formData.append('file', file)
-    
+
     return $api('/ai/analyze-document', { method: 'POST', body: formData })
   },
   validateTemplate: (templateId, file) => {
@@ -80,14 +81,14 @@ export const aiAPI = {
 
     formData.append('template_id', templateId)
     formData.append('file', file)
-    
+
     return $api('/ai/validate-template', { method: 'POST', body: formData })
   },
   getBestMatch: file => {
     const formData = new FormData()
 
     formData.append('file', file)
-    
+
     return $api('/ai/best-match', { method: 'POST', body: formData })
   },
 }

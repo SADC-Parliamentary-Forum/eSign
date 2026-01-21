@@ -85,6 +85,22 @@ class DocumentSigner extends Model
     }
 
     /**
+     * Get identity verifications for this signer.
+     */
+    public function identityVerifications()
+    {
+        return $this->hasMany(IdentityVerification::class);
+    }
+
+    /**
+     * Get the certificate for this signer.
+     */
+    public function certificate()
+    {
+        return $this->hasOne(Certificate::class);
+    }
+
+    /**
      * Check if this signer can currently sign the document.
      */
     public function canSign(): bool

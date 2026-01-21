@@ -72,13 +72,21 @@ const dashboardComponent = computed(() => {
             Securely sign, send, and manage documents with SADC PF eSign
           </div>
         </div>
-        <VBtn
-          prepend-icon="mdi-plus"
-          color="primary"
-          to="/upload"
-        >
-          New Document
-        </VBtn>
+          <VBtn
+            prepend-icon="mdi-plus"
+            color="primary"
+            to="/upload"
+            class="mr-2"
+          >
+            New Document
+          </VBtn>
+          <VBtn
+            prepend-icon="mdi-stack"
+            variant="text"
+            to="/bulk-sign"
+          >
+            Bulk Sign
+          </VBtn>
       </div>
     </VAlert>
 

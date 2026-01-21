@@ -608,22 +608,23 @@ function isMyField(field) {
   )
 }
 
+
 function getFieldColor(field) {
-  const isMine = isMyField(field)
-  const isFilled = !!fieldValues.value[field.id]
+  const isMine = isMyField(field);
+  const isFilled = !!fieldValues.value[field.id];
   
-  if (isFilled) return 'rgba(76, 175, 80, 0.1)' // Green tint
-  if (isMine) return 'rgba(255, 193, 7, 0.15)' // Amber tint for action
-  return 'transparent'
+  if (isFilled) return 'rgba(76, 175, 80, 0.1)'; // Green tint
+  if (isMine) return 'rgba(255, 193, 7, 0.15)'; // Amber tint for action
+  return 'transparent';
 }
 
 function getFieldBorder(field) {
-  const isMine = isMyField(field)
-  const isFilled = !!fieldValues.value[field.id]
+  const isMine = isMyField(field);
+  const isFilled = !!fieldValues.value[field.id];
 
-  if (isFilled) return '1px solid #4CAF50'
-  if (isMine) return '1px dashed #FFC107'
-  return 'none'
+  if (isFilled) return '1px solid #4CAF50';
+  if (isMine) return '1px dashed #FFC107';
+  return 'none';
 }
 
 
@@ -753,10 +754,7 @@ function onTextFieldInput(e, field) {
 
         <!-- Download Evidence Button in Toolbar for Completed Documents -->
         <div v-else-if="document?.status === 'COMPLETED'" class="d-flex align-center gap-2">
-           <v-chip color="success" variant="flat" size="small" class="font-weight-bold">
-              <v-icon start icon="mdi-check-circle" size="16" />
-              Completed
-           </v-chip>
+
            <v-btn
               color="success"
               variant="flat"
@@ -898,7 +896,7 @@ function onTextFieldInput(e, field) {
                     <!-- Field Content (Signature, Text, Date) -->
                     <template v-if="field.type === 'SIGNATURE' || field.type === 'INITIALS'">
                         <div v-if="fieldValues[field.id]" class="w-100 h-100 p-1">
-                            <img :src="fieldValues[field.id].value" class="w-100 h-100 object-contain" />
+                            <img :src="fieldValues[field.id].value" class="w-100 h-100" style="object-fit: contain;" />
                         </div>
                         <div v-else class="text-center">
                             <v-icon :icon="field.type === 'INITIALS' ? 'mdi-alphabetical' : 'mdi-draw'" size="small" />

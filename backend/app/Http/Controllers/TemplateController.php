@@ -128,13 +128,13 @@ class TemplateController extends Controller
 
         $validated = $request->validate([
             'fields' => 'required|array',
-            'fields.*.type' => 'required|in:signature,initials,date,text',
+            'fields.*.type' => 'required|in:signature,initials,date,text,checkbox',
             'fields.*.signer_role' => 'nullable|string|max:50',
             'fields.*.page_number' => 'required|integer|min:1',
             'fields.*.x_position' => 'required|numeric|min:0',
             'fields.*.y_position' => 'required|numeric|min:0',
-            'fields.*.width' => 'required|numeric|min:10',
-            'fields.*.height' => 'required|numeric|min:10',
+            'fields.*.width' => 'required|numeric|min:1',
+            'fields.*.height' => 'required|numeric|min:1',
             'fields.*.required' => 'nullable|boolean',
             'fields.*.label' => 'nullable|string|max:100',
         ]);
@@ -302,6 +302,8 @@ class TemplateController extends Controller
         }
     }
 
+
+
     /**
      * Archive template.
      */
@@ -354,6 +356,29 @@ class TemplateController extends Controller
 
         return response()->json($versions);
     }
+    /**
+     * Create a new version of the template.
+     */
+    public function createNewVersion(Request $request, $id)
+    {
+        $template = Template::where('user_id', $request->user()->id)
+            ->findOrFail($id);
+
+        try {
+            $newVersion = $this->templateService->createVersion($template, [
+                'name' => $request->input('name', $template->name), // Can optionally rename
+                'description' => $request->input('description', $template->description),
+            ]);
+
+            return response()->json([
+                'message' => 'New version created successfully',
+                'template' => $newVersion
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
+    }
+
     /**
      * Stream the template PDF file.
      */

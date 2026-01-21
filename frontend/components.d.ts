@@ -22,6 +22,7 @@ declare module 'vue' {
     AppPricing: typeof import('./src/components/AppPricing.vue')['default']
     AppSearchHeader: typeof import('./src/components/AppSearchHeader.vue')['default']
     AppStepper: typeof import('./src/@core/components/AppStepper.vue')['default']
+    BulkSignDialog: typeof import('./src/components/documents/BulkSignDialog.vue')['default']
     BuyNow: typeof import('./src/@core/components/BuyNow.vue')['default']
     CardAddEditDialog: typeof import('./src/components/dialogs/CardAddEditDialog.vue')['default']
     CardStatisticsHorizontal: typeof import('./src/@core/components/cards/CardStatisticsHorizontal.vue')['default']

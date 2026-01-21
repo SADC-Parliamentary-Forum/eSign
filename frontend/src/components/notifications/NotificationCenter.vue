@@ -85,6 +85,9 @@ onMounted(() => {
           :model-value="notificationStore.hasUnread"
           color="error"
           max="99"
+          location="top end"
+          offset-x="2"
+          offset-y="2"
         >
           <VIcon>mdi-bell</VIcon>
         </VBadge>

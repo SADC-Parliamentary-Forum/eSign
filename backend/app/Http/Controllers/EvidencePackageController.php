@@ -82,22 +82,30 @@ class EvidencePackageController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if (!$document->evidence_package_path || !Storage::exists($document->evidence_package_path)) {
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('minio');
+
+        if (!$document->evidence_package_path || !$disk->exists($document->evidence_package_path)) {
             // Auto-generate if missing
             try {
                 $this->signatureService->updateTrustScore($document);
                 $this->evidenceService->generateEvidencePackage($document);
                 $document->refresh();
             } catch (\Exception $e) {
+                \Log::error('Evidence package generation failed: ' . $e->getMessage());
                 return response()->json([
                     'message' => 'Evidence package not found and could not be generated: ' . $e->getMessage(),
                 ], 500);
             }
         }
 
-        $filename = 'Evidence_Package_' . $document->id . '.pdf';
+        // Create a clean filename from document title
+        $baseName = preg_replace('/[^a-zA-Z0-9_-]/', '_', pathinfo($document->title, PATHINFO_FILENAME));
+        $filename = 'Evidence_Package_' . $baseName . '_' . $document->id . '.pdf';
 
-        return Storage::download($document->evidence_package_path, $filename);
+        return $disk->download($document->evidence_package_path, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 
     /**

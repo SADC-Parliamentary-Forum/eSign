@@ -611,6 +611,92 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
+const showSelfSignDialog = ref(false)
+
+function openSelfSignDialog() {
+  if (!validation.value.isValid) {
+    error.value = validation.value.issues.join('. ')
+    return
+  }
+  showSelfSignDialog.value = true
+}
+
+async function handleSelfSign() {
+  saving.value = true
+  error.value = ''
+  
+  try {
+     // 1. Save Signers (Just me for self-sign)
+    const signerPayload = signers.value.map((s, i) => ({
+      name: s.name,
+      email: s.email,
+      role: s.role || null,
+      order: i + 1
+    }))
+    
+    // Create signers to get real IDs
+    const signersResponse = await $api(`/documents/${document.value.id}/signers`, {
+      method: 'POST',
+      body: { 
+        signers: signerPayload,
+        sequential: false
+      }
+    })
+    
+    const dbSigners = signersResponse.signers || []
+    
+    // 2. Save Fields (Map to real IDs)
+    const fieldPayload = fields.value.map(f => {
+      // Find the signer for this field
+      const localSigner = signers.value.find(s => s.id === f.document_signer_id)
+      let realSignerId = null
+      let realSignerEmail = f.signer_email
+      
+      if (localSigner) {
+        const dbSigner = dbSigners.find(ds => ds.email === localSigner.email)
+        if (dbSigner) {
+          realSignerId = dbSigner.id
+          realSignerEmail = dbSigner.email
+        }
+      } else if (f.signer_email) {
+          const dbSigner = dbSigners.find(ds => ds.email === f.signer_email)
+          if (dbSigner) realSignerId = dbSigner.id
+      }
+
+      return {
+        type: f.type,
+        page_number: f.page_number,
+        x: Number(f.x),
+        y: Number(f.y),
+        width: Number(f.width),
+        height: Number(f.height),
+        signer_email: realSignerEmail,
+        document_signer_id: realSignerId,
+        required: f.required,
+        group_id: f.group_id
+      }
+    })
+    
+    await $api(`/documents/${document.value.id}/fields`, {
+      method: 'POST',
+      body: { fields: fieldPayload }
+    })
+    
+    // 3. Call Finish Self Sign (Atomic)
+    await $api(`/documents/${document.value.id}/sign-self`, {
+        method: 'POST'
+    })
+    
+    // Redirect to document view (completed)
+    router.push(`/documents/${document.value.id}`)
+    
+  } catch (e) {
+    error.value = e.message || 'Failed to sign document'
+    showSelfSignDialog.value = false
+  } finally {
+    saving.value = false
+  }
+}
 </script>
 
 <template>
@@ -671,11 +757,11 @@ onUnmounted(() => {
           variant="elevated"
           size="small"
           :disabled="!validation.isValid"
-          @click="openSubmitDialog"
+          @click="document?.is_self_sign ? openSelfSignDialog() : openSubmitDialog()"
           class="submit-btn"
         >
-          <v-icon icon="ri-send-plane-line" class="mr-1" size="18" />
-          <span class="d-none d-sm-inline">{{ document?.is_self_sign ? 'Sign Now' : 'Submit' }}</span>
+          <v-icon :icon="document?.is_self_sign ? 'ri-quill-pen-line' : 'ri-send-plane-line'" class="mr-1" size="18" />
+          <span class="d-none d-sm-inline">{{ document?.is_self_sign ? 'Sign & Finish' : 'Submit' }}</span>
         </v-btn>
       </div>
     </header>
@@ -1152,6 +1238,23 @@ onUnmounted(() => {
       </v-card>
     </v-dialog>
   </div>
+    <!-- Self Sign Dialog -->
+    <v-dialog v-model="showSelfSignDialog" max-width="400">
+      <v-card title="Confirm Signature">
+        <v-card-text>
+          This will apply your default signature to all fields and finalize the document immediately.
+          <br><br>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-0">
+             Ensure you have a default signature set in your profile.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showSelfSignDialog = false" variant="text">Cancel</v-btn>
+          <v-btn color="primary" @click="handleSelfSign" :loading="saving" prepend-icon="ri-quill-pen-line">Sign & Finish</v-btn>
+        </v-card-actions>
+      </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
