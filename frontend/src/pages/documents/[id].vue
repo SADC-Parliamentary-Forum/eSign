@@ -74,6 +74,13 @@ const canceling = ref(false)
 const risks = ref([])
 const analyzing = ref(false)
 
+// Field Drag/Resize State (for interactive field editing)
+const isDraggingField = ref(false)
+const isResizingField = ref(false)
+const interactionFieldId = ref(null)
+const dragFieldOffset = ref({ x: 0, y: 0 })
+const selectedFieldForEdit = ref(null)
+
 // Helpers
 const snackbar = ref({ show: false, text: '', color: 'success' })
 
@@ -665,6 +672,87 @@ function onTextFieldInput(e, field) {
     const val = e.target.value
     fillField(field, { value: val, type: 'TEXT' })
 }
+
+// --- Field Drag/Resize Handlers ---
+function startFieldDrag(e, field) {
+    if (isResizingField.value) return
+    if (!isMyField(field)) return
+    
+    e.stopPropagation()
+    isDraggingField.value = true
+    interactionFieldId.value = field.id
+    selectedFieldForEdit.value = field.id
+    
+    const parent = e.target.closest('.fields-overlay')
+    if (!parent) return
+    
+    const rect = parent.getBoundingClientRect()
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
+    const mouseY = ((e.clientY - rect.top) / rect.height) * 100
+    
+    dragFieldOffset.value = {
+        x: mouseX - field.x,
+        y: mouseY - field.y
+    }
+}
+
+function startFieldResize(e, field) {
+    if (!isMyField(field)) return
+    
+    e.stopPropagation()
+    isResizingField.value = true
+    interactionFieldId.value = field.id
+    selectedFieldForEdit.value = field.id
+}
+
+function onFieldInteractionMove(e) {
+    if (!isDraggingField.value && !isResizingField.value) return
+    
+    const field = fields.value.find(f => f.id === interactionFieldId.value)
+    if (!field) return
+
+    const target = e.currentTarget
+    const rect = target.getBoundingClientRect()
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
+    const mouseY = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (isDraggingField.value) {
+        let newX = mouseX - dragFieldOffset.value.x
+        let newY = mouseY - dragFieldOffset.value.y
+        
+        // Bounds check
+        newX = Math.max(0, Math.min(100 - field.width, newX))
+        newY = Math.max(0, Math.min(100 - field.height, newY))
+        
+        field.x = newX
+        field.y = newY
+    } else if (isResizingField.value) {
+        let newW = mouseX - field.x
+        let newH = mouseY - field.y
+        
+        // Minimum size
+        newW = Math.max(5, Math.min(100 - field.x, newW))
+        newH = Math.max(3, Math.min(100 - field.y, newH))
+        
+        field.width = newW
+        field.height = newH
+    }
+}
+
+function endFieldInteraction() {
+    isDraggingField.value = false
+    isResizingField.value = false
+    interactionFieldId.value = null
+}
+
+function deleteSelectedField() {
+    if (!selectedFieldForEdit.value) return
+    const idx = fields.value.findIndex(f => f.id === selectedFieldForEdit.value)
+    if (idx !== -1) {
+        fields.value.splice(idx, 1)
+        selectedFieldForEdit.value = null
+    }
+}
 </script>
 
 <template>
@@ -873,7 +961,12 @@ function onTextFieldInput(e, field) {
               />
               
               <!-- Fields Overlay layer -->
-              <div class="fields-overlay position-absolute top-0 left-0 w-100 h-100">
+              <div 
+                 class="fields-overlay position-absolute top-0 left-0 w-100 h-100"
+                 @mousemove="onFieldInteractionMove"
+                 @mouseup="endFieldInteraction"
+                 @mouseleave="endFieldInteraction"
+               >
                  <div
                    v-for="field in fields.filter(f => f.page_number === page)"
                    :key="field.id"
@@ -892,6 +985,7 @@ function onTextFieldInput(e, field) {
                       border: getFieldBorder(field)
                    }"
                    @click="onFieldClick(field)"
+                    @mousedown="startFieldDrag($event, field)"
                  >
                     <!-- Field Content (Signature, Text, Date) -->
                     <template v-if="field.type === 'SIGNATURE' || field.type === 'INITIALS'">
@@ -1181,5 +1275,26 @@ function onTextFieldInput(e, field) {
 .sidebar ::-webkit-scrollbar-thumb {
   background: #e0e0e0;
   border-radius: 4px;
+}
+
+/* Field Selection & Resize */
+.field-selected {
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.5) !important;
+  z-index: 10 !important;
+}
+
+.field-dragging {
+  transition: none !important;
+  z-index: 100 !important;
+}
+
+.resize-handle {
+  opacity: 1;
+  transition: transform 0.1s, background-color 0.1s;
+}
+
+.resize-handle:hover {
+  transform: scale(1.3);
+  background-color: #1976D2 !important;
 }
 </style>

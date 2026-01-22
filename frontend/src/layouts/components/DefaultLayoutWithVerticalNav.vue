@@ -11,7 +11,7 @@ import Footer from '@/layouts/components/Footer.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 import NavBarI18n from '@core/components/I18n.vue'
-import NotificationCenter from '@/components/notifications/NotificationCenter.vue'
+
 
 // @layouts plugin
 import { VerticalNavLayout } from '@layouts'
@@ -81,7 +81,7 @@ watch([
           v-if="themeConfig.app.i18n.enable && themeConfig.app.i18n.langConfig?.length"
           :languages="themeConfig.app.i18n.langConfig"
         />
-        <NotificationCenter />
+
         <UserProfile />
       </div>
     </template>

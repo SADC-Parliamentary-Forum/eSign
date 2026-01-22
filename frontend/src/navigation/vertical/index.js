@@ -10,6 +10,11 @@ export default [
     icon: { icon: 'ri-upload-cloud-line' },
   },
   {
+    title: 'Templates',
+    to: { path: '/templates' },
+    icon: { icon: 'ri-file-copy-2-line' },
+  },
+  {
     title: 'My Signatures',
     to: { name: 'signatures' },
     icon: { icon: 'ri-edit-2-line' },

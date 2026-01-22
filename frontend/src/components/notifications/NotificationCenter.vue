@@ -81,13 +81,12 @@ onMounted(() => {
     <template #activator="{ props }">
       <IconBtn v-bind="props">
         <VBadge
-          :content="notificationStore.unreadCount"
+          dot
           :model-value="notificationStore.hasUnread"
           color="error"
-          max="99"
-          location="top end"
-          offset-x="2"
-          offset-y="2"
+          location="top"
+          offset-x="0"
+          offset-y="0"
         >
           <VIcon>mdi-bell</VIcon>
         </VBadge>

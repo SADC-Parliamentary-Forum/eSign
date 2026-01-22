@@ -98,15 +98,50 @@ const drawingRect = computed(() => {
   return { left: minX, top: minY, width, height }
 })
 
+// Watch for file changes and automatically create PDF blob URL
+watch(
+  () => templateForm.value.file,
+  (newFile, oldFile) => {
+    // Revoke old blob URL to prevent memory leak
+    if (pdfPreviewUrl.value && pdfPreviewUrl.value.startsWith('blob:')) {
+      URL.revokeObjectURL(pdfPreviewUrl.value)
+    }
+    
+    if (newFile && newFile instanceof File && newFile.type === 'application/pdf') {
+      pdfPreviewUrl.value = URL.createObjectURL(newFile)
+      pageCount.value = 0
+      console.log('PDF watcher: Created blob URL for', newFile.name)
+    } else {
+      pdfPreviewUrl.value = null
+      pageCount.value = 0
+    }
+  },
+  { immediate: true }
+)
+
 // Handlers
-const handleFileSelect = event => {
-  const file = event.target.files?.[0]
+const handleFileSelect = eventOrFiles => {
+  // Vuetify 3 VFileInput passes files directly as array, not as event
+  let file = null
+  
+  if (Array.isArray(eventOrFiles)) {
+    // Vuetify 3 format: array of File objects
+    file = eventOrFiles[0]
+  } else if (eventOrFiles?.target?.files) {
+    // Native input event format
+    file = eventOrFiles.target.files[0]
+  } else if (eventOrFiles instanceof File) {
+    // Direct file object
+    file = eventOrFiles
+  }
+  
   if (file && file.type === 'application/pdf') {
     templateForm.value.file = file
     pdfPreviewUrl.value = URL.createObjectURL(file)
     pageCount.value = 0
+    console.log('PDF loaded:', file.name, 'URL:', pdfPreviewUrl.value)
   }
-  else {
+  else if (file) {
     alert('Please select a PDF file')
   }
 }
@@ -443,7 +478,10 @@ const handleCreate = async () => {
       await templateStore.addThresholds(template.id, thresholds.value)
     }
 
-    router.push(`/templates/${template.id}`)
+    // Activate template immediately (skip review workflow)
+    await templateStore.activateTemplate(template.id)
+
+    router.push('/templates')
   }
   catch (error) {
     console.error('Failed to create template:', error)
@@ -550,7 +588,7 @@ onUnmounted(() => {
                 prepend-icon=""
                 prepend-inner-icon="mdi-file-pdf-box"
                 class="mt-4"
-                @change="handleFileSelect"
+                @update:model-value="handleFileSelect"
               />
               <VCheckbox
                 v-model="templateForm.amount_required"
@@ -612,10 +650,12 @@ onUnmounted(() => {
                 <strong>Draw fields on the PDF.</strong> Select a role first, then draw rectangles. Fields can be moved, resized, and deleted.
               </VAlert>
               
-              <div class="field-mapping-container d-flex gap-4" style="min-height: 650px;">
+              <!-- 3-Panel Layout Container -->
+              <div class="field-mapping-container">
                 
-                <!-- Left: Field Toolbar -->
-                <div class="field-toolbar pa-3 rounded border" style="width: 220px; flex-shrink: 0;">
+                <!-- Left Sidebar: Role & Field Types -->
+                <div class="left-sidebar-panel">
+                  <div class="sidebar-content">
                   <div class="text-subtitle-2 mb-3">1. Select Role</div>
                   <VSelect
                     v-model="selectedRoleForMapping"
@@ -674,10 +714,11 @@ onUnmounted(() => {
                       <VBtn icon="mdi-close" size="x-small" variant="text" @click.stop="removeFieldMapping(field)" />
                     </div>
                   </div>
+                  </div>
                 </div>
                 
-                <!-- Center: PDF Preview -->
-                <div class="pdf-preview-area flex-grow-1 bg-grey-lighten-4 rounded pa-4 overflow-auto">
+                <!-- Center: PDF Preview Area -->
+                <div class="pdf-preview-area">
                   <template v-if="pdfPreviewUrl">
                     <VuePdfEmbed
                       v-if="pageCount === 0"
@@ -697,8 +738,12 @@ onUnmounted(() => {
                       <!-- Field Overlay Layer -->
                       <div
                         class="field-overlay position-absolute"
+                        :class="{ 
+                          'draw-cursor': selectedRoleForMapping && !isDragging && !isResizing,
+                          'grabbing': isDragging,
+                          'resizing': isResizing
+                        }"
                         style="top: 0; left: 0; right: 0; bottom: 0;"
-                        :style="{ cursor: selectedRoleForMapping && !isDragging && !isResizing ? 'crosshair' : 'default' }"
                         @mousedown="startFieldDraw($event, page)"
                         @mousemove="onFieldDraw($event, page)"
                         @mouseup="endFieldDraw"
@@ -725,7 +770,10 @@ onUnmounted(() => {
                           v-for="field in fieldMappings.filter(f => f.page_number === page)"
                           :key="field.id"
                           class="field-marker position-absolute rounded d-flex align-center justify-center"
-                          :class="{ 'selected': selectedFieldIndex === fieldMappings.indexOf(field) }"
+                          :class="{ 
+                            'selected': selectedFieldIndex === fieldMappings.indexOf(field),
+                            'is-interacting': activeFieldId === field.id
+                          }"
                           :style="{
                             left: field.x + '%',
                             top: field.y + '%',
@@ -742,8 +790,8 @@ onUnmounted(() => {
                           <VIcon :icon="getFieldIcon(field.type)" size="14" class="mr-1" />
                           <span class="text-caption font-weight-medium">{{ field.type }}</span>
                           
-                          <!-- Toolbar -->
-                          <div v-if="selectedFieldIndex === fieldMappings.indexOf(field)" class="field-toolbar">
+                          <!-- Action Toolbar -->
+                          <div v-if="selectedFieldIndex === fieldMappings.indexOf(field)" class="field-action-toolbar">
                               <VBtn
                                 icon="mdi-content-copy"
                                 size="x-small"
@@ -786,8 +834,12 @@ onUnmounted(() => {
                   </div>
                 </div>
                 
-                <!-- Right: Field Properties -->
-                <div v-if="selectedFieldIndex !== null && fieldMappings[selectedFieldIndex]" class="field-properties pa-3 rounded border" style="width: 220px; flex-shrink: 0;">
+                <!-- Right: Field Properties (shows when field is selected) -->
+                <div 
+                  v-if="selectedFieldIndex !== null && fieldMappings[selectedFieldIndex]" 
+                  class="field-properties-panel"
+                >
+                  <div class="properties-content">
                   <div class="d-flex justify-space-between align-center mb-3">
                     <span class="text-subtitle-2">Field Properties</span>
                     <VBtn icon="mdi-close" size="x-small" variant="text" @click="selectedFieldIndex = null" />
@@ -821,6 +873,7 @@ onUnmounted(() => {
                   <VBtn block color="error" variant="tonal" size="small" @click="deleteSelectedField">
                     <VIcon icon="mdi-delete" class="mr-1" /> Delete Field
                   </VBtn>
+                  </div>
                 </div>
               </div>
             </VCardText>
@@ -960,56 +1013,170 @@ onUnmounted(() => {
   background-color: rgba(var(--v-theme-primary), 0.08);
 }
 
-.field-marker {
-  transition: box-shadow 0.15s ease;
-  user-select: none;
-}
-.field-marker:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-.field-marker.selected {
-  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.5);
+/* Field Overlay - Core container for field interactions */
+.field-overlay {
+  z-index: 10;
 }
 
+.field-overlay.draw-cursor {
+  cursor: crosshair !important;
+}
+
+.field-overlay.grabbing {
+  cursor: grabbing !important;
+}
+
+.field-overlay.resizing {
+  cursor: nwse-resize !important;
+}
+
+/* Field Marker - Placed fields on PDF */
+.field-marker {
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  user-select: none;
+  z-index: 1;
+}
+
+.field-marker:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  transform: scale(1.01);
+}
+
+.field-marker.selected {
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.5) !important;
+  z-index: 10 !important;
+}
+
+.field-marker.is-interacting {
+  transition: none !important;
+  z-index: 100 !important;
+}
+
+/* Drawing Preview */
 .drawing-rect {
   pointer-events: none;
+  z-index: 5;
 }
 
+/* Resize Handle */
 .resize-handle {
   opacity: 1;
   z-index: 20;
+  transition: transform 0.1s, background-color 0.1s;
 }
 
-.field-toolbar {
+.resize-handle:hover {
+  transform: scale(1.3);
+  background-color: #1976D2 !important;
+}
+
+/* Field Toolbar - Appears above selected field */
+.field-action-toolbar {
   position: absolute;
-  top: -28px;
-  right: 0;
+  top: -32px;
+  right: -2px;
   display: flex;
   gap: 4px;
   background: white;
-  padding: 2px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 4px;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
   z-index: 100;
+  animation: fadeIn 0.15s ease-out;
+}
+
+/* Field Mapping Container Layout - 3 Panel Design */
+.field-mapping-container {
+  display: flex;
+  gap: 16px;
+  height: 700px; /* Fixed height for the workspace */
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  background-color: rgb(var(--v-theme-surface));
+}
+
+/* Left Sidebar Panel - Role selection and field types */
+.left-sidebar-panel {
+  width: 250px; /* Slightly wider for better content fit */
+  min-width: 250px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgb(var(--v-theme-surface));
+  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.sidebar-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Center PDF Preview Area */
+.pdf-preview-area {
+  flex: 1;
+  min-width: 0; /* Important for flex child to shrink below content size */
+  background-color: #f5f5f5; /* Distinct background for workspace */
+  overflow: auto; /* Enable scrolling for PDF content */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  position: relative;
+}
+
+/* Right Field Properties Panel */
+.field-properties-panel {
+  width: 250px;
+  min-width: 250px;
+  flex-shrink: 0;
+  background: rgb(var(--v-theme-surface));
+  border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  display: flex;
+  flex-direction: column;
+}
+
+.properties-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pdf-page-wrapper {
+  position: relative;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+  background: white;
+  /* Ensure it doesn't overflow horizontally without scroll */
+  max-width: 100%; 
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .toolbar-btn {
-  min-width: 24px !important;
-  width: 24px !important;
-  height: 24px !important;
+  min-width: 26px !important;
+  width: 26px !important;
+  height: 26px !important;
   padding: 0 !important;
 }
 
-.field-marker {
-  transition: box-shadow 0.15s ease;
-  user-select: none;
+/* Field List Item in sidebar */
+.field-item {
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
 }
-.field-marker:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  z-index: 5;
+
+.field-item:hover {
+  border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
 }
-.field-marker.selected {
-  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.8) !important;
-  z-index: 10;
+
+.field-item.border-primary {
+  border-color: rgb(var(--v-theme-primary)) !important;
+  background-color: rgba(var(--v-theme-primary), 0.04);
 }
 </style>
