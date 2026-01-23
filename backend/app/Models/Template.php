@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Template extends Model
+class Template extends Model implements \OwenIt\Auditing\Contracts\Auditable
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, HasUuids, SoftDeletes, \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'user_id',

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\AuditLog;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 
@@ -14,14 +14,16 @@ class AuditService
     public function log(string $event, ?string $resourceType = null, ?string $resourceId = null, array $details = [])
     {
         try {
-            AuditLog::create([
-                'user_id' => Auth::id(), // Might be null if login fail or system action
+            \OwenIt\Auditing\Models\Audit::create([
+                'user_id' => Auth::id(),
+                'user_type' => Auth::check() ? get_class(Auth::user()) : null,
                 'event' => $event,
-                'resource_type' => $resourceType,
-                'resource_id' => $resourceId,
+                'auditable_type' => $resourceType,
+                'auditable_id' => $resourceId,
                 'ip_address' => Request::ip(),
                 'user_agent' => Request::userAgent(),
-                'details' => $details,
+                'new_values' => $details,
+                'url' => Request::fullUrl(),
             ]);
         } catch (\Exception $e) {
             // Audit logging should not break the app flow, but should be reported
