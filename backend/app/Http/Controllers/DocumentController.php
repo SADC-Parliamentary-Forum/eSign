@@ -217,6 +217,8 @@ class DocumentController extends Controller
                         'signer_role' => $field->signer_role,
                         'label' => $field->label,
                         'required' => $field->required,
+                        'organizational_role_id' => $field->organizational_role_id,
+                        'fill_mode' => $field->fill_mode ?? 'SIGNER_FILL',
                     ]);
                 }
             }
@@ -278,6 +280,8 @@ class DocumentController extends Controller
             'signers.*.email' => 'required|email',
             'signers.*.name' => 'required|string|max:255',
             'signers.*.order' => 'nullable|integer|min:1',
+            'signers.*.role' => 'nullable|string',
+            'signers.*.organizational_role_id' => 'nullable|uuid|exists:organizational_roles,id',
             'sequential' => 'nullable|boolean',
         ]);
 
@@ -292,6 +296,7 @@ class DocumentController extends Controller
                 'name' => $s['name'],
                 'order' => $s['order'] ?? ($index + 1),
                 'role' => $s['role'] ?? null,
+                'organizational_role_id' => $s['organizational_role_id'] ?? null,
             ];
         })->sortBy('order')->values()->all();
 
@@ -312,12 +317,21 @@ class DocumentController extends Controller
                     'user_id' => $user?->id,
                     'email' => $signerData['email'],
                     'name' => $signerData['name'],
-                    // 'role' => $signerData['role'] ?? null, // DB column might not exist yet, careful
+                    // 'role' => $signerData['role'] ?? null,
+                    'organizational_role_id' => $signerData['organizational_role_id'] ?? null,
                     'signing_order' => $signerData['order'],
                 ]);
 
                 // Map template fields to this signer if role matches
-                if (isset($signerData['role'])) {
+                if (isset($signerData['organizational_role_id'])) {
+                    DocumentField::where('document_id', $document->id)
+                        ->where('organizational_role_id', $signerData['organizational_role_id'])
+                        ->update([
+                            'document_signer_id' => $signer->id,
+                            'signer_email' => $signer->email
+                        ]);
+                } elseif (isset($signerData['role'])) {
+                    // Legacy fallback
                     DocumentField::where('document_id', $document->id)
                         ->where('signer_role', $signerData['role'])
                         ->update([

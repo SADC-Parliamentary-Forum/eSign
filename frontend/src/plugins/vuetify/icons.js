@@ -67,12 +67,18 @@ export const iconify = {
       if (iconComponent)
         return h(iconComponent)
     }
-    
+
+    const iconClass = [props.icon]
+    // If it's an MDI icon, ensure the base 'mdi' class is present
+    if (String(props.icon).startsWith('mdi-')) {
+      iconClass.push('mdi')
+    }
+
     return h(props.tag, {
       ...props,
 
       // As we are using class based icons
-      class: [props.icon],
+      class: iconClass,
 
       // Remove used props from DOM rendering
       tag: undefined,

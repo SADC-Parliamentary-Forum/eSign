@@ -1,23 +1,20 @@
 <script setup>
 /**
- * Template Editor - Prepare-style UI
- * Uses same drag/drop field editing as Prepare page
- * No tabs, no review workflow, no thresholds
+ * Template Editor - Based on Prepare Page UI
+ * Uses same drag/drop field editing, signer management, etc.
  */
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import { useRoute, useRouter } from 'vue-router'
 import { useTemplateStore } from '@/stores/templates'
-import { useOrganizationStore } from '@/stores/organization'
 import { useDisplay } from 'vuetify'
 
 const route = useRoute()
 const router = useRouter()
 const templateStore = useTemplateStore()
-const organizationStore = useOrganizationStore()
 const { mobile, smAndDown, mdAndDown } = useDisplay()
 
-// Use blank layout for full-screen editor
+// Use blank layout
 definePage({
   meta: { layout: 'blank' },
 })
@@ -32,9 +29,9 @@ const error = ref('')
 const pdfSource = ref(null)
 const pageCount = ref(0)
 
-// Roles state (organizational roles instead of email signers)
-const templateRoles = ref([]) // Roles assigned to this template
-const selectedRole = ref(null) // Currently selected role for field placement
+// Signers state (using emails like Prepare page)
+const signers = ref([])
+const selectedSigner = ref(null)
 
 // Fields state
 const fields = ref([])
@@ -59,19 +56,10 @@ const activeInteractionFieldId = ref(null)
 const showLeftDrawer = ref(false)
 const showRightDrawer = ref(false)
 
-// Add role dialog
-const showAddRoleDialog = ref(false)
-const selectedOrgRole = ref(null)
-
-// Delete dialog
-const showDeleteDialog = ref(false)
-const deleting = ref(false)
-
-// Available org roles (filtered to exclude already added)
-const availableRoles = computed(() => {
-  const addedRoleIds = templateRoles.value.map(r => r.organizational_role_id)
-  return organizationStore.roles.filter(r => !addedRoleIds.includes(r.id))
-})
+// New signer form
+const showAddSignerForm = ref(false)
+const newSignerName = ref('')
+const newSignerEmail = ref('')
 
 // Color palette for signers
 const signerColors = [
@@ -102,21 +90,20 @@ const pdfWidth = computed(() => {
 
 // Progress indicator
 const progressSteps = computed(() => [
-  { label: 'Add Roles', done: templateRoles.value.length > 0, icon: 'ri-user-settings-line' },
+  { label: 'Add Signers', done: signers.value.length > 0, icon: 'ri-user-add-line' },
   { label: 'Place Fields', done: fields.value.length > 0, icon: 'ri-pen-nib-line' },
   { label: 'Save', done: false, icon: 'ri-save-line' },
 ])
 
 onMounted(async () => {
-  await organizationStore.fetchRoles()
   await fetchTemplate()
   window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
-  if (pdfSource.value?.url?.startsWith('blob:')) {
-    URL.revokeObjectURL(pdfSource.value.url)
+  if (pdfSource.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(pdfSource.value)
   }
 })
 
@@ -133,39 +120,31 @@ async function fetchTemplate() {
     
     if (response.ok) {
       const blob = await response.blob()
-      pdfSource.value = {
-        url: URL.createObjectURL(blob),
-        standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@5.4.530/standard_fonts/',
-      }
+      pdfSource.value = URL.createObjectURL(blob)
     }
     
-    // Load existing template roles
-    if (template.value.template_roles?.length > 0) {
-      templateRoles.value = template.value.template_roles.map((tr, i) => ({
-        ...tr,
-        id: tr.id || crypto.randomUUID(),
-        orgRole: organizationStore.roleById(tr.organizational_role_id),
+    // Load existing fields if any
+    if (template.value.fields?.length > 0) {
+      // Group fields by signer_email to reconstruct signers
+      const signerEmails = [...new Set(template.value.fields.map(f => f.signer_email).filter(Boolean))]
+      signers.value = signerEmails.map((email, i) => ({
+        id: crypto.randomUUID(),
+        name: email.split('@')[0],
+        email,
         color: signerColors[i % signerColors.length]
       }))
       
-      if (templateRoles.value.length > 0) {
-        selectedRole.value = templateRoles.value[0]
-      }
-    }
-    
-    // Load existing fields
-    if (template.value.fields?.length > 0) {
       fields.value = template.value.fields.map(f => ({
         ...f,
         id: f.id || crypto.randomUUID(),
-        type: f.type?.toUpperCase() || 'SIGNATURE',
-        x: Number(f.x_position || f.x || 0),
-        y: Number(f.y_position || f.y || 0),
-        width: Number(f.width || 15),
-        height: Number(f.height || 5),
-        organizational_role_id: f.organizational_role_id,
-        role_color: templateRoles.value.find(r => r.organizational_role_id === f.organizational_role_id)?.color
+        x: f.x_position,
+        y: f.y_position,
+        signer_color: signers.value.find(s => s.email === f.signer_email)?.color
       }))
+      
+      if (signers.value.length > 0) {
+        selectedSigner.value = signers.value[0]
+      }
     }
   } catch (e) {
     error.value = 'Failed to load template: ' + (e.message || 'Unknown error')
@@ -179,48 +158,41 @@ function handleDocumentLoad(pdf) {
   pageCount.value = pdf.numPages
 }
 
-// Role management
-function addRole() {
-  if (!selectedOrgRole.value) return
+// Signer management
+function addSigner() {
+  if (!newSignerName.value || !newSignerEmail.value) return
   
-  // Use loose equality to handle potential string/number mismatch from v-select
-  const orgRole = organizationStore.roles.find(r => r.id == selectedOrgRole.value)
-  if (!orgRole) return
-  
-  const newRole = {
+  const newSigner = {
     id: crypto.randomUUID(),
-    organizational_role_id: orgRole.id,
-    orgRole: orgRole,
-    signing_order: templateRoles.value.length + 1,
-    is_required: true,
-    color: signerColors[templateRoles.value.length % signerColors.length]
+    name: newSignerName.value,
+    email: newSignerEmail.value,
+    color: signerColors[signers.value.length % signerColors.length]
   }
   
-  templateRoles.value.push(newRole)
-  selectedRole.value = newRole
-  selectedOrgRole.value = null
-  showAddRoleDialog.value = false
+  signers.value.push(newSigner)
+  selectedSigner.value = newSigner
+  
+  newSignerName.value = ''
+  newSignerEmail.value = ''
+  showAddSignerForm.value = false
 }
 
-function removeRole(index) {
-  const removed = templateRoles.value.splice(index, 1)[0]
-  fields.value = fields.value.filter(f => f.organizational_role_id !== removed.organizational_role_id)
+function removeSigner(index) {
+  const removed = signers.value.splice(index, 1)[0]
+  fields.value = fields.value.filter(f => f.signer_email !== removed.email)
   
-  // Update signing order for remaining roles
-  templateRoles.value.forEach((r, i) => r.signing_order = i + 1)
-  
-  if (selectedRole.value?.id === removed.id) {
-    selectedRole.value = templateRoles.value[0] || null
+  if (selectedSigner.value?.id === removed.id) {
+    selectedSigner.value = signers.value[0] || null
   }
 }
 
-function selectRole(role) {
-  selectedRole.value = role
+function selectSigner(signer) {
+  selectedSigner.value = signer
 }
 
 // Drawing handlers
 function startDrawing(e, page) {
-  if (!selectedRole.value || isDragging.value || isResizing.value) return
+  if (!selectedSigner.value || isDragging.value || isResizing.value) return
   
   const target = e.currentTarget
   const rect = target.getBoundingClientRect()
@@ -346,7 +318,7 @@ function duplicateFieldToAllPages(field) {
 }
 
 function selectFieldType(type) {
-  if (!pendingField.value || !selectedRole.value) return
+  if (!pendingField.value || !selectedSigner.value) return
   
   const newField = {
     id: crypto.randomUUID(),
@@ -357,9 +329,8 @@ function selectFieldType(type) {
     y: pendingField.value.y,
     width: pendingField.value.width,
     height: pendingField.value.height,
-    organizational_role_id: selectedRole.value.organizational_role_id,
-    role_color: selectedRole.value.color,
-    fill_mode: ['SIGNATURE', 'INITIALS', 'CHECKBOX'].includes(type) ? 'SIGNER_FILL' : 'PRE_FILL',
+    signer_email: selectedSigner.value.email,
+    signer_color: selectedSigner.value.color,
     required: true,
     label: type
   }
@@ -388,7 +359,7 @@ function getFieldsByPage(page) {
 }
 
 function getFieldColor(field) {
-  return field.role_color || { bg: '#FFF9C4', border: '#FBC02D', text: '#F57F17' }
+  return field.signer_color || { bg: '#FFF9C4', border: '#FBC02D', text: '#F57F17' }
 }
 
 function getFieldTypeIcon(type) {
@@ -423,43 +394,27 @@ const drawingRect = computed(() => {
   }
 })
 
-// Save template - direct save, no review
+// Save template
 async function saveTemplate() {
   saving.value = true
   error.value = ''
   
   try {
-    // Save template roles first
-    const rolesPayload = templateRoles.value.map(r => ({
-      organizational_role_id: r.organizational_role_id,
-      signing_order: r.signing_order,
-      is_required: r.is_required,
-      role: r.orgRole?.name || 'Signer', // Fallback for legacy database constraint
-      action: 'SIGN' // Default action key
-    }))
-    
-    await $api(`/templates/${template.value.id}/roles`, {
-      method: 'POST',
-      body: { roles: rolesPayload }
-    })
-    
-    // Save fields with organizational role references
     const fieldPayload = fields.value.map(f => ({
       type: f.type.toLowerCase(),
-      organizational_role_id: f.organizational_role_id,
+      signer_email: f.signer_email,
       page_number: f.page_number,
       x_position: Number(f.x),
       y_position: Number(f.y),
       width: Number(f.width),
       height: Number(f.height),
-      fill_mode: f.fill_mode || 'SIGNER_FILL',
       required: f.required,
       label: f.label
     }))
     
     await templateStore.saveFields(template.value.id, fieldPayload)
     
-    // Activate template immediately - no review workflow
+    // Activate template
     await templateStore.activateTemplate(template.value.id)
     
     router.push('/templates')
@@ -468,20 +423,6 @@ async function saveTemplate() {
     console.error('Save error:', e)
   } finally {
     saving.value = false
-  }
-}
-
-// Delete template
-async function deleteTemplate() {
-  deleting.value = true
-  try {
-    await templateStore.deleteTemplate(template.value.id)
-    router.push('/templates')
-  } catch (e) {
-    error.value = e.message || 'Failed to delete template'
-  } finally {
-    deleting.value = false
-    showDeleteDialog.value = false
   }
 }
 
@@ -543,16 +484,6 @@ function handleKeydown(e) {
         />
         
         <v-btn
-          variant="text"
-          color="error"
-          size="small"
-          @click="showDeleteDialog = true"
-        >
-          <v-icon icon="ri-delete-bin-line" size="18" />
-          <span class="d-none d-sm-inline ml-1">Delete</span>
-        </v-btn>
-        
-        <v-btn
           color="primary"
           variant="elevated"
           size="small"
@@ -574,82 +505,81 @@ function handleKeydown(e) {
 
     <!-- Main Content Area -->
     <div class="main-content">
-      <!-- Left Sidebar: Roles -->
+      <!-- Left Sidebar: Signers -->
       <aside v-if="!smAndDown" class="left-sidebar">
         <div class="sidebar-header">
-          <span class="sidebar-title">Roles</span>
-          <v-chip size="x-small" color="primary" variant="flat">{{ templateRoles.length }}</v-chip>
+          <span class="sidebar-title">Signers</span>
+          <v-chip size="x-small" color="primary" variant="flat">{{ signers.length }}</v-chip>
         </div>
         
         <v-btn 
-          v-if="!showAddRoleDialog"
+          v-if="!showAddSignerForm"
           block 
           color="primary" 
           variant="tonal"
           size="small"
-          prepend-icon="ri-user-settings-line"
+          prepend-icon="ri-user-add-line"
           class="mb-3"
-          @click="showAddRoleDialog = true"
+          @click="showAddSignerForm = true"
         >
-          Add Role
+          Add Signer
         </v-btn>
         
         <v-expand-transition>
-          <div v-if="showAddRoleDialog" class="add-signer-form mb-3">
-            <v-select
-              v-model="selectedOrgRole"
-              :items="availableRoles"
-              item-title="name"
-              item-value="id"
-              label="Select Role"
+          <div v-if="showAddSignerForm" class="add-signer-form mb-3">
+            <v-text-field
+              v-model="newSignerName"
+              label="Name"
               variant="outlined"
               density="compact"
               hide-details
-              class="mb-3"
+              class="mb-2"
               autofocus
-              placeholder="Start typing..."
-              no-data-text="No roles available"
-            >
-              <template v-slot:item="{ props, item }">
-                <v-list-item v-bind="props" :subtitle="item.raw.description"></v-list-item>
-              </template>
-            </v-select>
-            
+            />
+            <v-text-field
+              v-model="newSignerEmail"
+              label="Email"
+              type="email"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mb-2"
+              @keyup.enter="addSigner"
+            />
             <div class="d-flex gap-2">
-              <v-btn size="small" variant="text" @click="showAddRoleDialog = false">Cancel</v-btn>
-              <v-btn size="small" color="primary" @click="addRole" :disabled="!selectedOrgRole">Add</v-btn>
+              <v-btn size="small" variant="text" @click="showAddSignerForm = false">Cancel</v-btn>
+              <v-btn size="small" color="primary" @click="addSigner" :disabled="!newSignerName || !newSignerEmail">Add</v-btn>
             </div>
           </div>
         </v-expand-transition>
         
         <div class="signers-list">
-          <!-- Draggable list could be added here for reordering -->
           <div
-            v-for="(role, index) in templateRoles"
-            :key="role.id"
+            v-for="(signer, index) in signers"
+            :key="signer.id"
             class="signer-item"
-            :class="{ 'signer-selected': selectedRole?.id === role.id }"
-            :style="{ borderLeftColor: role.color.border }"
-            @click="selectRole(role)"
+            :class="{ 'signer-selected': selectedSigner?.id === signer.id }"
+            :style="{ borderLeftColor: signer.color.border }"
+            @click="selectSigner(signer)"
           >
-            <v-avatar size="28" :color="role.color.border" class="mr-2">
-              <span class="text-white text-caption">{{ index + 1 }}</span>
+            <v-avatar size="28" :color="signer.color.border" class="mr-2">
+              <span class="text-white text-caption">{{ signer.name.charAt(0) }}</span>
             </v-avatar>
             <div class="signer-info">
-              <div class="signer-name">{{ role.orgRole?.name || 'Unknown Role' }}</div>
-              <div class="signer-email text-caption">Signing Order: {{ role.signing_order }}</div>
+              <div class="signer-name">{{ signer.name }}</div>
+              <div class="signer-email">{{ signer.email }}</div>
             </div>
             <v-btn 
               icon="ri-close-line" 
               size="x-small" 
               variant="text" 
-              @click.stop="removeRole(index)"
+              @click.stop="removeSigner(index)"
             />
           </div>
           
-          <div v-if="templateRoles.length === 0" class="empty-state">
-            <v-icon icon="ri-user-settings-line" size="32" class="mb-2" />
-            <div class="text-caption">Add roles from the list above</div>
+          <div v-if="signers.length === 0" class="empty-state">
+            <v-icon icon="ri-user-add-line" size="32" class="mb-2" />
+            <div class="text-caption">Add your first signer above</div>
           </div>
         </div>
       </aside>
@@ -685,7 +615,7 @@ function handleKeydown(e) {
               <div 
                 class="field-overlay"
                 :class="{ 
-                  'draw-cursor': selectedRole && !isDragging && !isResizing,
+                  'draw-cursor': selectedSigner && !isDragging && !isResizing,
                   'grabbing': isDragging,
                   'resizing': isResizing
                 }"
@@ -753,7 +683,7 @@ function handleKeydown(e) {
                     top: drawingRect.top,
                     width: drawingRect.width,
                     height: drawingRect.height,
-                    borderColor: selectedRole?.color?.border || '#1976D2'
+                    borderColor: selectedSigner?.color?.border || '#1976D2'
                   }"
                 />
               </div>
@@ -763,13 +693,13 @@ function handleKeydown(e) {
         </div>
         
         <v-fade-transition>
-          <div v-if="!selectedRole && templateRoles.length === 0 && !loading && pdfSource" class="hint-overlay">
+          <div v-if="!selectedSigner && signers.length === 0 && !loading && pdfSource" class="hint-overlay">
             <v-card class="hint-card" max-width="300">
               <v-card-text class="text-center">
-                <v-icon icon="ri-user-settings-line" size="48" color="primary" class="mb-3" />
-                <div class="text-h6 mb-2">Define Roles First</div>
+                <v-icon icon="ri-hand-coin-line" size="48" color="primary" class="mb-3" />
+                <div class="text-h6 mb-2">Let's Get Started!</div>
                 <div class="text-body-2 text-medium-emphasis">
-                  Add organizational roles (e.g. Director) first, then assign fields to them.
+                  Add a signer first, then draw signature fields on the document.
                 </div>
               </v-card-text>
             </v-card>
@@ -784,7 +714,7 @@ function handleKeydown(e) {
         </div>
         
         <div class="field-types-hint">
-          {{ selectedRole ? `Draw on PDF to add fields for ${selectedRole.orgRole?.name}` : 'Select a role first' }}
+          {{ selectedSigner ? `Draw on PDF to add fields for ${selectedSigner.name}` : 'Select a signer first' }}
         </div>
         
         <div class="field-types-list">
@@ -792,7 +722,7 @@ function handleKeydown(e) {
             v-for="type in fieldTypes"
             :key="type.type"
             class="field-type-item"
-            :class="{ 'disabled': !selectedRole }"
+            :class="{ 'disabled': !selectedSigner }"
           >
             <v-icon :icon="type.icon" size="20" class="field-type-icon" />
             <div class="field-type-info">
@@ -808,7 +738,7 @@ function handleKeydown(e) {
           <div class="summary-title">Summary</div>
           <div class="summary-item">
             <v-icon icon="ri-group-line" size="16" />
-            <span>{{ templateRoles.length }} role(s)</span>
+            <span>{{ signers.length }} signer(s)</span>
           </div>
           <div class="summary-item">
             <v-icon icon="ri-pen-nib-line" size="16" />
@@ -826,64 +756,50 @@ function handleKeydown(e) {
     <v-navigation-drawer v-model="showLeftDrawer" temporary location="left" width="280">
       <div class="pa-4">
         <div class="sidebar-header mb-3">
-          <span class="sidebar-title">Roles</span>
-          <v-chip size="x-small" color="primary" variant="flat">{{ templateRoles.length }}</v-chip>
+          <span class="sidebar-title">Signers</span>
+          <v-chip size="x-small" color="primary" variant="flat">{{ signers.length }}</v-chip>
         </div>
         
         <v-btn 
-          v-if="!showAddRoleDialog"
+          v-if="!showAddSignerForm"
           block 
           color="primary" 
           variant="tonal"
-          prepend-icon="ri-user-settings-line"
+          prepend-icon="mdi-account-plus"
           class="mb-3"
-          @click="showAddRoleDialog = true"
+          @click="showAddSignerForm = true"
         >
-          Add Role
+          Add Signer
         </v-btn>
         
         <v-expand-transition>
-          <div v-if="showAddRoleDialog" class="add-signer-form mb-3">
-             <v-select
-              v-model="selectedOrgRole"
-              :items="availableRoles"
-              item-title="name"
-              item-value="id"
-              label="Select Role"
-              variant="outlined"
-              density="compact"
-              hide-details
-              class="mb-3"
-              return-object
-            />
+          <div v-if="showAddSignerForm" class="add-signer-form mb-3">
+            <v-text-field v-model="newSignerName" label="Name" variant="outlined" density="compact" hide-details class="mb-2" />
+            <v-text-field v-model="newSignerEmail" label="Email" type="email" variant="outlined" density="compact" hide-details class="mb-2" />
             <div class="d-flex gap-2">
-              <v-btn size="small" variant="text" @click="showAddRoleDialog = false">Cancel</v-btn>
-              <v-btn size="small" color="primary" @click="addRole" :disabled="!selectedOrgRole">Add</v-btn>
+              <v-btn size="small" variant="text" @click="showAddSignerForm = false">Cancel</v-btn>
+              <v-btn size="small" color="primary" @click="addSigner">Add</v-btn>
             </div>
           </div>
         </v-expand-transition>
         
         <div class="signers-list">
           <div
-            v-for="(role, index) in templateRoles"
-            :key="role.id"
+            v-for="(signer, index) in signers"
+            :key="signer.id"
             class="signer-item"
-            :class="{ 'signer-selected': selectedRole?.id === role.id }"
-            :style="{ borderLeftColor: role.color.border }"
-            @click="selectRole(role); showLeftDrawer = false"
+            :class="{ 'signer-selected': selectedSigner?.id === signer.id }"
+            :style="{ borderLeftColor: signer.color.border }"
+            @click="selectSigner(signer); showLeftDrawer = false"
           >
-            <v-avatar size="28" :color="role.color.border" class="mr-2">
-              <span class="text-white text-caption">{{ index + 1 }}</span>
+            <v-avatar size="28" :color="signer.color.border" class="mr-2">
+              <span class="text-white text-caption">{{ signer.name.charAt(0) }}</span>
             </v-avatar>
             <div class="signer-info">
-              <div class="signer-name">{{ role.orgRole?.name || 'Unknown Role' }}</div>
+              <div class="signer-name">{{ signer.name }}</div>
+              <div class="signer-email">{{ signer.email }}</div>
             </div>
-            <v-btn 
-              icon="ri-close-line" 
-              size="x-small" 
-              variant="text" 
-              @click.stop="removeRole(index)"
-            />
+            <v-btn icon="mdi-close" size="x-small" variant="text" @click.stop="removeSigner(index)" />
           </div>
         </div>
       </div>
@@ -914,22 +830,6 @@ function handleKeydown(e) {
 
         <v-card-actions>
           <v-btn block variant="text" @click="cancelFieldType">Cancel</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" max-width="400">
-      <v-card>
-        <v-card-title>Delete Template?</v-card-title>
-        <v-card-text>
-          Are you sure you want to delete <strong>{{ template?.name }}</strong>?
-          This cannot be undone.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
-          <v-btn color="error" variant="flat" :loading="deleting" @click="deleteTemplate">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

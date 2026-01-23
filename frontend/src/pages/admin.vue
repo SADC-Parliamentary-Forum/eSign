@@ -16,13 +16,65 @@ const searchQuery = ref('')
 const statusFilter = ref('ALL')
 const roleFilter = ref('ALL')
 
+// Organization State
+const departments = ref([])
+const orgRoles = ref([])
+const showCreateDepartmentDialog = ref(false)
+const showEditDepartmentDialog = ref(false)
+const showCreateOrgRoleDialog = ref(false)
+const showEditOrgRoleDialog = ref(false)
+const selectedDepartment = ref(null)
+const selectedOrgRole = ref(null)
+
+const departmentForm = ref({
+  name: '',
+  code: '',
+  description: '',
+  is_active: true
+})
+
+const orgRoleForm = ref({
+  name: '',
+  code: '',
+  level: 1,
+  description: '',
+  is_active: true
+})
+
 // Dialogs
 const showCreateUserDialog = ref(false)
 const showEditUserDialog = ref(false)
+const showViewUserDialog = ref(false)
 const selectedUser = ref(null)
 const saving = ref(false)
 const success = ref('')
 const error = ref('')
+
+// Confirmation Dialog
+const showConfirmDialog = ref(false)
+const confirmTitle = ref('Confirm Action')
+const confirmMessage = ref('Are you sure you want to proceed?')
+const confirmAction = ref(null)
+const confirmLoading = ref(false)
+
+function openConfirmDialog(title, message, action) {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmAction.value = action
+  showConfirmDialog.value = true
+}
+
+async function handleConfirm() {
+  if (!confirmAction.value) return
+  confirmLoading.value = true
+  try {
+    await confirmAction.value()
+    showConfirmDialog.value = false
+  } finally {
+    confirmLoading.value = false
+    confirmAction.value = null
+  }
+}
 
 // Create/Edit User Form
 const userForm = ref({
@@ -58,7 +110,7 @@ const settingsSaving = ref(false)
 
 onMounted(async () => {
   loading.value = true
-  await Promise.all([fetchUsers(), fetchRoles(), fetchAudit(), fetchStats()])
+  await Promise.all([fetchUsers(), fetchRoles(), fetchAudit(), fetchStats(), fetchDepartments(), fetchOrgRoles()])
   loading.value = false
 })
 
@@ -77,6 +129,24 @@ async function fetchRoles() {
     roles.value = res.data || res || []
   } catch (e) {
     console.error('Failed to fetch roles', e)
+  }
+}
+
+async function fetchDepartments() {
+  try {
+    const res = await $api('/departments')
+    departments.value = res.data || res || []
+  } catch (e) {
+    console.error('Failed to fetch departments', e)
+  }
+}
+
+async function fetchOrgRoles() {
+  try {
+    const res = await $api('/org-roles')
+    orgRoles.value = res.data || res || []
+  } catch (e) {
+    console.error('Failed to fetch organizational roles', e)
   }
 }
 
@@ -263,6 +333,12 @@ function openEditDialog(user) {
   showEditUserDialog.value = true
 }
 
+// View User
+function openViewDialog(user) {
+  selectedUser.value = user
+  showViewUserDialog.value = true
+}
+
 async function updateUser() {
   saving.value = true
   error.value = ''
@@ -289,17 +365,22 @@ async function updateUser() {
 }
 
 // Delete User
+// Delete User
 async function deleteUser(user) {
-  if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) return
-  
-  try {
-    await $api(`/admin/users/${user.id}`, { method: 'DELETE' })
-    success.value = 'User deleted'
-    await fetchUsers()
-    await fetchStats()
-  } catch (e) {
-    error.value = 'Failed to delete user: ' + (e.message || 'Unknown error')
-  }
+  openConfirmDialog(
+    'Delete User',
+    `Are you sure you want to delete ${user.name}? This action cannot be undone.`,
+    async () => {
+      try {
+        await $api(`/admin/users/${user.id}`, { method: 'DELETE' })
+        success.value = 'User deleted'
+        await fetchUsers()
+        await fetchStats()
+      } catch (e) {
+        error.value = 'Failed to delete user: ' + (e.message || 'Unknown error')
+      }
+    }
+  )
 }
 
 // Toggle User Status
@@ -316,6 +397,118 @@ async function toggleUserStatus(user) {
   } catch (e) {
     error.value = 'Failed to update user status'
   }
+}
+
+// Department Management
+function openCreateDepartmentDialog() {
+  departmentForm.value = { name: '', code: '', description: '', is_active: true }
+  showCreateDepartmentDialog.value = true
+}
+
+function openEditDepartmentDialog(dept) {
+  selectedDepartment.value = dept
+  departmentForm.value = { ...dept }
+  showEditDepartmentDialog.value = true
+}
+
+async function createDepartment() {
+  saving.value = true
+  try {
+    await $api('/departments', { method: 'POST', body: departmentForm.value })
+    success.value = 'Department created'
+    showCreateDepartmentDialog.value = false
+    await fetchDepartments()
+  } catch(e) {
+    error.value = 'Failed to create department: ' + e.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function updateDepartment() {
+  saving.value = true
+  try {
+    await $api(`/departments/${selectedDepartment.value.id}`, { method: 'PUT', body: departmentForm.value })
+    success.value = 'Department updated'
+    showEditDepartmentDialog.value = false
+    await fetchDepartments()
+  } catch(e) {
+    error.value = 'Failed to update department: ' + e.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteDepartment(id) {
+  openConfirmDialog(
+    'Delete Department',
+    'Are you sure you want to delete this department?',
+    async () => {
+      try {
+        await $api(`/departments/${id}`, { method: 'DELETE' })
+        success.value = 'Department deleted'
+        await fetchDepartments()
+      } catch(e) {
+        error.value = 'Failed to delete department'
+      }
+    }
+  )
+}
+
+// Org Role Management
+function openCreateOrgRoleDialog() {
+  orgRoleForm.value = { name: '', code: '', level: 1, description: '', is_active: true }
+  showCreateOrgRoleDialog.value = true
+}
+
+function openEditOrgRoleDialog(role) {
+  selectedOrgRole.value = role
+  orgRoleForm.value = { ...role }
+  showEditOrgRoleDialog.value = true
+}
+
+async function createOrgRole() {
+  saving.value = true
+  try {
+    await $api('/org-roles', { method: 'POST', body: orgRoleForm.value })
+    success.value = 'Role created'
+    showCreateOrgRoleDialog.value = false
+    await fetchOrgRoles()
+  } catch(e) {
+    error.value = 'Failed to create role: ' + e.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function updateOrgRole() {
+  saving.value = true
+  try {
+    await $api(`/org-roles/${selectedOrgRole.value.id}`, { method: 'PUT', body: orgRoleForm.value })
+    success.value = 'Role updated'
+    showEditOrgRoleDialog.value = false
+    await fetchOrgRoles()
+  } catch(e) {
+    error.value = 'Failed to update role: ' + e.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteOrgRole(id) {
+  openConfirmDialog(
+    'Delete Role',
+    'Are you sure you want to delete this role?',
+    async () => {
+      try {
+        await $api(`/org-roles/${id}`, { method: 'DELETE' })
+        success.value = 'Role deleted'
+        await fetchOrgRoles()
+      } catch(e) {
+        error.value = 'Failed to delete role'
+      }
+    }
+  )
 }
 
 function formatTime(time) {
@@ -350,6 +543,20 @@ const auditHeaders = [
   { title: 'IP Address', key: 'ip_address' },
   { title: 'Time', key: 'created_at' },
 ]
+
+const departmentHeaders = [
+  { title: 'Name', key: 'name' },
+  { title: 'Code', key: 'code' },
+  { title: 'Description', key: 'description' },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
+]
+
+const orgRoleHeaders = [
+  { title: 'Level', key: 'level' },
+  { title: 'Name', key: 'name' },
+  { title: 'Code', key: 'code' },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' },
+]
 </script>
 
 <template>
@@ -378,6 +585,10 @@ const auditHeaders = [
       <VTab value="dashboard">
         <VIcon icon="mdi-view-dashboard" class="mr-2" />
         Dashboard
+      </VTab>
+      <VTab value="organization">
+        <VIcon icon="mdi-domain" class="mr-2" />
+        Organization
       </VTab>
       <VTab value="users">
         <VIcon icon="mdi-account-group" class="mr-2" />
@@ -465,6 +676,59 @@ const auditHeaders = [
         </VRow>
       </VWindowItem>
 
+      <!-- Organization Tab -->
+      <VWindowItem value="organization">
+        <VRow>
+          <!-- Departments -->
+          <VCol cols="12" md="6">
+            <VCard>
+              <VCardItem>
+                <template #append>
+                  <VBtn size="small" color="primary" @click="openCreateDepartmentDialog">Add Department</VBtn>
+                </template>
+                <VCardTitle>Departments</VCardTitle>
+              </VCardItem>
+              <VCardText>
+                <VDataTable :headers="departmentHeaders" :items="departments" density="compact">
+                  <template #item.actions="{ item }">
+                    <VBtn size="x-small" variant="text" color="primary" @click="openEditDepartmentDialog(item)">
+                      <VIcon>mdi-pencil</VIcon>
+                    </VBtn>
+                    <VBtn size="x-small" variant="text" color="error" @click="deleteDepartment(item.id)">
+                      <VIcon>mdi-delete</VIcon>
+                    </VBtn>
+                  </template>
+                </VDataTable>
+              </VCardText>
+            </VCard>
+          </VCol>
+
+          <!-- Roles -->
+          <VCol cols="12" md="6">
+            <VCard>
+              <VCardItem>
+                <template #append>
+                  <VBtn size="small" color="primary" @click="openCreateOrgRoleDialog">Add Role</VBtn>
+                </template>
+                <VCardTitle>Organizational Roles</VCardTitle>
+              </VCardItem>
+              <VCardText>
+                <VDataTable :headers="orgRoleHeaders" :items="orgRoles" density="compact">
+                  <template #item.actions="{ item }">
+                    <VBtn size="x-small" variant="text" color="primary" @click="openEditOrgRoleDialog(item)">
+                      <VIcon>mdi-pencil</VIcon>
+                    </VBtn>
+                    <VBtn size="x-small" variant="text" color="error" @click="deleteOrgRole(item.id)">
+                      <VIcon>mdi-delete</VIcon>
+                    </VBtn>
+                  </template>
+                </VDataTable>
+              </VCardText>
+            </VCard>
+          </VCol>
+        </VRow>
+      </VWindowItem>
+
       <!-- Users Tab -->
       <VWindowItem value="users">
         <VCard>
@@ -546,16 +810,24 @@ const auditHeaders = [
                 {{ formatTime(item.created_at) }}
               </template>
               <template #item.actions="{ item }">
-                <VBtn icon="mdi-pencil" size="small" variant="text" color="primary" @click="openEditDialog(item)" />
+                <VBtn size="small" variant="text" color="info" @click="openViewDialog(item)">
+                  <VIcon>mdi-eye</VIcon>
+                </VBtn>
+                <VBtn size="small" variant="text" color="primary" @click="openEditDialog(item)">
+                  <VIcon>mdi-pencil</VIcon>
+                </VBtn>
                 <VBtn
-                  :icon="item.status === 'ACTIVE' ? 'mdi-account-off' : 'mdi-account-check'"
                   size="small"
                   variant="text"
                   :color="item.status === 'ACTIVE' ? 'warning' : 'success'"
                   @click="toggleUserStatus(item)"
                   :title="item.status === 'ACTIVE' ? 'Deactivate' : 'Activate'"
-                />
-                <VBtn icon="mdi-delete" size="small" variant="text" color="error" @click="deleteUser(item)" />
+                >
+                  <VIcon>{{ item.status === 'ACTIVE' ? 'mdi-account-off' : 'mdi-account-check' }}</VIcon>
+                </VBtn>
+                <VBtn size="small" variant="text" color="error" @click="deleteUser(item)">
+                  <VIcon>mdi-delete</VIcon>
+                </VBtn>
               </template>
             </VDataTable>
           </VCardText>
@@ -724,7 +996,14 @@ const auditHeaders = [
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.department" label="Department" variant="outlined" />
+              <VSelect 
+                v-model="userForm.department"
+                :items="departments"
+                item-title="name"
+                item-value="name"
+                label="Department" 
+                variant="outlined" 
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField v-model="userForm.job_title" label="Job Title" variant="outlined" />
@@ -798,6 +1077,115 @@ const auditHeaders = [
           <VSpacer />
           <VBtn variant="text" @click="showEditUserDialog = false">Cancel</VBtn>
           <VBtn color="primary" :loading="saving" @click="updateUser">Save Changes</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <!-- View User Dialog -->
+    <VDialog v-model="showViewUserDialog" max-width="600">
+      <VCard title="User Details">
+        <VCardText v-if="selectedUser">
+          <VList lines="two">
+            <VListItem title="Full Name" :subtitle="selectedUser.name" />
+            <VListItem title="Email" :subtitle="selectedUser.email" />
+            <VListItem title="Role" :subtitle="selectedUser.role?.display_name || 'No Role'" />
+            <VListItem title="Department" :subtitle="selectedUser.department || '-'" />
+            <VListItem title="Job Title" :subtitle="selectedUser.job_title || '-'" />
+            <VListItem title="Status">
+              <VChip :color="getStatusColor(selectedUser.status)" size="small" variant="tonal" class="mt-1">
+                {{ selectedUser.status }}
+              </VChip>
+            </VListItem>
+            <VListItem title="Joined" :subtitle="formatTime(selectedUser.created_at)" />
+          </VList>
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn color="primary" @click="showViewUserDialog = false">Close</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <!-- Department Dialogs -->
+    <VDialog v-model="showCreateDepartmentDialog" max-width="500">
+      <VCard title="New Department">
+        <VCardText>
+          <VTextField v-model="departmentForm.name" label="Name" class="mb-2" />
+          <VTextField v-model="departmentForm.code" label="Code" class="mb-2" />
+          <VTextarea v-model="departmentForm.description" label="Description" rows="2" />
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn @click="showCreateDepartmentDialog = false">Cancel</VBtn>
+          <VBtn color="primary" :loading="saving" @click="createDepartment">Create</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog v-model="showEditDepartmentDialog" max-width="500">
+      <VCard title="Edit Department">
+        <VCardText>
+          <VTextField v-model="departmentForm.name" label="Name" class="mb-2" />
+          <VTextField v-model="departmentForm.code" label="Code" class="mb-2" />
+          <VTextarea v-model="departmentForm.description" label="Description" rows="2" />
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn @click="showEditDepartmentDialog = false">Cancel</VBtn>
+          <VBtn color="primary" :loading="saving" @click="updateDepartment">Update</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <!-- Role Dialogs -->
+    <VDialog v-model="showCreateOrgRoleDialog" max-width="500">
+      <VCard title="New Organizational Role">
+        <VCardText>
+          <VTextField v-model="orgRoleForm.name" label="Name" class="mb-2" />
+          <VTextField v-model="orgRoleForm.code" label="Code" class="mb-2" />
+          <VTextField v-model.number="orgRoleForm.level" label="Level (1=Top)" type="number" class="mb-2" />
+          <VTextarea v-model="orgRoleForm.description" label="Description" rows="2" />
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn @click="showCreateOrgRoleDialog = false">Cancel</VBtn>
+          <VBtn color="primary" :loading="saving" @click="createOrgRole">Create</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog v-model="showEditOrgRoleDialog" max-width="500">
+      <VCard title="Edit Organizational Role">
+        <VCardText>
+          <VTextField v-model="orgRoleForm.name" label="Name" class="mb-2" />
+          <VTextField v-model="orgRoleForm.code" label="Code" class="mb-2" />
+          <VTextField v-model.number="orgRoleForm.level" label="Level (1=Top)" type="number" class="mb-2" />
+          <VTextarea v-model="orgRoleForm.description" label="Description" rows="2" />
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn @click="showEditOrgRoleDialog = false">Cancel</VBtn>
+          <VBtn color="primary" :loading="saving" @click="updateOrgRole">Update</VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+    <!-- Confirmation Dialog -->
+    <VDialog v-model="showConfirmDialog" max-width="400">
+      <VCard>
+        <VCardTitle class="text-h5 pt-4 pl-4 pr-4">
+          {{ confirmTitle }}
+        </VCardTitle>
+        <VCardText class="pt-2">
+          {{ confirmMessage }}
+        </VCardText>
+        <VCardActions class="pb-4 px-4">
+          <VSpacer />
+          <VBtn variant="text" @click="showConfirmDialog = false" :disabled="confirmLoading">
+            Cancel
+          </VBtn>
+          <VBtn color="error" variant="flat" :loading="confirmLoading" @click="handleConfirm">
+            Confirm
+          </VBtn>
         </VCardActions>
       </VCard>
     </VDialog>

@@ -104,6 +104,16 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('folders/{id}/download', [App\Http\Controllers\FolderController::class, 'download']);
 
     // -------------------------------------------------------------------------
+    // Departments
+    // -------------------------------------------------------------------------
+    Route::apiResource('departments', App\Http\Controllers\DepartmentController::class);
+
+    // -------------------------------------------------------------------------
+    // Organizational Roles
+    // -------------------------------------------------------------------------
+    Route::apiResource('org-roles', App\Http\Controllers\OrganizationalRoleController::class);
+
+    // -------------------------------------------------------------------------
     // Templates
     // -------------------------------------------------------------------------
     Route::apiResource('templates', TemplateController::class);
@@ -118,10 +128,17 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('templates/{id}/activate', [TemplateController::class, 'activate']);
     Route::post('templates/{id}/archive', [TemplateController::class, 'archive']);
     Route::get('templates/{id}/threshold-matrix', [TemplateController::class, 'getThresholdMatrix']);
-    Route::post('templates/{id}/version', [TemplateController::class, 'createNewVersion']);
+    Route::post('templates/{id}/versions', [TemplateController::class, 'createVersion']);
     Route::post('documents/{id}/sign-self', [DocumentController::class, 'finishSelfSign']);
-    Route::get('templates/{id}/versions', [TemplateController::class, 'getVersions']);
+    // Route::get('templates/{id}/versions', [TemplateController::class, 'getVersions']);
     Route::get('templates/{id}/pdf', [TemplateController::class, 'streamPdf']);
+
+    // Template Enhanced Features
+    Route::post('templates/{id}/clone', [TemplateController::class, 'clone']);
+    Route::post('templates/{id}/apply', [TemplateController::class, 'apply']);
+    Route::get('templates/meta/categories', [TemplateController::class, 'categories']);
+    Route::get('templates/meta/most-used', [TemplateController::class, 'mostUsed']);
+    Route::get('templates/meta/recent', [TemplateController::class, 'recentlyUsed']);
 
     // -------------------------------------------------------------------------
     // Workflows

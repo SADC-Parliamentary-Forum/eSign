@@ -38,7 +38,11 @@ declare module 'vue-router/auto-routes' {
     'signatures': RouteRecordInfo<'signatures', '/signatures', Record<never, never>, Record<never, never>>,
     'templates': RouteRecordInfo<'templates', '/templates', Record<never, never>, Record<never, never>>,
     'templates-id': RouteRecordInfo<'templates-id', '/templates/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
+    'templates-id-bulk': RouteRecordInfo<'templates-id-bulk', '/templates/:id/bulk', { id: ParamValue<true> }, { id: ParamValue<false> }>,
+    'templates-id-edit': RouteRecordInfo<'templates-id-edit', '/templates/:id/edit', { id: ParamValue<true> }, { id: ParamValue<false> }>,
+    'templates-id-use': RouteRecordInfo<'templates-id-use', '/templates/:id/use', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     'templates-create': RouteRecordInfo<'templates-create', '/templates/create', Record<never, never>, Record<never, never>>,
+    'templates-new': RouteRecordInfo<'templates-new', '/templates/new', Record<never, never>, Record<never, never>>,
     'upload': RouteRecordInfo<'upload', '/upload', Record<never, never>, Record<never, never>>,
   }
 }

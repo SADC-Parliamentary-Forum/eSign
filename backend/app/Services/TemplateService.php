@@ -77,10 +77,13 @@ class TemplateService
             foreach ($roles as $roleData) {
                 TemplateRole::create([
                     'template_id' => $template->id,
-                    'role' => $roleData['role'],
-                    'action' => $roleData['action'] ?? 'SIGN',
-                    'required' => $roleData['required'] ?? true,
+                    'organizational_role_id' => $roleData['organizational_role_id'],
                     'signing_order' => $roleData['signing_order'] ?? 1,
+                    'is_required' => $roleData['is_required'] ?? true,
+                    // Legacy fields
+                    'role' => $roleData['role'] ?? null,
+                    'action' => $roleData['action'] ?? null,
+                    'required' => $roleData['is_required'] ?? true,
                 ]);
             }
 

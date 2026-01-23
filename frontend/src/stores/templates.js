@@ -5,6 +5,9 @@ export const useTemplateStore = defineStore('templates', {
   state: () => ({
     templates: [],
     activeTemplate: null,
+    categories: [],
+    mostUsedTemplates: [],
+    recentlyUsedTemplates: [],
     loading: false,
     error: null,
   }),
@@ -14,6 +17,7 @@ export const useTemplateStore = defineStore('templates', {
     draftTemplates: state => state.templates.filter(t => t.status === 'DRAFT'),
     pendingReviewTemplates: state => state.templates.filter(t => t.status === 'REVIEW'),
     templateById: state => id => state.templates.find(t => t.id === id),
+    templatesByCategory: state => category => state.templates.filter(t => t.category === category),
   },
 
   actions: {
@@ -307,6 +311,67 @@ export const useTemplateStore = defineStore('templates', {
       }
       if (this.activeTemplate?.id === updatedTemplate.id) {
         this.activeTemplate = updatedTemplate
+      }
+    },
+
+    async cloneTemplate(id) {
+      this.loading = true
+      this.error = null
+      try {
+        const { template } = await templateAPI.clone(id)
+        this.templates.push(template)
+        return template
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to clone template:', error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async applyTemplate(templateId, documentId) {
+      this.loading = true
+      this.error = null
+      try {
+        const result = await templateAPI.apply(templateId, documentId)
+        return result
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to apply template:', error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async fetchCategories() {
+      try {
+        this.categories = await templateAPI.getCategories()
+        return this.categories
+      } catch (error) {
+        console.error('Failed to fetch categories:', error)
+        return []
+      }
+    },
+
+    async fetchMostUsed() {
+      try {
+        this.mostUsedTemplates = await templateAPI.getMostUsed()
+        return this.mostUsedTemplates
+      } catch (error) {
+        console.error('Failed to fetch most used templates:', error)
+        return []
+      }
+    },
+
+    async fetchRecentlyUsed() {
+      try {
+        this.recentlyUsedTemplates = await templateAPI.getRecentlyUsed()
+        return this.recentlyUsedTemplates
+      } catch (error) {
+        console.error('Failed to fetch recently used templates:', error)
+        return []
       }
     },
   },

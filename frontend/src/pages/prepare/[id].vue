@@ -248,7 +248,7 @@ const signerColors = [
 // Field types
 const fieldTypes = [
   { type: 'SIGNATURE', icon: 'ri-pen-nib-line', label: 'Signature', desc: 'Full signature' },
-  { type: 'INITIALS', icon: 'ri-font-color', label: 'Initials', desc: 'Quick initials' },
+  { type: 'INITIALS', icon: 'ri-font-size-2', label: 'Initials', desc: 'Quick initials' },
   { type: 'DATE', icon: 'ri-calendar-line', label: 'Date', desc: 'Auto-fill date' },
   { type: 'TEXT', icon: 'ri-text', label: 'Text', desc: 'Custom text' },
   { type: 'CHECKBOX', icon: 'ri-checkbox-line', label: 'Checkbox', desc: 'Yes/No option' },

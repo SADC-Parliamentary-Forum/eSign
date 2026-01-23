@@ -15,6 +15,7 @@ class Template extends Model
         'user_id',
         'name',
         'description',
+        'category',
         'status',
         'file_path',
         'file_hash',
@@ -29,14 +30,23 @@ class Template extends Model
         'required_signature_level',
         'default_retention_days',
         'is_public',
+        'is_bulk_enabled',
+        'is_field_locked',
+        'default_signer_role',
+        'usage_count',
+        'last_used_at',
     ];
 
     protected $casts = [
         'is_public' => 'boolean',
+        'is_bulk_enabled' => 'boolean',
+        'is_field_locked' => 'boolean',
         'amount_required' => 'boolean',
         'version' => 'integer',
+        'usage_count' => 'integer',
         'reviewed_at' => 'datetime',
         'approved_at' => 'datetime',
+        'last_used_at' => 'datetime',
     ];
 
     /**

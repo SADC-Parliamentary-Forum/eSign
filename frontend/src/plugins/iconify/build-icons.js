@@ -20,24 +20,24 @@ import { getIcons, getIconsCSS, stringToIcon } from '@iconify/utils';
 const require = createRequire(import.meta.url);
 const sources = {
     svg: [
-    // {
-    //   dir: 'src/assets/images/iconify-svg',
-    //   monotone: true,
-    //   prefix: 'custom',
-    // },
-    // {
-    //   dir: 'emojis',
-    //   monotone: false,
-    //   prefix: 'emoji',
-    // },
+        // {
+        //   dir: 'src/assets/images/iconify-svg',
+        //   monotone: true,
+        //   prefix: 'custom',
+        // },
+        // {
+        //   dir: 'emojis',
+        //   monotone: false,
+        //   prefix: 'emoji',
+        // },
     ],
     icons: [
-    // 'mdi:home',
-    // 'mdi:account',
-    // 'mdi:login',
-    // 'mdi:logout',
-    // 'octicon:book-24',
-    // 'octicon:code-square-24',
+        // 'mdi:home',
+        // 'mdi:account',
+        // 'mdi:login',
+        // 'mdi:logout',
+        // 'octicon:book-24',
+        // 'octicon:code-square-24',
     ],
     json: [
         // Custom JSON file

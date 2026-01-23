@@ -1,389 +1,437 @@
 <script setup>
+/**
+ * Templates Gallery - Simplified
+ * Shows templates with Edit and Use actions
+ */
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTemplateStore } from '@/stores/templates'
-import TemplateCard from '@/components/templates/TemplateCard.vue'
 
 const router = useRouter()
 const templateStore = useTemplateStore()
 
-const loading = ref(false)
+const loading = ref(true)
 const searchQuery = ref('')
-const statusFilter = ref('ALL')
-const viewMode = ref('grid')
-
-// Delete dialog state
-const deleteDialog = ref(false)
+const selectedCategory = ref('All')
+const showDeleteDialog = ref(false)
 const templateToDelete = ref(null)
-const deleting = ref(false)
 
-// Snackbar state
-const snackbar = ref(false)
-const snackbarMessage = ref('')
-const snackbarColor = ref('success')
-
-const statusOptions = [
-  { value: 'ALL', title: 'All Templates' },
-  { value: 'DRAFT', title: 'Drafts' },
-  { value: 'REVIEW', title: 'In Review' },
-  { value: 'APPROVED', title: 'Approved' },
-  { value: 'ACTIVE', title: 'Active' },
-  { value: 'ARCHIVED', title: 'Archived' },
-]
-
-onMounted(async () => {
-  await loadTemplates()
-})
-
-const loadTemplates = async () => {
-  loading.value = true
-  try {
-    await templateStore.fetchTemplates()
-  }
-  catch (error) {
-    console.error('Failed to load templates:', error)
-    showSnackbar('Failed to load templates', 'error')
-  }
-  finally {
-    loading.value = false
-  }
-}
+const categories = ['All', 'Contract', 'HR', 'Finance', 'Legal', 'Internal', 'Other']
 
 const filteredTemplates = computed(() => {
-  let templates = [...templateStore.templates]
+  let result = templateStore.templates || []
   
-  if (statusFilter.value !== 'ALL') {
-    templates = templates.filter(t => t.status === statusFilter.value)
+  if (selectedCategory.value !== 'All') {
+    result = result.filter(t => t.category === selectedCategory.value)
   }
   
   if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    templates = templates.filter(t =>
-      t.name.toLowerCase().includes(query) ||
-      t.description?.toLowerCase().includes(query),
+    const q = searchQuery.value.toLowerCase()
+    result = result.filter(t => 
+      t.name?.toLowerCase().includes(q) || 
+      t.description?.toLowerCase().includes(q)
     )
   }
   
-  return templates
+  return result
 })
 
-const handleEdit = (template) => {
+onMounted(async () => {
+  loading.value = true
+  try {
+    await templateStore.fetchTemplates()
+  } catch (e) {
+    console.error('Failed to fetch templates:', e)
+  } finally {
+    loading.value = false
+  }
+})
+
+function editTemplate(template) {
+  router.push(`/templates/${template.id}/edit`)
+}
+
+function viewTemplate(template) {
   router.push(`/templates/${template.id}`)
 }
 
-const handleActivate = async template => {
-  try {
-    await templateStore.activateTemplate(template.id)
-    showSnackbar(`Template "${template.name}" activated successfully`, 'success')
-  }
-  catch (error) {
-    console.error('Failed to activate template:', error)
-    showSnackbar('Failed to activate template', 'error')
-  }
+function useTemplate(template) {
+  router.push(`/templates/${template.id}/use`)
 }
 
-const openDeleteDialog = (template) => {
+function confirmDelete(template) {
   templateToDelete.value = template
-  deleteDialog.value = true
+  showDeleteDialog.value = true
 }
 
-const confirmDelete = async () => {
+async function deleteTemplate() {
   if (!templateToDelete.value) return
   
-  deleting.value = true
   try {
     await templateStore.deleteTemplate(templateToDelete.value.id)
-    showSnackbar(`Template "${templateToDelete.value.name}" deleted successfully`, 'success')
-    deleteDialog.value = false
+    showDeleteDialog.value = false
     templateToDelete.value = null
+  } catch (e) {
+    console.error('Failed to delete:', e)
   }
-  catch (error) {
-    console.error('Failed to delete template:', error)
-    showSnackbar('Failed to delete template. Please try again.', 'error')
-  }
-  finally {
-    deleting.value = false
-  }
-}
-
-const cancelDelete = () => {
-  deleteDialog.value = false
-  templateToDelete.value = null
-}
-
-const showSnackbar = (message, color = 'success') => {
-  snackbarMessage.value = message
-  snackbarColor.value = color
-  snackbar.value = true
 }
 
 function getStatusColor(status) {
   const colors = {
-    DRAFT: 'grey',
-    REVIEW: 'info',
-    APPROVED: 'success',
-    ACTIVE: 'primary',
-    ARCHIVED: 'error',
+    ACTIVE: 'success',
+    DRAFT: 'warning',
+    ARCHIVED: 'grey'
   }
-  return colors[status] || 'grey'
+  return colors[status] || 'primary'
 }
 
-function canEdit(status) {
-  return ['DRAFT', 'REVIEW'].includes(status)
-}
-
-function canDelete(status) {
-  return ['DRAFT', 'REVIEW', 'ARCHIVED'].includes(status)
+function clearFilters() {
+  searchQuery.value = ''
+  selectedCategory.value = 'All'
 }
 </script>
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="d-flex justify-space-between align-center mb-6">
-      <div>
-        <h2 class="text-h4 font-weight-bold">Templates</h2>
-        <div class="text-body-1 text-medium-emphasis">
-          Manage document templates and workflows
+    <!-- Dynamic Header -->
+    <div class="mb-8">
+      <div class="d-flex flex-wrap align-center justify-space-between gap-4 mb-6">
+        <div>
+          <h1 class="text-h4 font-weight-bold text-primary mb-1">
+            Templates
+          </h1>
+          <p class="text-body-1 text-medium-emphasis">
+            Manage your reuseable signing blueprints efficiently.
+          </p>
+        </div>
+        
+        <div class="d-flex gap-2">
+           <VBtn 
+            secondary
+            variant="outlined"
+            prepend-icon="mdi-history"
+            disabled
+          >
+            History
+          </VBtn>
+          <VBtn 
+            color="primary" 
+            prepend-icon="mdi-plus"
+            elevation="2"
+            @click="router.push('/templates/new')"
+          >
+            New Template
+          </VBtn>
         </div>
       </div>
 
-      <VBtn prepend-icon="mdi-plus" color="primary" to="/templates/create">
-        Create Template
-      </VBtn>
-    </div>
-
-    <!-- Filters & Search -->
-    <VCard class="mb-4">
-      <VCardText>
-        <VRow align="center">
-          <VCol cols="12" md="6">
-            <VTextField
-              v-model="searchQuery"
-              prepend-inner-icon="mdi-magnify"
-              placeholder="Search templates..."
-              variant="outlined"
-              density="compact"
-              hide-details
-              clearable
-            />
-          </VCol>
-
-          <VCol cols="12" md="4">
-            <VSelect
-              v-model="statusFilter"
-              :items="statusOptions"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="compact"
-              hide-details
-            />
-          </VCol>
-
-          <VCol cols="12" md="2" class="d-flex justify-end">
-            <VBtnToggle v-model="viewMode" mandatory variant="outlined" density="compact">
-              <VBtn value="grid" icon="mdi-view-grid" />
-              <VBtn value="list" icon="mdi-view-list" />
-            </VBtnToggle>
-          </VCol>
-        </VRow>
-      </VCardText>
-    </VCard>
-
-    <!-- Templates Grid/List -->
-    <VProgressLinear v-if="loading" indeterminate />
-
-    <template v-else>
-      <!-- Grid View -->
-      <VRow v-if="viewMode === 'grid' && filteredTemplates.length > 0">
-        <VCol
-          v-for="template in filteredTemplates"
-          :key="template.id"
-          cols="12"
-          sm="6"
-          md="4"
-          lg="3"
-        >
-          <TemplateCard
-            :template="template"
-            @edit="handleEdit"
-            @activate="handleActivate"
-            @delete="openDeleteDialog"
-          />
+      <!-- Stats Cards -->
+      <VRow class="mb-6">
+        <VCol cols="12" sm="6" md="3">
+          <VCard variant="tonal" color="primary" class="stats-card">
+            <VCardText class="d-flex align-center justify-space-between">
+              <div>
+                <div class="text-caption font-weight-medium text-uppercase text-medium-emphasis mb-1">Total Templates</div>
+                <div class="text-h4 font-weight-bold">{{ templateStore.templates.length }}</div>
+              </div>
+              <VIcon size="40" icon="mdi-file-document-multiple-outline" class="text-medium-emphasis opacity-50" />
+            </VCardText>
+          </VCard>
+        </VCol>
+        
+        <VCol cols="12" sm="6" md="3">
+          <VCard variant="tonal" color="success" class="stats-card">
+            <VCardText class="d-flex align-center justify-space-between">
+              <div>
+                <div class="text-caption font-weight-medium text-uppercase text-medium-emphasis mb-1">Active</div>
+                <div class="text-h4 font-weight-bold">{{ templateStore.activeTemplates.length }}</div>
+              </div>
+              <VIcon size="40" icon="mdi-check-circle-outline" class="text-medium-emphasis opacity-50" />
+            </VCardText>
+          </VCard>
+        </VCol>
+        
+        <VCol cols="12" sm="6" md="3">
+          <VCard variant="tonal" color="warning" class="stats-card">
+            <VCardText class="d-flex align-center justify-space-between">
+              <div>
+                <div class="text-caption font-weight-medium text-uppercase text-medium-emphasis mb-1">Drafts</div>
+                <div class="text-h4 font-weight-bold">{{ templateStore.draftTemplates.length }}</div>
+              </div>
+              <VIcon size="40" icon="mdi-pencil-circle-outline" class="text-medium-emphasis opacity-50" />
+            </VCardText>
+          </VCard>
+        </VCol>
+        
+        <VCol cols="12" sm="6" md="3">
+           <VCard variant="tonal" color="info" class="stats-card">
+            <VCardText class="d-flex align-center justify-space-between">
+              <div>
+                <div class="text-caption font-weight-medium text-uppercase text-medium-emphasis mb-1">In Review</div>
+                <div class="text-h4 font-weight-bold">{{ templateStore.pendingReviewTemplates.length }}</div>
+              </div>
+              <VIcon size="40" icon="mdi-clipboard-check-outline" class="text-medium-emphasis opacity-50" />
+            </VCardText>
+          </VCard>
         </VCol>
       </VRow>
 
-      <!-- List View -->
-      <VCard v-else-if="viewMode === 'list' && filteredTemplates.length > 0">
-        <VList>
-          <VListItem
-            v-for="template in filteredTemplates"
-            :key="template.id"
-            class="py-3"
-          >
-            <template #prepend>
-              <VAvatar :color="getStatusColor(template.status)">
-                <VIcon>mdi-file-document</VIcon>
-              </VAvatar>
-            </template>
-
-            <VListItemTitle class="font-weight-medium">
-              {{ template.name }}
-            </VListItemTitle>
-            <VListItemSubtitle>
-              {{ template.description || 'No description' }}
-            </VListItemSubtitle>
-
-            <template #append>
-              <div class="d-flex align-center ga-2">
-                <VChip :color="getStatusColor(template.status)" size="small">
-                  {{ template.status }}
-                </VChip>
-                
-                <VBtn
-                  icon="mdi-eye"
-                  variant="text"
-                  size="small"
-                  color="default"
-                  :to="`/templates/${template.id}`"
-                />
-                
-                <VBtn
-                  v-if="canEdit(template.status)"
-                  icon="mdi-pencil"
-                  variant="text"
-                  size="small"
-                  color="primary"
-                  @click="handleEdit(template)"
-                />
-                
-                <VBtn
-                  v-if="canDelete(template.status)"
-                  icon="mdi-delete"
-                  variant="text"
-                  size="small"
-                  color="error"
-                  @click="openDeleteDialog(template)"
-                />
-              </div>
-            </template>
-          </VListItem>
-        </VList>
+      <!-- Advanced Toolbar -->
+      <VCard elevation="0" border class="pa-2 rounded-lg">
+        <div class="d-flex flex-column flex-md-row align-center gap-4">
+          <div class="flex-grow-1 w-100" style="max-width: 400px;">
+            <VTextField
+              v-model="searchQuery"
+              placeholder="Search templates..."
+              prepend-inner-icon="mdi-magnify"
+              variant="plain"
+              density="compact"
+              hide-details
+              class="search-field"
+            />
+          </div>
+          
+          <VDivider vertical class="hidden-sm-and-down mx-2" />
+          
+          <div class="d-flex align-center flex-wrap gap-2 w-100 overflow-x-auto">
+            <span class="text-caption text-medium-emphasis text-no-wrap mr-2">Filters:</span>
+            <VChipGroup v-model="selectedCategory" mandatory selected-class="text-primary" class="d-inline-flex">
+              <VChip 
+                v-for="cat in categories" 
+                :key="cat"
+                :value="cat"
+                filter
+                variant="text"
+                size="small"
+                class="filter-chip"
+              >
+                {{ cat }}
+              </VChip>
+            </VChipGroup>
+          </div>
+        </div>
       </VCard>
+    </div>
 
-      <!-- Empty State -->
-      <VEmptyState
-        v-else
-        icon="mdi-file-document-outline"
-        title="No templates found"
-        text="Create your first template to streamline document signing"
-      >
-        <template #actions>
-          <VBtn color="primary" to="/templates/create">
-            Create Template
-          </VBtn>
-        </template>
-      </VEmptyState>
-    </template>
-
-    <!-- Summary Stats -->
-    <VRow v-if="!loading" class="mt-4">
-      <VCol cols="12" sm="6" md="3">
-        <VCard variant="tonal">
-          <VCardText class="text-center">
-            <div class="text-h4 font-weight-bold">
-              {{ templateStore.activeTemplates.length }}
-            </div>
-            <div class="text-caption">Active Templates</div>
-          </VCardText>
-        </VCard>
-      </VCol>
-
-      <VCol cols="12" sm="6" md="3">
-        <VCard variant="tonal">
-          <VCardText class="text-center">
-            <div class="text-h4 font-weight-bold">
-              {{ templateStore.draftTemplates.length }}
-            </div>
-            <div class="text-caption">Drafts</div>
-          </VCardText>
-        </VCard>
-      </VCol>
-
-      <VCol cols="12" sm="6" md="3">
-        <VCard variant="tonal">
-          <VCardText class="text-center">
-            <div class="text-h4 font-weight-bold">
-              {{ templateStore.pendingReviewTemplates.length }}
-            </div>
-            <div class="text-caption">Pending Review</div>
-          </VCardText>
-        </VCard>
-      </VCol>
-
-      <VCol cols="12" sm="6" md="3">
-        <VCard variant="tonal">
-          <VCardText class="text-center">
-            <div class="text-h4 font-weight-bold">
-              {{ filteredTemplates.length }}
-            </div>
-            <div class="text-caption">Total Showing</div>
-          </VCardText>
+    <!-- Loading -->
+    <VRow v-if="loading">
+      <VCol v-for="n in 8" :key="n" cols="12" sm="6" md="4" lg="3">
+        <VCard border class="rounded-lg h-100">
+          <VSkeletonLoader type="image, article, actions" />
         </VCard>
       </VCol>
     </VRow>
 
-    <!-- Delete Confirmation Dialog -->
-    <VDialog v-model="deleteDialog" max-width="450" persistent>
+    <!-- Empty State -->
+    <VCard 
+      v-else-if="filteredTemplates.length === 0" 
+      class="py-16 text-center rounded-lg border-dashed bg-transparent"
+      elevation="0"
+      border
+    >
+      <VAvatar color="surface-variant" size="80" class="mb-4">
+        <VIcon size="40" color="medium-emphasis">mdi-file-document-outline</VIcon>
+      </VAvatar>
+      <h3 class="text-h6 font-weight-bold mb-2">
+        {{ searchQuery || selectedCategory !== 'All' ? 'No templates found' : 'No templates yet' }}
+      </h3>
+      <p class="text-body-2 text-medium-emphasis mb-6 max-w-sm mx-auto">
+        {{ searchQuery || selectedCategory !== 'All' ? 'Try adjusting your search or filters to find what you are looking for.' : 'Create your first template to start processing documents faster.' }}
+      </p>
+      <VBtn 
+        v-if="!searchQuery && selectedCategory === 'All'"
+        color="primary" 
+        prepend-icon="mdi-plus"
+        height="44"
+        class="px-6"
+        @click="router.push('/templates/new')"
+      >
+        Create Template
+      </VBtn>
+      <VBtn
+        v-else
+        variant="text"
+        color="primary"
+        @click="clearFilters"
+      >
+        Clear Filters
+      </VBtn>
+    </VCard>
+
+    <!-- Templates Grid -->
+    <VRow v-else>
+      <VCol 
+        v-for="template in filteredTemplates" 
+        :key="template.id"
+        cols="12" 
+        sm="6" 
+        md="4"
+        lg="3"
+      >
+        <VCard border hover class="template-card h-100 d-flex flex-column rounded-lg overflow-hidden position-relative group">
+           <!-- Card Top / Preview -->
+           <div class="card-preview bg-grey-lighten-4 d-flex align-center justify-center position-relative pa-4" style="height: 140px; transition: background 0.3s;">
+             <VIcon size="64" color="grey-lighten-1" class="preview-icon">mdi-file-document-outline</VIcon>
+             
+             <!-- Overlay Actions -->
+             <div class="overlay-actions position-absolute w-100 h-100 d-flex align-center justify-center gap-2" 
+                  style="background: rgba(255,255,255,0.9); opacity: 0; transition: opacity 0.2s;">
+                <VBtn color="primary" variant="flat" size="small" prepend-icon="mdi-pencil" @click="editTemplate(template)">
+                  Edit
+                </VBtn>
+                <VBtn color="success" variant="flat" size="small" prepend-icon="mdi-play" @click="useTemplate(template)">
+                  Use
+                </VBtn>
+             </div>
+           </div>
+           
+           <!-- Card Content -->
+           <VCardItem class="flex-grow-1 pt-4">
+             <template #prepend>
+               <VAvatar color="primary" variant="tonal" rounded size="32" class="mr-2">
+                 <VIcon size="18">mdi-file-document-edit-outline</VIcon>
+               </VAvatar>
+             </template>
+             <VCardTitle class="text-body-1 font-weight-bold pt-1 text-truncate">
+               {{ template.name }}
+             </VCardTitle>
+             <VCardSubtitle class="d-flex align-center mt-1">
+                <VChip :color="getStatusColor(template.status)" size="x-small" label class="font-weight-medium mr-2">
+                  {{ template.status }}
+                </VChip>
+                <div class="text-caption text-medium-emphasis text-truncate" style="max-width: 120px;">
+                  {{ template.category || 'Uncategorized' }}
+                </div>
+             </VCardSubtitle>
+           </VCardItem>
+           
+           <VCardText class="pb-2 pt-0">
+             <p v-if="template.description" class="text-caption text-medium-emphasis mb-3 text-truncate-2">
+               {{ template.description }}
+             </p>
+             <VDivider class="mb-3" />
+             <div class="d-flex align-center justify-space-between text-caption text-medium-emphasis">
+               <div class="d-flex align-center" title="Fields">
+                 <VIcon size="14" class="mr-1">mdi-form-select</VIcon>
+                 {{ template.fields_count || 0 }}
+               </div>
+               <div class="d-flex align-center" title="Usage count">
+                 <VIcon size="14" class="mr-1">mdi-refresh</VIcon>
+                 {{ template.usage_count || 0 }}x
+               </div>
+               <div class="d-flex align-center" title="Last used">
+                 <VIcon size="14" class="mr-1">mdi-clock-outline</VIcon>
+                 <span class="d-inline-block text-truncate" style="max-width: 80px;">
+                    {{ template.updated_at ? new Date(template.updated_at).toLocaleDateString() : 'N/A' }}
+                 </span>
+               </div>
+             </div>
+           </VCardText>
+           
+           <!-- Actions Footer -->
+           <div class="px-2 pb-2 d-flex justify-end border-t pt-2 bg-grey-lighten-5">
+             <VBtn 
+                variant="text" 
+                size="small" 
+                color="info" 
+                prepend-icon="mdi-eye" 
+                class="flex-grow-1 mr-1" 
+                @click="viewTemplate(template)"
+             >
+               View Details
+             </VBtn>
+             
+             <VMenu location="bottom end">
+               <template v-slot:activator="{ props }">
+                  <VBtn icon v-bind="props" variant="text" size="small" color="medium-emphasis">
+                    <VIcon>mdi-dots-vertical</VIcon>
+                  </VBtn>
+               </template>
+               <VList density="compact">
+                 <VListItem prepend-icon="mdi-content-copy" title="Clone" value="clone" @click="" />
+                 <VListItem prepend-icon="mdi-archive" title="Archive" value="archive" @click="" />
+                 <VDivider class="my-1" />
+                 <VListItem prepend-icon="mdi-delete" title="Delete" value="delete" base-color="error" @click="confirmDelete(template)" />
+               </VList>
+             </VMenu>
+           </div>
+        </VCard>
+      </VCol>
+    </VRow>
+
+    <!-- Delete Dialog -->
+    <VDialog v-model="showDeleteDialog" max-width="400">
       <VCard>
-        <VCardTitle class="text-h5 d-flex align-center gap-2">
-          <VIcon color="error">mdi-alert-circle</VIcon>
-          Delete Template
-        </VCardTitle>
-        
+        <VCardTitle>Delete Template?</VCardTitle>
         <VCardText>
-          <p class="text-body-1 mb-2">
-            Are you sure you want to delete <strong>"{{ templateToDelete?.name }}"</strong>?
-          </p>
-          <VAlert type="warning" variant="tonal" density="compact">
-            This action cannot be undone. All associated fields, roles, and configurations will be permanently removed.
-          </VAlert>
+          Are you sure you want to delete <strong>{{ templateToDelete?.name }}</strong>?
+          This cannot be undone.
         </VCardText>
-        
         <VCardActions>
           <VSpacer />
-          <VBtn
-            variant="text"
-            :disabled="deleting"
-            @click="cancelDelete"
-          >
-            Cancel
-          </VBtn>
-          <VBtn
-            color="error"
-            variant="flat"
-            :loading="deleting"
-            @click="confirmDelete"
-          >
-            Delete Template
-          </VBtn>
+          <VBtn variant="text" @click="showDeleteDialog = false">Cancel</VBtn>
+          <VBtn color="error" variant="flat" @click="deleteTemplate">Delete</VBtn>
         </VCardActions>
       </VCard>
     </VDialog>
-
-    <!-- Snackbar for notifications -->
-    <VSnackbar
-      v-model="snackbar"
-      :color="snackbarColor"
-      :timeout="4000"
-      location="bottom end"
-    >
-      {{ snackbarMessage }}
-      <template #actions>
-        <VBtn variant="text" @click="snackbar = false">
-          Close
-        </VBtn>
-      </template>
-    </VSnackbar>
   </div>
 </template>
 
+<style scoped>
+.template-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(var(--v-border-color), 0.5);
+  background: rgb(var(--v-theme-surface));
+}
+
+.template-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px -8px rgba(var(--v-theme-primary), 0.15) !important;
+  border-color: rgba(var(--v-theme-primary), 0.3);
+}
+
+.card-preview {
+  overflow: hidden;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.1);
+}
+
+.template-card:hover .card-preview {
+  background-color: rgb(var(--v-theme-surface-variant)) !important;
+}
+
+.template-card:hover .overlay-actions {
+  opacity: 1 !important;
+  backdrop-filter: blur(2px);
+}
+
+.template-card:hover .preview-icon {
+  transform: scale(1.1);
+  opacity: 0.5;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 40px; /* Approximate height for 2 lines */
+}
+
+.stats-card {
+  transition: transform 0.2s;
+}
+.stats-card:hover {
+  transform: translateY(-2px);
+}
+
+.search-field :deep(.v-field__input) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.filter-chip {
+  font-weight: 500;
+}
+</style>

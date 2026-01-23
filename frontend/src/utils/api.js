@@ -49,6 +49,13 @@ export const templateAPI = {
   getThresholdMatrix: id => $api(`/templates/${id}/threshold-matrix`),
   getVersions: id => $api(`/templates/${id}/versions`),
   createVersion: (id, data) => $api(`/templates/${id}/version`, { method: 'POST', body: data }),
+
+  // Enhanced Features
+  clone: id => $api(`/templates/${id}/clone`, { method: 'POST' }),
+  apply: (id, documentId) => $api(`/templates/${id}/apply`, { method: 'POST', body: { document_id: documentId } }),
+  getCategories: () => $api('/templates/meta/categories'),
+  getMostUsed: () => $api('/templates/meta/most-used'),
+  getRecentlyUsed: () => $api('/templates/meta/recent'),
 }
 
 // Workflow Management API
