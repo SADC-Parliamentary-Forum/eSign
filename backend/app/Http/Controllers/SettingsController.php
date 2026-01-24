@@ -30,6 +30,10 @@ class SettingsController extends Controller
             'allowed_file_types' => 'nullable|string|max:255',
             'email_from_name' => 'nullable|string|max:255',
             'email_from_address' => 'nullable|email|max:255',
+            'timezone' => 'nullable|string|max:100',
+            'date_format' => 'nullable|string|max:50',
+            'time_format' => 'nullable|string|max:20',
+            'locale' => 'nullable|string|max:10',
         ]);
 
         $current = Cache::get('system_settings', $this->getDefaults());
@@ -57,6 +61,10 @@ class SettingsController extends Controller
             'allowed_file_types' => 'pdf,doc,docx',
             'email_from_name' => config('mail.from.name', 'eSign Platform'),
             'email_from_address' => config('mail.from.address', 'noreply@esign.com'),
+            'timezone' => 'Africa/Johannesburg',
+            'date_format' => 'MMM d, yyyy',
+            'time_format' => 'h:mm a',
+            'locale' => 'en-US',
         ];
     }
 }

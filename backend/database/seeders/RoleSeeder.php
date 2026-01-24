@@ -93,7 +93,7 @@ class RoleSeeder extends Seeder
                 'name' => 'SADC Admin',
                 'password' => Hash::make('password'),
                 'role_id' => $adminRole->id,
-                'mfa_enabled' => true,
+                'mfa_enabled' => false,
             ]
         );
     }

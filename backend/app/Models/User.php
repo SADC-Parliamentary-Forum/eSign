@@ -8,10 +8,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable implements MustVerifyEmail, \OwenIt\Auditing\Contracts\Auditable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasUuids, \OwenIt\Auditing\Auditable;
+    use HasApiTokens, HasFactory, Notifiable, HasUuids, \OwenIt\Auditing\Auditable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.

@@ -203,6 +203,20 @@ class DocumentController extends Controller
 
             $document = Document::create($createData);
 
+            $signer = null;
+            if ($validated['is_self_sign'] ?? false) {
+                // Auto-create signer for self-signed documents
+                $user = $request->user();
+                $signer = \App\Models\DocumentSigner::create([
+                    'document_id' => $document->id,
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'name' => $user->name,
+                    'signing_order' => 1,
+                    // 'role' => 'Owner', // Optional
+                ]);
+            }
+
             // If created from template, copy fields
             if ($template && $template->fields) {
                 foreach ($template->fields as $field) {
@@ -219,6 +233,9 @@ class DocumentController extends Controller
                         'required' => $field->required,
                         'organizational_role_id' => $field->organizational_role_id,
                         'fill_mode' => $field->fill_mode ?? 'SIGNER_FILL',
+                        // Map to self-signer if applicable, otherwise leave null for manual assignment
+                        'document_signer_id' => $signer ? $signer->id : null,
+                        'signer_email' => $signer ? $signer->email : null,
                     ]);
                 }
             }

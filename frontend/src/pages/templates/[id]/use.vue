@@ -1,107 +1,31 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTemplateStore } from '@/stores/templates'
 import { useOrganizationStore } from '@/stores/organization'
-import { useDisplay } from 'vuetify'
+import { $api } from '@/utils/api'
 
 const route = useRoute()
 const router = useRouter()
 const templateStore = useTemplateStore()
 const organizationStore = useOrganizationStore()
-const { mobile } = useDisplay()
 
-definePage({
-  meta: {
-    layout: 'default',
-    title: 'Use Template'
-  }
-})
-
-// State
-const step = ref(1)
 const loading = ref(true)
-const sending = ref(false)
+const processing = ref(false)
 const template = ref(null)
-const error = ref(null)
+const error = ref('')
 
-// Assignment State
-const roleAssignments = ref({}) // { role_id: user_object }
-const userSearchHelper = ref({}) // { role_id: search_query }
+// Form Data
+const documentTitle = ref('')
+const roleAssignments = ref({}) // Map role.id -> { name, email }
 
-// Data Filling State
-const fieldValues = ref({}) // { field_id: value }
-
-// Mock User Search (Replace with actual API later)
-const searchUsers = async (query) => {
-  // In a real app, this would be an API call
-  // For now, returning mock users
-  if (!query) return []
-  await new Promise(r => setTimeout(r, 300))
-  return [
-    { id: 1, name: 'John Doe', email: 'john.doe@example.com', role: 'Director Finance' },
-    { id: 2, name: 'Jane Smith', email: 'jane.smith@example.com', role: 'Secretary General', has_delegate: true, delegate_name: 'Bob Jones' },
-    { id: 3, name: 'Bob Jones', email: 'bob.jones@example.com', role: 'Deputy SG' },
-  ].filter(u => u.name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase()))
-}
-
-// Steps configuration
-const steps = [
-  { title: 'Assign Roles', subtitle: 'Who needs to sign?' },
-  { title: 'Fill Details', subtitle: 'Complete document info' },
-  { title: 'Review & Send', subtitle: 'Final check' }
-]
-
-// Computed
-const sortedRoles = computed(() => {
-  if (!template.value?.roles) return []
-  return [...template.value.roles].sort((a, b) => a.signing_order - b.signing_order)
-})
-
-const preFillFields = computed(() => {
-  if (!template.value?.fields) return []
-  return template.value.fields.filter(f => f.fill_mode === 'PRE_FILL')
-})
-
-const canProceedFromStep1 = computed(() => {
-  // Check if all required roles are assigned
-  if (!template.value?.roles) return false
-  return template.value.roles.every(role => {
-    if (!role.is_required) return true
-    return !!roleAssignments.value[role.id]
-  })
-})
-
-const canProceedFromStep2 = computed(() => {
-  // Check if all required pre-fill fields are filled
-  return preFillFields.value.every(field => {
-    if (!field.required) return true
-    return !!fieldValues.value[field.id]
-  })
-})
-
-// Methods
 onMounted(async () => {
   try {
     loading.value = true
-    await organizationStore.fetchRoles() // Ensure roles are loaded
-    template.value = await templateStore.fetchTemplate(route.params.id)
-    
-    // Initialize assignments with empty values
-    if (template.value?.roles) {
-      template.value.roles.forEach(role => {
-        roleAssignments.value[role.id] = null
-      })
-    }
-    
-    // Initialize field values
-    if (template.value?.fields) {
-      template.value.fields.forEach(field => {
-        if (field.fill_mode === 'PRE_FILL') {
-          fieldValues.value[field.id] = ''
-        }
-      })
-    }
+    await Promise.all([
+      organizationStore.fetchRoles(),
+      fetchTemplate()
+    ])
   } catch (e) {
     error.value = e.message || 'Failed to load template'
   } finally {
@@ -109,224 +33,223 @@ onMounted(async () => {
   }
 })
 
-async function onUserSearch(roleId, query) {
-  // Logic handled by v-autocomplete items
-}
-
-async function handleNext() {
-  if (step.value === 1 && canProceedFromStep1.value) {
-    step.value = 2
-  } else if (step.value === 2 && canProceedFromStep2.value) {
-    step.value = 3
+async function fetchTemplate() {
+  const data = await templateStore.fetchTemplate(route.params.id)
+  template.value = data
+  documentTitle.value = data.name
+  
+  // Initialize assignments for each role
+  if (data.template_roles) {
+    data.template_roles.forEach(role => {
+      roleAssignments.value[role.id] = {
+        name: '',
+        email: '',
+        roleId: role.id,
+        orgRoleId: role.organizational_role_id,
+        roleName: getRoleName(role.organizational_role_id),
+        order: role.signing_order
+      }
+    })
   }
 }
 
-async function handleSend() {
+function getRoleName(orgRoleId) {
+  const r = organizationStore.roles.find(r => r.id === orgRoleId)
+  return r ? r.name : 'Signer'
+}
+
+const isValid = computed(() => {
+  if (!documentTitle.value) return false
+  
+  // Check if all template roles are assigned
+  const assignments = Object.values(roleAssignments.value)
+  if (assignments.length === 0) return true
+  
+  return assignments.every(a => a.name && a.email)
+})
+
+async function createDocument() {
+  if (!isValid.value) return
+  
+  processing.value = true
+  error.value = ''
+  
   try {
-    sending.value = true
+    // 1. Create Document
+    const docRes = await $api('/documents', {
+      method: 'POST',
+      body: {
+        title: documentTitle.value,
+        template_id: template.value.id,
+      }
+    })
     
-    // Construct payload
-    const payload = {
-      template_id: template.value.id,
-      title: `${template.value.name} - ${new Date().toLocaleDateString()}`,
-      assignments: Object.entries(roleAssignments.value).map(([roleId, user]) => ({
-        template_role_id: roleId,
-        user_id: user.id,
-        email: user.email,
-        name: user.name
-      })),
-      field_values: fieldValues.value
+    // 2. Add Signers if there are roles
+    const signersList = Object.values(roleAssignments.value).map(a => ({
+      name: a.name,
+      email: a.email,
+      organizational_role_id: a.orgRoleId,
+      order: a.order
+    }))
+    
+    if (signersList.length > 0) {
+      // Sort signers by order locally just in case, though backend should handle it
+      signersList.sort((a, b) => a.order - b.order)
+      
+      await $api(`/documents/${docRes.id}/signers`, {
+        method: 'POST',
+        body: {
+          signers: signersList,
+          sequential: template.value.workflow_type === 'SEQUENTIAL'
+        }
+      })
     }
     
-    // Call API to create document from template
-    const response = await $api.post(`/templates/${template.value.id}/apply`, payload)
+    // 3. Redirect to Document Prepare/Edit
+    router.push(`/documents/${docRes.id}`)
     
-    // Redirect to the new document
-    const documentId = response.document.id
-    router.push(`/documents/${documentId}`)
   } catch (e) {
-    error.value = e.message || 'Failed to send document'
+    console.error(e)
+    error.value = e.message || 'Failed to create document'
   } finally {
-    sending.value = false
+    processing.value = false
   }
 }
 </script>
 
 <template>
-  <div class="usage-page pa-6">
-    <v-card max-width="1000" class="mx-auto" :loading="loading">
-      <v-toolbar color="primary" class="px-4">
-        <v-btn icon="ri-arrow-left-line" variant="text" @click="router.back()" />
-        <v-toolbar-title>Use Template: {{ template?.name }}</v-toolbar-title>
-      </v-toolbar>
+  <div class="fill-height bg-grey-lighten-5 py-8">
+    <VContainer max-width="800">
+      <div v-if="loading" class="d-flex justify-center align-center py-12">
+        <VProgressCircular indeterminate color="primary" />
+      </div>
 
-      <v-card-text v-if="loading" class="text-center py-10">
-        <v-progress-circular indeterminate color="primary" />
-        <div class="mt-4">Loading template details...</div>
-      </v-card-text>
+      <div v-else-if="error" class="text-center py-12">
+        <VIcon icon="ri-error-warning-line" size="48" color="error" class="mb-4" />
+        <h3 class="text-h6 text-error mb-2">Error Loading Template</h3>
+        <p class="text-body-2 text-medium-emphasis mb-6">{{ error }}</p>
+        <VBtn variant="outlined" to="/templates">Back to Templates</VBtn>
+      </div>
 
-      <v-card-text v-else>
-        <!-- Stepper Header -->
-        <v-stepper v-model="step" class="mb-8" flat>
-          <v-stepper-header>
-            <template v-for="(s, i) in steps" :key="i">
-              <v-stepper-item
-                :value="i + 1"
-                :complete="step > i + 1"
-                :title="s.title"
-                :subtitle="s.subtitle"
-              />
-              <v-divider v-if="i < steps.length - 1" />
-            </template>
-          </v-stepper-header>
-        </v-stepper>
-
-        <!-- Step 1: Assign Roles -->
-        <div v-if="step === 1" class="step-content">
-          <div class="text-h6 mb-4">Assign People to Roles</div>
-          <p class="text-body-2 text-medium-emphasis mb-6">
-            Please select who will fulfill each role for this document.
-          </p>
-
-          <v-list class="role-list">
-            <v-list-item
-              v-for="role in sortedRoles"
-              :key="role.id"
-              class="role-item mb-4 border rounded-lg pa-4"
-              lines="two"
+      <template v-else>
+        <!-- Header -->
+        <div class="mb-6 d-flex align-center justify-space-between">
+          <div>
+            <VBtn 
+              variant="text" 
+              prepend-icon="ri-arrow-left-line" 
+              class="px-0 mb-2" 
+              to="/templates"
             >
-              <template v-slot:prepend>
-                <div class="role-badge mr-4">
-                  <v-avatar color="primary" variant="tonal" size="48">
-                    <span class="text-h6">{{ role.signing_order }}</span>
-                  </v-avatar>
-                </div>
-              </template>
-
-              <v-list-item-title class="text-h6 mb-2">
-                {{ role.orgRole?.name || 'Unknown Role' }}
-                <v-chip v-if="role.is_required" size="x-small" color="error" class="ml-2">Required</v-chip>
-              </v-list-item-title>
-
-              <v-list-item-subtitle>
-                <v-autocomplete
-                  v-model="roleAssignments[role.id]"
-                  :items="[]" 
-                  label="Search for a user..."
-                  variant="outlined"
-                  density="compact"
-                  prepend-inner-icon="ri-search-line"
-                  return-object
-                  item-title="name"
-                  hide-no-data
-                  hide-details
-                  class="mt-2"
-                  placeholder="Type name or email"
-                >
-                  <!-- Mocking items for now as search logic needs real backend -->
-                </v-autocomplete>
-              </v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
-        </div>
-
-        <!-- Step 2: Fill Data -->
-        <div v-if="step === 2" class="step-content">
-          <div class="text-h6 mb-4">Complete Document Details</div>
-          <p class="text-body-2 text-medium-emphasis mb-6">
-            Fill in the required information before sending.
-          </p>
-
-          <div v-if="preFillFields.length === 0" class="empty-fields text-center py-8 bg-grey-lighten-4 rounded">
-            <v-icon icon="ri-checkbox-circle-line" size="40" color="success" class="mb-2" />
-            <div>No fields require pre-filling. You can proceed.</div>
+              Back to Templates
+            </VBtn>
+            <h1 class="text-h4 font-weight-bold">Use Template</h1>
+            <p class="text-medium-emphasis">Configure and send document from template</p>
           </div>
-
-          <v-form v-else>
-            <v-row>
-              <v-col v-for="field in preFillFields" :key="field.id" cols="12" md="6">
-                <v-text-field
-                  v-model="fieldValues[field.id]"
-                  :label="field.label || 'Untitled Field'"
-                  :required="field.required"
-                  :rules="field.required ? [v => !!v || 'This field is required'] : []"
-                  variant="outlined"
-                />
-              </v-col>
-            </v-row>
-          </v-form>
         </div>
 
-        <!-- Step 3: Review -->
-        <div v-if="step === 3" class="step-content">
-          <div class="text-h6 mb-4">Review & Send</div>
+        <VCard border :loading="processing">
+          <VCardTitle class="px-6 pt-6">
+            Document Details
+          </VCardTitle>
           
-          <v-card variant="outlined" class="mb-6">
-            <v-card-title class="text-subtitle-1 bg-grey-lighten-4 py-2">Recipients</v-card-title>
-            <v-divider />
-            <v-list density="compact">
-              <v-list-item v-for="role in sortedRoles" :key="role.id">
-                <template v-slot:prepend>
-                  <v-icon icon="ri-user-line" size="small" class="mr-2" />
-                </template>
-                <v-list-item-title>
-                  {{ roleAssignments[role.id]?.name || 'Not assigned' }} 
-                  <span class="text-caption text-medium-emphasis">({{ role.orgRole?.name }})</span>
-                </v-list-item-title>
-                <v-list-item-subtitle>{{ roleAssignments[role.id]?.email }}</v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </v-card>
+          <VCardText class="px-6 pb-6">
+            <VTextField
+              v-model="documentTitle"
+              label="Document Title"
+              variant="outlined"
+              hint="Give your document a clear name"
+              persistent-hint
+              class="mb-6"
+            />
+            
+            <div v-if="Object.keys(roleAssignments).length > 0">
+              <div class="d-flex align-center justify-space-between mb-4">
+                <h3 class="text-h6">Recipients</h3>
+                <span class="text-caption text-medium-emphasis">Assign people to roles</span>
+              </div>
+              
+              <div class="d-flex flex-column gap-4">
+                <div 
+                  v-for="(assignment, id) in roleAssignments" 
+                  :key="id" 
+                  class="role-card pa-4 rounded-lg border bg-surface"
+                >
+                  <div class="d-flex align-center mb-3">
+                    <VAvatar color="primary" variant="tonal" size="32" class="mr-3">
+                      <span class="text-caption font-weight-bold">{{ assignment.order }}</span>
+                    </VAvatar>
+                    <div>
+                      <div class="font-weight-bold">{{ assignment.roleName }}</div>
+                      <div class="text-caption text-medium-emphasis">Signing Order: {{ assignment.order }}</div>
+                    </div>
+                  </div>
+                  
+                  <div class="d-flex gap-4">
+                    <VTextField
+                      v-model="assignment.name"
+                      label="Full Name"
+                      density="compact"
+                      variant="outlined"
+                      hide-details
+                      class="flex-grow-1"
+                    />
+                    <VTextField
+                      v-model="assignment.email"
+                      label="Email Address"
+                      type="email"
+                      density="compact"
+                      variant="outlined"
+                      hide-details
+                      class="flex-grow-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <VAlert
+              v-else
+              type="info"
+              variant="tonal"
+              class="mb-4"
+            >
+              This template has no defined roles. You can add signers later.
+            </VAlert>
 
-          <v-card variant="outlined">
-            <v-card-title class="text-subtitle-1 bg-grey-lighten-4 py-2">Document Details</v-card-title>
-            <v-divider />
-            <v-list density="compact">
-              <v-list-item v-for="field in preFillFields" :key="field.id">
-                <v-list-item-title>{{ field.label }}</v-list-item-title>
-                <v-list-item-subtitle class="text-high-emphasis font-weight-medium">
-                  {{ fieldValues[field.id] || '(Empty)' }}
-                </v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item v-if="preFillFields.length === 0">
-                <v-list-item-title class="text-caption text-medium-emphasis">No pre-filled data</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card>
-        </div>
-      </v-card-text>
-
-      <v-divider />
-
-      <v-card-actions class="pa-4">
-        <v-btn v-if="step > 1" variant="text" @click="step--">Back</v-btn>
-        <v-spacer />
-        <v-btn 
-          v-if="step < 3" 
-          color="primary" 
-          @click="handleNext" 
-          :disabled="step === 1 ? !canProceedFromStep1 : !canProceedFromStep2"
-        >
-          Next Step
-        </v-btn>
-        <v-btn 
-          v-else 
-          color="success" 
-          @click="handleSend" 
-          :loading="sending"
-          prepend-icon="ri-send-plane-fill"
-        >
-          Send Document
-        </v-btn>
-      </v-card-actions>
-    </v-card>
+            <VAlert v-if="error" type="error" variant="tonal" class="mt-4">
+              {{ error }}
+            </VAlert>
+          </VCardText>
+          
+          <VDivider />
+          
+          <VCardActions class="pa-4">
+            <VSpacer />
+            <VBtn variant="text" to="/templates" :disabled="processing">Cancel</VBtn>
+            <VBtn 
+              color="primary" 
+              @click="createDocument" 
+              :loading="processing"
+              :disabled="!isValid"
+              prepend-icon="ri-article-line"
+            >
+              Create & Prepare
+            </VBtn>
+          </VCardActions>
+        </VCard>
+      </template>
+    </VContainer>
   </div>
 </template>
 
 <style scoped>
-.role-badge {
-  width: 48px;
-  display: flex;
-  justify-content: center;
+.gap-4 { gap: 16px; }
+.role-card {
+  transition: all 0.2s;
+}
+.role-card:focus-within {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 </style>

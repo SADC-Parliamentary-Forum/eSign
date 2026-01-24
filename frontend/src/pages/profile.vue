@@ -6,6 +6,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { $api } from '@/utils/api'
 import { useDisplay } from 'vuetify'
+import { formatDateTime } from '@/utils/formatters'
 
 const authStore = useAuthStore()
 const { mobile } = useDisplay()
@@ -335,13 +336,7 @@ async function loadActivities() {
 }
 
 function formatDate(date) {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(date)
 }
 
 function getActivityIcon(type) {

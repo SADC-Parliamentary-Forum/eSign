@@ -4,6 +4,7 @@
  * Modern admin dashboard with user management, audit logs, and system settings
  */
 import { onMounted, ref, watch, computed } from 'vue'
+import { formatDateTime } from '@/utils/formatters'
 
 const activeTab = ref('dashboard')
 const users = ref([])
@@ -104,9 +105,16 @@ const settings = ref({
   allowed_file_types: 'pdf,doc,docx',
   email_from_name: 'eSign Platform',
   email_from_address: 'noreply@esign.com',
+  timezone: 'Africa/Johannesburg',
+  date_format: 'MMM d, yyyy',
+  time_format: 'h:mm a',
+  locale: 'en-US',
 })
 const settingsLoading = ref(false)
 const settingsSaving = ref(false)
+
+import { useAppStore } from '@/stores/app'
+const appStore = useAppStore()
 
 onMounted(async () => {
   loading.value = true
@@ -247,6 +255,7 @@ async function saveSettings() {
       method: 'PUT',
       body: settings.value,
     })
+    appStore.updateSettings(settings.value)
     success.value = 'Settings saved successfully!'
   } catch (e) {
     error.value = 'Failed to save settings: ' + (e.message || 'Unknown error')
@@ -512,8 +521,7 @@ async function deleteOrgRole(id) {
 }
 
 function formatTime(time) {
-  if (!time) return '-'
-  return new Date(time).toLocaleString()
+  return formatDateTime(time)
 }
 
 function getStatusColor(status) {
@@ -954,6 +962,52 @@ const orgRoleHeaders = [
             </VCard>
           </VCol>
 
+          <VCol cols="12" md="6">
+            <VCard>
+              <VCardTitle>
+                <VIcon icon="mdi-earth" class="mr-2" />
+                Regional Settings
+              </VCardTitle>
+              <VCardText>
+                <VSelect
+                  v-model="settings.timezone"
+                  :items="['Africa/Johannesburg', 'UTC', 'Europe/London', 'America/New_York', 'Asia/Dubai', 'Australia/Sydney']"
+                  label="System Timezone"
+                  variant="outlined"
+                  class="mb-4"
+                />
+                <VSelect
+                  v-model="settings.date_format"
+                  :items="[
+                    { title: 'Jan 23, 2026', value: 'MMM d, yyyy' },
+                    { title: '23/01/2026', value: 'dd/MM/yyyy' },
+                    { title: '01/23/2026', value: 'MM/dd/yyyy' },
+                    { title: '2026-01-23', value: 'yyyy-MM-dd' }
+                  ]"
+                  label="Date Format"
+                  variant="outlined"
+                  class="mb-4"
+                />
+                <VSelect
+                  v-model="settings.time_format"
+                  :items="[
+                    { title: '12-hour (11:48 PM)', value: 'h:mm a' },
+                    { title: '24-hour (23:48)', value: 'HH:mm' }
+                  ]"
+                  label="Time Format"
+                  variant="outlined"
+                  class="mb-4"
+                />
+                <VSelect
+                  v-model="settings.locale"
+                  :items="['en-US', 'en-GB', 'fr-FR', 'pt-PT']"
+                  label="System Locale"
+                  variant="outlined"
+                />
+              </VCardText>
+            </VCard>
+          </VCol>
+
           <VCol cols="12">
             <VBtn color="primary" size="large" :loading="settingsSaving" @click="saveSettings">
               <VIcon icon="mdi-content-save" class="mr-2" />
@@ -1058,7 +1112,14 @@ const orgRoleHeaders = [
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.department" label="Department" variant="outlined" />
+              <VSelect
+                v-model="userForm.department"
+                :items="departments"
+                item-title="name"
+                item-value="name"
+                label="Department"
+                variant="outlined"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField v-model="userForm.job_title" label="Job Title" variant="outlined" />

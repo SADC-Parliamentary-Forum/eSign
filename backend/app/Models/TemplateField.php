@@ -41,10 +41,18 @@ class TemplateField extends Model
     }
 
     /**
+     * Set the field type (always store as uppercase to match convention).
+     */
+    public function setTypeAttribute($value)
+    {
+        $this->attributes['type'] = strtolower($value);
+    }
+
+    /**
      * Check if this field requires a signature.
      */
     public function isSignatureField(): bool
     {
-        return in_array($this->type, ['signature', 'initials']);
+        return in_array(strtoupper($this->type), ['SIGNATURE', 'INITIALS']);
     }
 }

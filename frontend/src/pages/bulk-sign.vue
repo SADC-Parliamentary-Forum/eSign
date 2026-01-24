@@ -28,7 +28,7 @@ const fileInput = ref(null)
 onMounted(async () => {
     try {
         const res = await $api('/templates')
-        templates.value = res.data || []
+        templates.value = Array.isArray(res) ? res : (res.data || [])
     } catch(e) { console.error(e) }
 })
 

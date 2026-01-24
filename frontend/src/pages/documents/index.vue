@@ -1,6 +1,7 @@
 <script setup>
 import { $api } from '@/utils/api'
 import { useRouter, useRoute } from 'vue-router'
+import { formatDateTime } from '@/utils/formatters'
 
 const router = useRouter()
 const route = useRoute()
@@ -362,29 +363,11 @@ function getStatusIcon(status) {
 }
 
 function formatDate(dateString) {
-  if (!dateString) return ''
-  
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(dateString)
 }
 
 function formatRelativeDate(dateString) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffInSeconds = Math.floor((now - date) / 1000)
-  
-  if (diffInSeconds < 60) return 'just now'
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
-  
-  return formatDate(dateString)
+  return formatDateTime(dateString)
 }
 
 

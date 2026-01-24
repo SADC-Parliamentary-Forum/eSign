@@ -6,6 +6,7 @@ import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useDisplay } from 'vuetify'
+import { formatDate } from '@/utils/formatters'
 import AppDateTimePicker from '@core/components/app-form-elements/AppDateTimePicker.vue'
 
 const route = useRoute()
@@ -793,7 +794,7 @@ function deleteSelectedField() {
               <v-icon size="14" start icon="mdi-account-group-outline" class="me-1" />
               {{ signers.length }} Participants
               <span class="mx-2">•</span>
-              Created {{ new Date(document?.created_at).toLocaleDateString() }}
+              Created {{ formatDate(document?.created_at) }}
           </div>
         </div>
 

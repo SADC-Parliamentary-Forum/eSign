@@ -47,9 +47,14 @@ class TemplateController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'category' => 'nullable|string|max:50',
+            'workflow_type' => 'nullable|in:SEQUENTIAL,PARALLEL,MIXED',
+            'amount_required' => 'nullable|boolean',
+            'is_bulk_enabled' => 'nullable|boolean',
+            'is_field_locked' => 'nullable|boolean',
             'file' => 'required|file|mimes:pdf|max:20480',
             'is_public' => 'nullable|boolean',
-            'required_signature_level' => 'nullable|in:SIMPLE,ADVANCED,QUALIFIED', // Add validation
+            'required_signature_level' => 'nullable|in:SIMPLE,ADVANCED,QUALIFIED',
         ]);
 
         try {
@@ -62,15 +67,25 @@ class TemplateController extends Controller
                 'user_id' => $request->user()->id,
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
+                'category' => $validated['category'] ?? 'Contract',
+                'workflow_type' => $validated['workflow_type'] ?? 'SEQUENTIAL',
+                'amount_required' => $validated['amount_required'] ?? false,
+                'is_bulk_enabled' => $validated['is_bulk_enabled'] ?? false,
+                'is_field_locked' => $validated['is_field_locked'] ?? false,
                 'file_path' => $path,
                 'file_hash' => $hash,
                 'is_public' => $validated['is_public'] ?? false,
-                'required_signature_level' => $validated['required_signature_level'] ?? 'SIMPLE', // Default SIMPLE
+                'required_signature_level' => $validated['required_signature_level'] ?? 'SIMPLE',
+                'status' => 'DRAFT',
             ]);
 
             return response()->json($template, 201);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            \Illuminate\Support\Facades\Log::error('Template creation failed: ' . $e->getMessage(), [
+                'user_id' => $request->user()->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'Failed to create template: ' . $e->getMessage()], 500);
         }
     }
 
@@ -150,7 +165,8 @@ class TemplateController extends Controller
         foreach ($validated['fields'] as $fieldData) {
             $fields[] = TemplateField::create([
                 'template_id' => $id,
-                ...$fieldData
+                ...$fieldData,
+                'type' => strtolower($fieldData['type']), // Force lowercase to satisfy DB constraint
             ]);
         }
 

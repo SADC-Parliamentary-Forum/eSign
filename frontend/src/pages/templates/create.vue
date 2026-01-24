@@ -8,15 +8,19 @@ const router = useRouter()
 const currentStep = ref(1)
 const loading = ref(false)
 
-// Step 1: Basic Info
 const templateForm = ref({
   name: '',
   description: '',
+  category: 'Contract',
   workflow_type: 'SEQUENTIAL',
   amount_required: false,
   file: null,
   required_signature_level: 'SIMPLE',
+  is_bulk_enabled: false,
+  is_field_locked: false,
 })
+
+const categories = computed(() => templateStore.categories.filter(c => c !== 'All'))
 
 // Step 2: Roles
 const roles = ref([])
@@ -448,8 +452,11 @@ const handleCreate = async () => {
     const formData = new FormData()
     formData.append('name', templateForm.value.name)
     formData.append('description', templateForm.value.description)
+    formData.append('category', templateForm.value.category)
     formData.append('workflow_type', templateForm.value.workflow_type)
     formData.append('amount_required', templateForm.value.amount_required ? '1' : '0')
+    formData.append('is_bulk_enabled', templateForm.value.is_bulk_enabled ? '1' : '0')
+    formData.append('is_field_locked', templateForm.value.is_field_locked ? '1' : '0')
     formData.append('required_signature_level', templateForm.value.required_signature_level)
     formData.append('file', templateForm.value.file)
 
@@ -507,6 +514,7 @@ function handleKeydown(e) {
 }
 
 onMounted(() => {
+  templateStore.fetchCategories()
   window.addEventListener('keydown', handleKeydown)
 })
 
@@ -562,6 +570,17 @@ onUnmounted(() => {
                 rows="3"
                 class="mt-4"
               />
+
+              <VCombobox
+                 v-model="templateForm.category"
+                 :items="categories"
+                 label="Category"
+                 placeholder="Select or type a new category"
+                 variant="outlined"
+                 class="mt-4"
+                 :return-object="false"
+               />
+
               <VSelect
                 v-model="templateForm.workflow_type"
                 :items="workflowTypes"
@@ -596,6 +615,21 @@ onUnmounted(() => {
                 hint="Enable financial threshold rules"
                 persistent-hint
               />
+
+               <div class="d-flex gap-4 mt-2">
+                 <VCheckbox
+                   v-model="templateForm.is_bulk_enabled"
+                   label="Enable Bulk Sending"
+                   hint="Allow sending to multiple recipients via CSV"
+                   persistent-hint
+                 />
+                 <VCheckbox
+                   v-model="templateForm.is_field_locked"
+                   label="Lock Form Fields"
+                   hint="Prevent senders from modifying fields"
+                   persistent-hint
+                 />
+               </div>
             </VCardText>
           </VCard>
         </VStepperWindowItem>

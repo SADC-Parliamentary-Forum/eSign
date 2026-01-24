@@ -28,6 +28,14 @@ class AuthController extends Controller
             }
             */
 
+            // Check if user is active
+            if (!$user->isActive()) {
+                Auth::logout();
+                return response()->json([
+                    'message' => 'Your account is suspended or inactive.'
+                ], 403);
+            }
+
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([

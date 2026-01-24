@@ -82,6 +82,14 @@ class SignatureController extends Controller
                     continue;
                 }
 
+                // Sequential Signing Check
+                if ($document->sequential_signing) {
+                    $fieldSigner = $field->signer;
+                    if ($fieldSigner && $fieldSigner->signing_order != $document->current_signing_order) {
+                        abort(403, 'It is not your turn to sign.');
+                    }
+                }
+
                 if ($field->type === 'SIGNATURE' || $field->type === 'INITIALS') {
                     $sig = Signature::create([
                         'document_id' => $document->id,

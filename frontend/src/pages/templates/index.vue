@@ -16,7 +16,7 @@ const selectedCategory = ref('All')
 const showDeleteDialog = ref(false)
 const templateToDelete = ref(null)
 
-const categories = ['All', 'Contract', 'HR', 'Finance', 'Legal', 'Internal', 'Other']
+const categories = computed(() => ['All', ...templateStore.categories])
 
 const filteredTemplates = computed(() => {
   let result = templateStore.templates || []
@@ -39,7 +39,11 @@ const filteredTemplates = computed(() => {
 onMounted(async () => {
   loading.value = true
   try {
-    await templateStore.fetchTemplates()
+    await Promise.all([
+      templateStore.fetchTemplates(),
+      templateStore.fetchCategories(),
+      templateStore.fetchMostUsed()
+    ])
   } catch (e) {
     console.error('Failed to fetch templates:', e)
   } finally {
@@ -211,6 +215,47 @@ function clearFilters() {
           </div>
         </div>
       </VCard>
+    </div>
+
+    <!-- Most Used Section -->
+    <div v-if="!searchQuery && selectedCategory === 'All' && templateStore.mostUsedTemplates.length > 0" class="mb-8">
+      <h2 class="text-h6 font-weight-bold mb-4 d-flex align-center">
+        <VIcon icon="mdi-fire" color="warning" class="mr-2" />
+        Popular Templates
+      </h2>
+      <VRow>
+        <VCol 
+          v-for="template in templateStore.mostUsedTemplates.slice(0, 4)" 
+          :key="'popular-' + template.id"
+          cols="12" 
+          sm="6" 
+          md="4"
+          lg="3"
+        >
+          <VCard border hover class="template-card h-100 d-flex flex-column rounded-lg overflow-hidden position-relative group">
+           <!-- Reusing card structure broadly, simplified for "Use" acton focus -->
+           <VCardItem class="pt-4 pb-2">
+             <template #prepend>
+               <VAvatar color="primary" variant="tonal" rounded size="32" class="mr-2">
+                 <VIcon size="18">mdi-star</VIcon>
+               </VAvatar>
+             </template>
+             <VCardTitle class="text-body-1 font-weight-bold pt-1 text-truncate">
+               {{ template.name }}
+             </VCardTitle>
+             <VCardSubtitle class="text-caption mt-1">
+               Used {{ template.usage_count }} times
+             </VCardSubtitle>
+           </VCardItem>
+           <VCardText class="pb-2">
+             <VBtn block color="primary" variant="flat" size="small" prepend-icon="mdi-play" @click="useTemplate(template)">
+               Use Pattern
+             </VBtn>
+           </VCardText>
+          </VCard>
+        </VCol>
+      </VRow>
+      <VDivider class="my-6" />
     </div>
 
     <!-- Loading -->

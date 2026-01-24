@@ -374,6 +374,8 @@
     "useResponsive": true,
     "useSessionTimeout": true,
     "workflowAPI": true,
-    "useToast": true
+    "useToast": true,
+    "formatDateTime": true,
+    "formatRelative": true
   }
 }

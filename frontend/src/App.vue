@@ -8,8 +8,15 @@ import {
   useConfigStore,
 } from '@core/stores/config'
 import { hexToRgb } from '@core/utils/colorConverter'
+import { useAppStore } from '@/stores/app'
+import { onMounted } from 'vue'
 
 const { global } = useTheme()
+const appStore = useAppStore()
+
+onMounted(() => {
+  appStore.fetchSettings()
+})
 
 // ℹ️ Sync current theme with initial loader theme
 initCore()
