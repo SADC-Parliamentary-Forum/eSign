@@ -1,19 +1,17 @@
 version: '3.9'
 
 services:
-  # Nginx - Production Web Server
+  # Nginx - Internal Web Server (Behind Host Proxy)
   nginx:
     image: nginx:alpine
     container_name: esign_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "8000:80"  # Expose on 8000 for the host Reverse Proxy
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ../backend:/var/www/html
       - ../frontend/dist:/usr/share/nginx/html:ro
-      - /etc/letsencrypt:/etc/nginx/ssl:ro
     depends_on:
       - app
     networks:
