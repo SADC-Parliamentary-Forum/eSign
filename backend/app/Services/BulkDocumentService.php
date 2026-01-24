@@ -160,6 +160,8 @@ class BulkDocumentService
                 'status' => 'DRAFT', // or SENT directly? PRD says independent lifecycle.
                 'file_path' => $template->file_path,
                 'file_hash' => $template->file_hash,
+                'mime_type' => 'application/pdf',
+                'size' => 0, // Should be actual size, but using 0 for bulk draft as per template logic
                 'sequential_signing' => ($template->workflow_type === 'SEQUENTIAL'),
                 'bulk_batch_id' => $batchId,
                 // ... other fields
@@ -207,7 +209,7 @@ class BulkDocumentService
             // Better: Create as DRAFT, then have a "Start Batch" or async queue to send.
             // OR: Create as SENT but queue email jobs.
 
-            $document->update(['status' => 'SENT', 'sent_at' => now()]);
+            $document->update(['status' => 'IN_PROGRESS', 'sent_at' => now()]);
 
             // Queue Notification (Todo)
         });

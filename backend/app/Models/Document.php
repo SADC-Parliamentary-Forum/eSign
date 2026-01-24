@@ -42,6 +42,7 @@ class Document extends Model implements \OwenIt\Auditing\Contracts\Auditable
         'archived_at',
         'is_self_sign',
         'completion_recipients',
+        'bulk_batch_id',
     ];
 
     protected $casts = [
