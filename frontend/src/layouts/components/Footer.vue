@@ -15,7 +15,15 @@
     </div>
 
     <!-- Right: Version/Clean -->
-    <div class="text-caption text-disabled d-none d-md-block">
+    <div class="text-caption text-disabled d-none d-md-block d-flex align-center">
+      <VChip
+        color="primary"
+        size="x-small"
+        class="me-2 text-uppercase font-weight-bold"
+        label
+      >
+        Beta
+      </VChip>
       Secure eSign Portal
     </div>
   </div>
