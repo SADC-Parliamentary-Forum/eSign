@@ -252,7 +252,7 @@ class DocumentController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $document = Document::with(['signatures', 'signers', 'fields', 'workflowLogs'])
+        $document = Document::with(['signatures', 'signers', 'fields.organizationalRole', 'workflowLogs'])
             ->findOrFail($id);
 
         // Check authorization (owner or assigned signer)

@@ -26,6 +26,8 @@ class DocumentField extends Model
         'signature_id',
         'signed_at',
         'group_id',
+        'organizational_role_id',
+        'fill_mode',
     ];
 
     protected $casts = [
@@ -51,5 +53,10 @@ class DocumentField extends Model
     public function signature()
     {
         return $this->belongsTo(Signature::class);
+    }
+
+    public function organizationalRole()
+    {
+        return $this->belongsTo(OrganizationalRole::class);
     }
 }

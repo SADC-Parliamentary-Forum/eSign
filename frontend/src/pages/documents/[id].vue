@@ -309,8 +309,8 @@ function initCanvas() {
   ctx.lineWidth = 2
   ctx.lineCap = 'round'
   ctx.strokeStyle = '#000'
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+  // Clear for transparency
+  ctx.clearRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
 }
 
 function startDrawing(e) {
@@ -353,9 +353,8 @@ function generateTypeSignature() {
   tCanvas.height = 150
   const tCtx = tCanvas.getContext('2d')
   
-  // White background
-  tCtx.fillStyle = '#fff'
-  tCtx.fillRect(0, 0, tCanvas.width, tCanvas.height)
+  // Clear for transparency
+  tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height)
   
   // Text
   tCtx.font = `48px "${selectedFont.value}"`
@@ -990,7 +989,10 @@ function deleteSelectedField() {
                  >
                     <!-- Field Content (Signature, Text, Date) -->
                     <template v-if="field.type === 'SIGNATURE' || field.type === 'INITIALS'">
-                        <div v-if="fieldValues[field.id]" class="w-100 h-100 p-1">
+                        <!-- Hide content if document is COMPLETED as it's stamped in PDF -->
+                        <div v-if="document?.status === 'COMPLETED'" class="w-100 h-100"></div>
+                        
+                        <div v-else-if="fieldValues[field.id]" class="w-100 h-100 p-1">
                             <img :src="fieldValues[field.id].value" class="w-100 h-100" style="object-fit: contain;" />
                         </div>
                         <div v-else class="text-center">
@@ -1000,6 +1002,7 @@ function deleteSelectedField() {
                     </template>
 
                     <!-- Text Input -->
+                    <div v-else-if="field.type === 'TEXT' && document?.status === 'COMPLETED'" class="w-100 h-100"></div>
                     <input 
                        v-else-if="field.type === 'TEXT'"
                        :value="getFieldValueModel(field).value"
@@ -1010,6 +1013,7 @@ function deleteSelectedField() {
                     />
 
                     <!-- Date -->
+                    <div v-else-if="field.type === 'DATE' && document?.status === 'COMPLETED'" class="w-100 h-100"></div>
                     <div v-else-if="field.type === 'DATE'" class="text-body-2 font-weight-medium">
                        {{ fieldValues[field.id]?.value || 'Date' }}
                     </div>

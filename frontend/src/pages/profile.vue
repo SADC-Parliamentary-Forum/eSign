@@ -201,8 +201,8 @@ function initSignatureCanvas() {
   signatureCtx.lineWidth = 2
   signatureCtx.lineCap = 'round'
   signatureCtx.strokeStyle = '#000'
-  signatureCtx.fillStyle = '#fff'
-  signatureCtx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+  // Clear for transparency
+  signatureCtx.clearRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
 }
 
 function startSignatureDrawing(e) {
@@ -231,8 +231,7 @@ function stopSignatureDrawing() {
 
 function clearSignatureCanvas() {
   if (signatureCtx) {
-    signatureCtx.fillStyle = '#fff'
-    signatureCtx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+    signatureCtx.clearRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
     signatureCtx.strokeStyle = '#000'
   }
 }
@@ -253,8 +252,8 @@ function generateTypedSignature() {
   tCanvas.width = 450
   tCanvas.height = 150
   const tCtx = tCanvas.getContext('2d')
-  tCtx.fillStyle = '#fff'
-  tCtx.fillRect(0, 0, tCanvas.width, tCanvas.height)
+  // Clear for transparency
+  tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height)
   tCtx.font = `48px "${selectedFont.value}"`
   tCtx.fillStyle = '#000'
   tCtx.textAlign = 'center'

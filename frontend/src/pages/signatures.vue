@@ -99,8 +99,8 @@ function initCanvas() {
   ctx.lineWidth = 2
   ctx.lineCap = 'round'
   ctx.strokeStyle = '#000'
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  // Clear for transparency
+  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
 }
 
 function startDrawing(e) {
@@ -133,8 +133,7 @@ function stopDrawing() {
 
 function clearCanvas() {
   if (ctx) {
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+    ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
     ctx.strokeStyle = '#000'
   }
 }
@@ -159,9 +158,8 @@ function generateTypeSignature() {
 
   const tCtx = tCanvas.getContext('2d')
   
-  // White background
-  tCtx.fillStyle = '#fff'
-  tCtx.fillRect(0, 0, tCanvas.width, tCanvas.height)
+  // Clear for transparency
+  tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height)
   
   // Text
   tCtx.font = `48px "${selectedFont.value}"`

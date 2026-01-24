@@ -61,6 +61,7 @@ const activeInteractionFieldId = ref(null)
 // Submit dialog
 const showSubmitDialog = ref(false)
 const showSelfSignDialog = ref(false)
+const hasOrganizationalRoles = ref(false)
 // ... (rest of existing code)
 
 // Drawing handlers
@@ -267,8 +268,7 @@ function initSigCanvas() {
     sigCtx.lineWidth = 2
     sigCtx.lineCap = 'round'
     sigCtx.strokeStyle = '#000'
-    sigCtx.fillStyle = '#fff'
-    sigCtx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+    sigCtx.clearRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
   }
   
   if (initialsCanvas.value) {
@@ -276,8 +276,7 @@ function initSigCanvas() {
     initCtx.lineWidth = 2
     initCtx.lineCap = 'round'
     initCtx.strokeStyle = '#000'
-    initCtx.fillStyle = '#fff'
-    initCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+    initCtx.clearRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
   }
 }
 
@@ -331,14 +330,12 @@ function stopInitDrawing() {
 
 function clearSigCanvas() {
   if (!sigCtx) return
-  sigCtx.fillStyle = '#fff'
-  sigCtx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+  sigCtx.clearRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
 }
 
 function clearInitCanvas() {
   if (!initCtx) return
-  initCtx.fillStyle = '#fff'
-  initCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+  initCtx.clearRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
 }
 
 function generateTypedImage(text, font, width = 540, height = 120) {
@@ -347,8 +344,8 @@ function generateTypedImage(text, font, width = 540, height = 120) {
   offscreen.height = height
   const ctx = offscreen.getContext('2d')
   
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, width, height)
+  // Clear for transparency
+  ctx.clearRect(0, 0, width, height)
   
   ctx.fillStyle = '#000'
   ctx.textAlign = 'center'
@@ -481,10 +478,78 @@ async function fetchDocument() {
     
     // Load existing fields if any
     if (res.fields?.length > 0) {
-      fields.value = res.fields.map(f => ({
-        ...f,
-        signer_color: signers.value.find(s => s.email === f.signer_email)?.color
-      }))
+      // 1. Identify unassigned organizational roles
+      const unassignedRoles = new Map()
+      const unassignedLegacyRoles = new Map()
+
+      res.fields.forEach(f => {
+        // Normalize type immediately
+        if (f.type) f.type = f.type.toUpperCase()
+        
+        if (f.organizational_role_id && !f.signer_email && !f.document_signer_id) {
+          if (!unassignedRoles.has(f.organizational_role_id)) {
+            unassignedRoles.set(f.organizational_role_id, {
+              id: f.organizational_role_id, // Use role ID as temp signer ID
+              isPlaceholder: true,
+              name: f.organizational_role?.name || 'Signer',
+              role: f.signer_role || 'Signer',
+              organizational_role_id: f.organizational_role_id,
+              email: '', // Empty email indicates unassigned
+              color: signerColors[signers.value.length % signerColors.length]
+            })
+            signers.value.push(unassignedRoles.get(f.organizational_role_id))
+          }
+        } 
+        // Legacy string role support
+        else if (f.signer_role && !f.signer_email && !f.document_signer_id) {
+             if (!unassignedLegacyRoles.has(f.signer_role)) {
+                 const newPlaceholder = {
+                     id: 'legacy_' + f.signer_role.replace(/\s+/g, '_'),
+                     isPlaceholder: true,
+                     name: 'Placeholder',
+                     role: f.signer_role,
+                     organizational_role_id: null, // Legacy has no UUID
+                     email: '',
+                     color: signerColors[(signers.value.length + unassignedLegacyRoles.size) % signerColors.length]
+                 }
+                 unassignedLegacyRoles.set(f.signer_role, newPlaceholder)
+                 signers.value.push(newPlaceholder)
+             }
+        }
+      })
+
+      fields.value = res.fields.map(f => {
+        // Find owner (real or placeholder)
+        let owner = null
+        if (f.document_signer_id) {
+          owner = signers.value.find(s => s.id === f.document_signer_id)
+        }
+
+        if (!owner && f.signer_email) {
+          owner = signers.value.find(s => s.email === f.signer_email)
+        }
+
+        if (!owner && f.organizational_role_id) {
+            owner = signers.value.find(s => s.organizational_role_id === f.organizational_role_id)
+        }
+        
+        // Legacy fallback
+        if (!owner && f.signer_role) {
+             owner = signers.value.find(s => s.role === f.signer_role && s.isPlaceholder)
+        }
+        
+        // Fix: Ensure type is uppercase for icon rendering
+        if (f.type) f.type = f.type.toUpperCase()
+
+        return {
+          ...f,
+          signer_color: owner?.color,
+          document_signer_id: owner?.id || f.document_signer_id
+        }
+      })
+      
+      // Check if we are in strict template mode (roles exist)
+      hasOrganizationalRoles.value = res.fields.some(f => f.organizational_role_id)
     }
   } catch (e) {
     error.value = 'Failed to load document: ' + (e.message || 'Unknown error')
@@ -528,30 +593,58 @@ function handleDocumentLoad(pdf) {
 }
 
 // Signer management
+const editingSignerId = ref(null)
+
 function addSigner() {
   if (!newSignerName.value || !newSignerEmail.value) return
-  
-  const newSigner = {
-    id: crypto.randomUUID(),
-    name: newSignerName.value,
-    email: newSignerEmail.value,
-    color: signerColors[signers.value.length % signerColors.length]
+
+  if (editingSignerId.value) {
+    // Update existing
+    const index = signers.value.findIndex(s => s.id === editingSignerId.value)
+    if (index !== -1) {
+      const s = signers.value[index]
+      signers.value[index] = {
+        ...s,
+        name: newSignerName.value,
+        email: newSignerEmail.value,
+        isPlaceholder: false
+      }
+    }
+    editingSignerId.value = null
+  } else {
+    // Add new
+    const newSigner = {
+      id: crypto.randomUUID(),
+      name: newSignerName.value,
+      email: newSignerEmail.value,
+      color: signerColors[signers.value.length % signerColors.length]
+    }
+    signers.value.push(newSigner)
+    selectedSigner.value = newSigner
   }
-  
-  signers.value.push(newSigner)
-  selectedSigner.value = newSigner
-  
+
   // Reset form
   newSignerName.value = ''
   newSignerEmail.value = ''
   showAddSignerForm.value = false
 }
 
+function editSigner(signer) {
+  newSignerName.value = signer.name === 'Signer' && signer.isPlaceholder ? '' : signer.name
+  newSignerEmail.value = signer.email
+  editingSignerId.value = signer.id
+  showAddSignerForm.value = true
+}
+
 function removeSigner(index) {
   const removed = signers.value.splice(index, 1)[0]
   
   // Remove orphaned fields
-  fields.value = fields.value.filter(f => f.signer_email !== removed.email)
+  if (removed.isPlaceholder) {
+     fields.value = fields.value.filter(f => f.organizational_role_id !== removed.organizational_role_id)
+  } else {
+     fields.value = fields.value.filter(f => f.signer_email !== removed.email)
+  }
   
   // If removed signer was selected, select first remaining
   if (selectedSigner.value?.id === removed.id) {
@@ -569,6 +662,15 @@ function selectSigner(signer) {
 function selectFieldType(type) {
   if (!pendingField.value || !selectedSigner.value) return
   
+  // Apply 45% size increase for INITIALS as requested by user
+  let finalWidth = pendingField.value.width
+  let finalHeight = pendingField.value.height
+  
+  if (type === 'INITIALS') {
+    finalWidth *= 1.45
+    finalHeight *= 1.45
+  }
+
   const newField = {
     id: crypto.randomUUID(),
     document_id: doc.value?.id,
@@ -576,8 +678,8 @@ function selectFieldType(type) {
     page_number: pendingField.value.page,
     x: pendingField.value.x,
     y: pendingField.value.y,
-    width: pendingField.value.width,
-    height: pendingField.value.height,
+    width: finalWidth,
+    height: finalHeight,
     signer_email: selectedSigner.value.email,
     document_signer_id: selectedSigner.value.id,
     signer_color: selectedSigner.value.color,
@@ -653,7 +755,8 @@ async function submitDocument() {
       name: s.name,
       email: s.email,
       role: s.role || null,
-      order: i + 1
+      order: i + 1,
+      organizational_role_id: s.organizational_role_id || null
     }))
     
     // The API returns the created signers with their real DB IDs
@@ -965,7 +1068,7 @@ async function handleSelfSign() {
         
         <!-- Add Signer Button - Always visible at top -->
         <v-btn 
-          v-if="!showAddSignerForm && !doc?.is_self_sign"
+          v-if="!showAddSignerForm && !doc?.is_self_sign && !hasOrganizationalRoles"
           block 
           color="primary" 
           variant="tonal"
@@ -980,6 +1083,9 @@ async function handleSelfSign() {
         <!-- Inline Add Signer Form -->
         <v-expand-transition>
           <div v-if="showAddSignerForm" class="add-signer-form mb-3">
+            <div v-if="editingSignerId && signers.find(s => s.id === editingSignerId)?.isPlaceholder" class="text-caption font-weight-bold text-primary mb-2">
+                Assigning to Role: {{ signers.find(s => s.id === editingSignerId)?.role }}
+            </div>
             <v-text-field
               v-model="newSignerName"
               label="Name"
@@ -1000,8 +1106,8 @@ async function handleSelfSign() {
               @keyup.enter="addSigner"
             />
             <div class="d-flex gap-2">
-              <v-btn size="small" variant="text" @click="showAddSignerForm = false">Cancel</v-btn>
-              <v-btn size="small" color="primary" @click="addSigner" :disabled="!newSignerName || !newSignerEmail">Add</v-btn>
+              <v-btn size="small" variant="text" @click="showAddSignerForm = false; editingSignerId = null">Cancel</v-btn>
+              <v-btn size="small" color="primary" @click="addSigner" :disabled="!newSignerName || !newSignerEmail">{{ editingSignerId ? 'Update' : 'Add' }}</v-btn>
             </div>
           </div>
         </v-expand-transition>
@@ -1020,16 +1126,31 @@ async function handleSelfSign() {
               <span class="text-white text-caption">{{ signer.name.charAt(0) }}</span>
             </v-avatar>
             <div class="signer-info">
-              <div class="signer-name">{{ signer.name }}</div>
+              <div class="signer-name">
+                  {{ signer.name }}
+                  <span v-if="signer.isPlaceholder" class="text-caption text-warning ml-1">(Unassigned)</span>
+              </div>
+              <div v-if="signer.role && signer.role !== 'Signer' && signer.role !== signer.name" class="text-caption text-medium-emphasis">
+                  Role: {{ signer.role }}
+              </div>
               <div class="signer-email">{{ signer.email }}</div>
             </div>
-            <v-btn 
-              v-if="!doc?.is_self_sign"
-              icon="ri-close-line" 
-              size="x-small" 
-              variant="text" 
-              @click.stop="removeSigner(index)"
-            />
+            <div class="d-flex align-center">
+                 <v-btn 
+                   icon="mdi-pencil" 
+                   size="x-small" 
+                   variant="text" 
+                   color="medium-emphasis"
+                   @click.stop="editSigner(signer)"
+                 />
+                <v-btn 
+                  v-if="!doc?.is_self_sign && !signer.isPlaceholder"
+                  icon="ri-close-line" 
+                  size="x-small" 
+                  variant="text" 
+                  @click.stop="removeSigner(index)"
+                />
+            </div>
           </div>
           
           <div v-if="signers.length === 0" class="empty-state">
@@ -1222,7 +1343,7 @@ async function handleSelfSign() {
         </div>
         
         <v-btn 
-          v-if="!showAddSignerForm"
+          v-if="!showAddSignerForm && !hasOrganizationalRoles"
           block 
           color="primary" 
           variant="tonal"
@@ -1238,8 +1359,8 @@ async function handleSelfSign() {
             <v-text-field v-model="newSignerName" label="Name" variant="outlined" density="compact" hide-details class="mb-2" />
             <v-text-field v-model="newSignerEmail" label="Email" type="email" variant="outlined" density="compact" hide-details class="mb-2" />
             <div class="d-flex gap-2">
-              <v-btn size="small" variant="text" @click="showAddSignerForm = false">Cancel</v-btn>
-              <v-btn size="small" color="primary" @click="addSigner">Add</v-btn>
+              <v-btn size="small" variant="text" @click="showAddSignerForm = false; editingSignerId = null">Cancel</v-btn>
+              <v-btn size="small" color="primary" @click="addSigner">{{ editingSignerId ? 'Update' : 'Add' }}</v-btn>
             </div>
           </div>
         </v-expand-transition>
@@ -1257,10 +1378,31 @@ async function handleSelfSign() {
               <span class="text-white text-caption">{{ signer.name.charAt(0) }}</span>
             </v-avatar>
             <div class="signer-info">
-              <div class="signer-name">{{ signer.name }}</div>
+              <div class="signer-name">
+                  {{ signer.name }}
+                  <span v-if="signer.isPlaceholder" class="text-caption text-warning ml-1">(Unassigned)</span>
+              </div>
+              <div v-if="signer.role && signer.role !== 'Signer' && signer.role !== signer.name" class="text-caption text-medium-emphasis">
+                  Role: {{ signer.role }}
+              </div>
               <div class="signer-email">{{ signer.email }}</div>
             </div>
-            <v-btn icon="mdi-close" size="x-small" variant="text" @click.stop="removeSigner(index)" />
+            <div class="d-flex align-center">
+                 <v-btn 
+                   icon="mdi-pencil" 
+                   size="x-small" 
+                   variant="text" 
+                   color="medium-emphasis"
+                   @click.stop="editSigner(signer)"
+                 />
+                <v-btn 
+                    v-if="!signer.isPlaceholder" 
+                    icon="mdi-close" 
+                    size="x-small" 
+                    variant="text" 
+                    @click.stop="removeSigner(index)" 
+                />
+            </div>
           </div>
         </div>
       </div>
@@ -1460,6 +1602,39 @@ async function handleSelfSign() {
                 <v-btn size="x-small" variant="text" @click="clearSigCanvas">Clear</v-btn>
               </div>
             </div>
+          </div>
+
+          <div v-else-if="signatureMode === 'type'">
+            <v-text-field
+              v-model="typedName"
+              label="Full Name"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mb-2"
+            />
+            <div class="signature-preview text-center pa-2 border rounded bg-grey-lighten-5 mb-2" :style="{ fontFamily: selectedFont, fontSize: '32px' }">
+              {{ typedName || 'Your Signature' }}
+            </div>
+            
+            <div class="text-caption mb-1">Font Style:</div>
+            <v-chip-group v-model="selectedFont" mandatory selected-class="text-primary" class="mb-2">
+              <v-chip v-for="font in signatureFonts" :key="font" :value="font" size="small" variant="outlined" filter>
+                <span :style="{ fontFamily: font }">Sign</span>
+              </v-chip>
+            </v-chip-group>
+          </div>
+
+          <div v-else>
+            <v-file-input
+              label="Signature Image"
+              variant="outlined"
+              density="compact"
+              accept="image/*"
+              prepend-icon="ri-attachment-line"
+              @change="handleSigUpload"
+            />
+          </div>
 
           <!-- Initials Section -->
           <div class="mb-4">

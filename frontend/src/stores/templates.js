@@ -374,5 +374,37 @@ export const useTemplateStore = defineStore('templates', {
         return []
       }
     },
+
+    async createDocumentFromTemplate(data) {
+      this.loading = true
+      this.error = null
+      try {
+        // Assuming there is an API endpoint for creating a document, possibly POST /documents
+        // However, usually we might use a specific template endpoint or just the document create endpoint with template_id
+        // Let's assume we use the main document creation API but through a helper here or directly.
+        // Reusing the same pattern:
+        // We need to import $api if not available, but we have templateAPI.
+        // Let's assume templateAPI doesn't have it, so we might need to import $api or add it to templateAPI utils.
+        // For now, I'll use a direct fetch or assume templateAPI has a 'use' method.
+        // Actually, looking at previous code, it used $api('/documents', ...).
+        // Let's simply call $api here. We need to import it or availability.
+        // It seems templateAPI is imported. Let's add it to templateAPI in utils first if needed, 
+        // OR just implement it here using the global $api if available or import it.
+        // checking imports: import { templateAPI } from '@/utils/api'
+        // I will add it to the actions assuming templateAPI can handle it or I'll add a 'use' method to templateAPI in the next step if it fails.
+        // Wait, I can just import $api from utils/api here.
+        const { $api } = await import('@/utils/api')
+        const doc = await $api('/documents', {
+          method: 'POST',
+          body: data
+        })
+        return doc
+      } catch (error) {
+        this.error = error.message
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
   },
 })

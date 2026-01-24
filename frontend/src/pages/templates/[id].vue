@@ -348,6 +348,15 @@ function duplicateFieldToAllPages(field) {
 function selectFieldType(type) {
   if (!pendingField.value || !selectedRole.value) return
   
+  // Apply 45% size increase for INITIALS as requested by user
+  let finalWidth = pendingField.value.width
+  let finalHeight = pendingField.value.height
+  
+  if (type === 'INITIALS') {
+    finalWidth *= 1.45
+    finalHeight *= 1.45
+  }
+
   const newField = {
     id: crypto.randomUUID(),
     template_id: template.value?.id,
@@ -355,8 +364,8 @@ function selectFieldType(type) {
     page_number: pendingField.value.page,
     x: pendingField.value.x,
     y: pendingField.value.y,
-    width: pendingField.value.width,
-    height: pendingField.value.height,
+    width: finalWidth,
+    height: finalHeight,
     organizational_role_id: selectedRole.value.organizational_role_id,
     role_color: selectedRole.value.color,
     fill_mode: ['SIGNATURE', 'INITIALS', 'CHECKBOX'].includes(type) ? 'SIGNER_FILL' : 'PRE_FILL',

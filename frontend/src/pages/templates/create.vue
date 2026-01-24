@@ -221,6 +221,15 @@ function endFieldDraw() {
 function selectFieldType(type) {
   if (!pendingField.value || !selectedRoleForMapping.value) return
   
+  // Apply 45% size increase for INITIALS
+  let finalWidth = pendingField.value.width
+  let finalHeight = pendingField.value.height
+  
+  if (type === 'INITIALS') {
+    finalWidth *= 1.45
+    finalHeight *= 1.45
+  }
+
   const newField = {
     id: crypto.randomUUID(),
     type,
@@ -228,8 +237,8 @@ function selectFieldType(type) {
     page_number: pendingField.value.page,
     x: pendingField.value.x,
     y: pendingField.value.y,
-    width: pendingField.value.width,
-    height: pendingField.value.height,
+    width: finalWidth,
+    height: finalHeight,
     required: true,
   }
   
@@ -374,15 +383,24 @@ const onDrop = (event, pageNumber) => {
   const x = ((event.clientX - rect.left) / rect.width) * 100
   const y = ((event.clientY - rect.top) / rect.height) * 100
 
+  // Default sizes
+  let finalWidth = 15
+  let finalHeight = 5
+
+  if (type === 'INITIALS') {
+    finalWidth *= 1.45
+    finalHeight *= 1.45
+  }
+
   fieldMappings.value.push({
     id: crypto.randomUUID(),
     type,
     role_name: selectedRoleForMapping.value,
     page_number: pageNumber,
-    x: x - 7.5, // Center the field
-    y: y - 2.5,
-    width: 15,
-    height: 5,
+    x: x - (finalWidth / 2), 
+    y: y - (finalHeight / 2),
+    width: finalWidth,
+    height: finalHeight,
     required: true,
   })
 }

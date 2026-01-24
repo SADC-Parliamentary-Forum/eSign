@@ -258,8 +258,7 @@ function initCanvas() {
     ctx.lineWidth = 2
     ctx.lineCap = 'round'
     ctx.strokeStyle = '#000'
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+    ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
   }
   
   if (initialsCanvas.value) {
@@ -267,8 +266,7 @@ function initCanvas() {
     initialsCtx.lineWidth = 2
     initialsCtx.lineCap = 'round'
     initialsCtx.strokeStyle = '#000'
-    initialsCtx.fillStyle = '#fff'
-    initialsCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+    initialsCtx.clearRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
   }
 }
 
@@ -319,16 +317,14 @@ function stopDrawing() {
 
 function clearCanvas() {
   if (ctx) {
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+    ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
     ctx.strokeStyle = '#000'
   }
 }
 
 function clearInitialsCanvas() {
   if (initialsCtx) {
-    initialsCtx.fillStyle = '#fff'
-    initialsCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+    initialsCtx.clearRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
     initialsCtx.strokeStyle = '#000'
   }
 }
@@ -339,8 +335,8 @@ function generateTypedImage(text, font, width = 540, height = 120) {
   offscreen.height = height
   const ctx = offscreen.getContext('2d')
   
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, width, height)
+  // Clear for transparency
+  ctx.clearRect(0, 0, width, height)
   
   ctx.fillStyle = '#000'
   ctx.textAlign = 'center'

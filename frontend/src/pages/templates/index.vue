@@ -59,8 +59,19 @@ function viewTemplate(template) {
   router.push(`/templates/${template.id}`)
 }
 
-function useTemplate(template) {
-  router.push(`/templates/${template.id}/use`)
+async function useTemplate(template) {
+  loading.value = true
+  try {
+    const docRes = await templateStore.createDocumentFromTemplate({
+      template_id: template.id,
+      title: template.name // Default title
+    })
+    router.push(`/documents/${docRes.id}`)
+  } catch (e) {
+    console.error('Failed to use template:', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 function confirmDelete(template) {
