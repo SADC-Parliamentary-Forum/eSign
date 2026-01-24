@@ -49,6 +49,9 @@ services:
       - DB_DATABASE=sadc_esign
       - DB_USERNAME=sadc_esign
       - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - CACHE_STORE=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - MINIO_ENDPOINT=http://minio:9000
