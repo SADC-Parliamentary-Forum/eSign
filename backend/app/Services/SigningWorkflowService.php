@@ -67,10 +67,11 @@ class SigningWorkflowService
     public function processSignature(
         DocumentSigner $signer,
         string $signatureData,
+        ?string $initialsData = null,
         ?string $ipAddress = null,
         ?string $userAgent = null
     ): Document {
-        return DB::transaction(function () use ($signer, $signatureData, $ipAddress, $userAgent) {
+        return DB::transaction(function () use ($signer, $signatureData, $initialsData, $ipAddress, $userAgent) {
             $document = $signer->document;
 
             // Verify signer can sign
@@ -78,21 +79,49 @@ class SigningWorkflowService
                 throw new \Exception('You cannot sign this document at this time.');
             }
 
-            // Create signature record
-            Signature::create([
-                'document_id' => $document->id,
-                'user_id' => $signer->user_id,
-                'signature_data' => $signatureData,
-                'ip_address' => $ipAddress,
-                'user_agent' => $userAgent,
-                'signed_at' => now(),
-            ]);
+            // Create signature records for fields
+            // Find fields assigned to this signer
+            $fields = $document->fields()
+                ->where(function ($q) use ($signer) {
+                    $q->where('signer_email', $signer->email)
+                        ->orWhere('document_signer_id', $signer->id);
+                })
+                ->whereIn('type', ['SIGNATURE', 'INITIALS'])
+                ->get();
+
+            foreach ($fields as $field) {
+                $data = ($field->type === 'INITIALS') ? ($initialsData ?: $signatureData) : $signatureData;
+
+                $sig = Signature::create([
+                    'document_id' => $document->id,
+                    'user_id' => $signer->user_id,
+                    'signature_data' => $data,
+                    'ip_address' => $ipAddress,
+                    'user_agent' => $userAgent,
+                    'signed_at' => now(),
+                ]);
+
+                $field->update([
+                    'signature_id' => $sig->id,
+                    'signed_at' => now()
+                ]);
+            }
+
+            // Update other fields (Date, Text etc) - if any are auto-fill
+            $document->fields()
+                ->where(function ($q) use ($signer) {
+                    $q->where('signer_email', $signer->email)
+                        ->orWhere('document_signer_id', $signer->id);
+                })
+                ->where('type', 'DATE')
+                ->whereNull('signed_at')
+                ->update([
+                    'text_value' => now()->toDateString(),
+                    'signed_at' => now()
+                ]);
 
             // Update signer status
             $signer->markAsSigned($ipAddress, $userAgent);
-
-            // Update document status
-            // Document is already IN_PROGRESS (set during sendForSigning)
 
             // Notify document owner
             $this->notifyOwnerOfSignature($document, $signer);

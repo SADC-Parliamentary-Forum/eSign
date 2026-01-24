@@ -12,6 +12,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
 
+// Core states
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -25,7 +26,7 @@ definePage({
 })
 
 // Document state
-const document = ref(null)
+const doc = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -59,6 +60,7 @@ const activeInteractionFieldId = ref(null)
 
 // Submit dialog
 const showSubmitDialog = ref(false)
+const showSelfSignDialog = ref(false)
 // ... (rest of existing code)
 
 // Drawing handlers
@@ -235,6 +237,152 @@ const showAddSignerForm = ref(false)
 const newSignerName = ref('')
 const newSignerEmail = ref('')
 
+// Signature Capture State for Self-Sign
+const signatureMode = ref('draw') // 'draw' | 'upload' | 'type'
+const initialsMode = ref('draw') // 'draw' | 'upload' | 'type'
+const uploadedSignature = ref(null)
+const uploadedInitials = ref(null)
+const typedName = ref('')
+const typedInitials = ref('')
+const selectedFont = ref('Dancing Script')
+const saveToProfile = ref(true)
+
+const signatureFonts = [
+  'Dancing Script',
+  'Pacifico',
+  'Pinyon Script',
+  'Great Vibes',
+  'Satisfy',
+]
+const signatureCanvas = ref(null)
+const initialsCanvas = ref(null)
+let sigCtx = null
+let initCtx = null
+let isSigDrawing = false
+let isInitDrawing = false
+
+function initSigCanvas() {
+  if (signatureCanvas.value) {
+    sigCtx = signatureCanvas.value.getContext('2d')
+    sigCtx.lineWidth = 2
+    sigCtx.lineCap = 'round'
+    sigCtx.strokeStyle = '#000'
+    sigCtx.fillStyle = '#fff'
+    sigCtx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+  }
+  
+  if (initialsCanvas.value) {
+    initCtx = initialsCanvas.value.getContext('2d')
+    initCtx.lineWidth = 2
+    initCtx.lineCap = 'round'
+    initCtx.strokeStyle = '#000'
+    initCtx.fillStyle = '#fff'
+    initCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+  }
+}
+
+function startSigDrawing(e) {
+  isSigDrawing = true
+  const rect = signatureCanvas.value.getBoundingClientRect()
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+  sigCtx.beginPath()
+  sigCtx.moveTo(x, y)
+}
+
+function startInitDrawing(e) {
+  isInitDrawing = true
+  const rect = initialsCanvas.value.getBoundingClientRect()
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+  initCtx.beginPath()
+  initCtx.moveTo(x, y)
+}
+
+function sigDraw(e) {
+  if (!isSigDrawing) return
+  if (e.cancelable) e.preventDefault()
+  const rect = signatureCanvas.value.getBoundingClientRect()
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+  sigCtx.lineTo(x, y)
+  sigCtx.stroke()
+}
+
+function initDraw(e) {
+  if (!isInitDrawing) return
+  if (e.cancelable) e.preventDefault()
+  const rect = initialsCanvas.value.getBoundingClientRect()
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+  initCtx.lineTo(x, y)
+  initCtx.stroke()
+}
+
+function stopSigDrawing() {
+  isSigDrawing = false
+  sigCtx?.closePath()
+}
+
+function stopInitDrawing() {
+  isInitDrawing = false
+  initCtx?.closePath()
+}
+
+function clearSigCanvas() {
+  if (!sigCtx) return
+  sigCtx.fillStyle = '#fff'
+  sigCtx.fillRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+}
+
+function clearInitCanvas() {
+  if (!initCtx) return
+  initCtx.fillStyle = '#fff'
+  initCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+}
+
+function generateTypedImage(text, font, width = 540, height = 120) {
+  const offscreen = window.document.createElement('canvas')
+  offscreen.width = width
+  offscreen.height = height
+  const ctx = offscreen.getContext('2d')
+  
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, width, height)
+  
+  ctx.fillStyle = '#000'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  
+  const fontSize = height * 0.6
+  ctx.font = `${fontSize}px "${font}", cursive`
+  
+  ctx.fillText(text, width / 2, height / 2)
+  
+  return offscreen.toDataURL('image/png')
+}
+
+function handleInitUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    uploadedInitials.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+function handleSigUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    uploadedSignature.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+
 // Color palette for signers
 const signerColors = [
   { bg: '#E3F2FD', border: '#1976D2', text: '#1976D2' },
@@ -298,7 +446,7 @@ async function fetchDocument() {
   try {
     loading.value = true
     const res = await $api(`/documents/${route.params.id}`)
-    document.value = res
+    doc.value = res
     
     // Fetch PDF with auth token and create blob URL
     await loadPdfBlob(route.params.id)
@@ -320,6 +468,10 @@ async function fetchDocument() {
           color: signerColors[0],
           role: 'Signer'
         }]
+        
+        // Pre-fill typed signature
+        typedName.value = user.name
+        typedInitials.value = user.name.split(' ').map(n => n[0]).join('').toUpperCase()
       }
     }
 
@@ -419,7 +571,7 @@ function selectFieldType(type) {
   
   const newField = {
     id: crypto.randomUUID(),
-    document_id: document.value?.id,
+    document_id: doc.value?.id,
     type,
     page_number: pendingField.value.page,
     x: pendingField.value.x,
@@ -505,7 +657,7 @@ async function submitDocument() {
     }))
     
     // The API returns the created signers with their real DB IDs
-    const signersResponse = await $api(`/documents/${document.value.id}/signers`, {
+    const signersResponse = await $api(`/documents/${doc.value.id}/signers`, {
       method: 'POST',
       body: { 
         signers: signerPayload,
@@ -514,7 +666,7 @@ async function submitDocument() {
     })
     
     // 2. Map fields to the real signer IDs
-    // We match signers by email to find the correct DB ID
+    // We match signers by email to find the correct DB IDs
     const dbSigners = signersResponse.signers || []
     
     const fieldPayload = fields.value.map(f => {
@@ -554,13 +706,13 @@ async function submitDocument() {
       }
     })
     
-    await $api(`/documents/${document.value.id}/fields`, {
+    await $api(`/documents/${doc.value.id}/fields`, {
       method: 'POST',
       body: { fields: fieldPayload }
     })
     
     // 3. Send document
-    await $api(`/documents/${document.value.id}/send`, {
+    await $api(`/documents/${doc.value.id}/send`, {
       method: 'POST',
       body: {
         sequential: sequentialSigning.value,
@@ -576,8 +728,8 @@ async function submitDocument() {
     })
     
     // Success - redirect to dashboard (or signing page if self-sign)
-    if (document.value.is_self_sign) {
-        router.push(`/documents/${document.value.id}`)
+    if (doc.value.is_self_sign) {
+        router.push(`/documents/${doc.value.id}`)
     } else {
         router.push('/')
     }
@@ -611,7 +763,12 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
-const showSelfSignDialog = ref(false)
+// Watch for dialog open to init canvas
+watch(showSelfSignDialog, (val) => {
+  if (val && signatureMode.value === 'draw') {
+    setTimeout(initSigCanvas, 100)
+  }
+})
 
 function openSelfSignDialog() {
   if (!validation.value.isValid) {
@@ -635,7 +792,7 @@ async function handleSelfSign() {
     }))
     
     // Create signers to get real IDs
-    const signersResponse = await $api(`/documents/${document.value.id}/signers`, {
+    const signersResponse = await $api(`/documents/${doc.value.id}/signers`, {
       method: 'POST',
       body: { 
         signers: signerPayload,
@@ -677,18 +834,44 @@ async function handleSelfSign() {
       }
     })
     
-    await $api(`/documents/${document.value.id}/fields`, {
+    await $api(`/documents/${doc.value.id}/fields`, {
       method: 'POST',
       body: { fields: fieldPayload }
     })
     
-    // 3. Call Finish Self Sign (Atomic)
-    await $api(`/documents/${document.value.id}/sign-self`, {
-        method: 'POST'
+    // 3. Call Finish
+    let sigData = null
+    let initData = null
+    
+    // Determine Signature
+    if (signatureMode.value === 'upload') {
+        sigData = uploadedSignature.value
+    } else if (signatureMode.value === 'type') {
+        sigData = generateTypedImage(typedName.value, selectedFont.value, 540, 120)
+    } else {
+        sigData = signatureCanvas.value.toDataURL('image/png')
+    }
+
+    // Determine Initials
+    if (initialsMode.value === 'upload') {
+        initData = uploadedInitials.value
+    } else if (initialsMode.value === 'type') {
+        initData = generateTypedImage(typedInitials.value, selectedFont.value, 540, 80)
+    } else {
+        initData = initialsCanvas.value.toDataURL('image/png')
+    }
+
+    await $api(`/documents/${doc.value.id}/sign-self`, {
+        method: 'POST',
+        body: {
+            signature_data: sigData,
+            initials_data: initData,
+            save_to_profile: saveToProfile.value
+        }
     })
     
     // Redirect to document view (completed)
-    router.push(`/documents/${document.value.id}`)
+    router.push(`/documents/${doc.value.id}`)
     
   } catch (e) {
     error.value = e.message || 'Failed to sign document'
@@ -713,7 +896,7 @@ async function handleSelfSign() {
         />
         <v-divider vertical class="mx-2" />
         <div class="document-info">
-          <span v-if="document" class="document-title">{{ document.title }}</span>
+          <span v-if="doc" class="document-title">{{ doc.title }}</span>
           <v-skeleton-loader v-else type="text" width="150" />
         </div>
       </div>
@@ -757,11 +940,11 @@ async function handleSelfSign() {
           variant="elevated"
           size="small"
           :disabled="!validation.isValid"
-          @click="document?.is_self_sign ? openSelfSignDialog() : openSubmitDialog()"
+          @click="doc?.is_self_sign ? openSelfSignDialog() : openSubmitDialog()"
           class="submit-btn"
         >
-          <v-icon :icon="document?.is_self_sign ? 'ri-quill-pen-line' : 'ri-send-plane-line'" class="mr-1" size="18" />
-          <span class="d-none d-sm-inline">{{ document?.is_self_sign ? 'Sign & Finish' : 'Submit' }}</span>
+          <v-icon :icon="doc?.is_self_sign ? 'ri-quill-pen-line' : 'ri-send-plane-line'" class="mr-1" size="18" />
+          <span class="d-none d-sm-inline">{{ doc?.is_self_sign ? 'Sign & Finish' : 'Submit' }}</span>
         </v-btn>
       </div>
     </header>
@@ -782,7 +965,7 @@ async function handleSelfSign() {
         
         <!-- Add Signer Button - Always visible at top -->
         <v-btn 
-          v-if="!showAddSignerForm && !document?.is_self_sign"
+          v-if="!showAddSignerForm && !doc?.is_self_sign"
           block 
           color="primary" 
           variant="tonal"
@@ -841,7 +1024,7 @@ async function handleSelfSign() {
               <div class="signer-email">{{ signer.email }}</div>
             </div>
             <v-btn 
-              v-if="!document?.is_self_sign"
+              v-if="!doc?.is_self_sign"
               icon="ri-close-line" 
               size="x-small" 
               variant="text" 
@@ -1147,7 +1330,7 @@ async function handleSelfSign() {
         
         <v-card-text class="pa-4">
           <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-            <strong>{{ document?.title }}</strong><br>
+            <strong>{{ doc?.title }}</strong><br>
             <span class="text-caption">{{ signers.length }} signer(s) • {{ fields.length }} field(s)</span>
           </v-alert>
 
@@ -1239,25 +1422,132 @@ async function handleSelfSign() {
     </v-dialog>
   </div>
     <!-- Self Sign Dialog -->
-    <v-dialog v-model="showSelfSignDialog" max-width="400">
-      <v-card title="Confirm Signature">
-        <v-card-text>
-          This will apply your default signature to all fields and finalize the document immediately.
-          <br><br>
-          <v-alert type="info" variant="tonal" density="compact" class="mb-0">
-             Ensure you have a default signature set in your profile.
-          </v-alert>
+    <v-dialog v-model="showSelfSignDialog" max-width="550" persistent>
+      <v-card rounded="lg">
+        <v-card-title class="bg-primary text-white pa-4">
+          <v-icon icon="ri-quill-pen-line" class="mr-2" />
+          Finalize & Sign
+        </v-card-title>
+        
+        <v-card-text class="pa-4">
+          <p class="text-body-2 mb-4">
+            Place your signature below to finalize this document. It will be marked as COMPLETED immediately.
+          </p>
+
+          <v-tabs v-model="signatureMode" density="compact" color="primary" class="mb-4">
+            <v-tab value="draw">Draw</v-tab>
+            <v-tab value="type">Type</v-tab>
+            <v-tab value="upload">Upload</v-tab>
+          </v-tabs>
+
+          <div v-if="signatureMode === 'draw'">
+            <div class="text-caption mb-1">Signature:</div>
+            <div class="signature-canvas-container border rounded mb-2">
+              <canvas
+                ref="signatureCanvas"
+                width="500"
+                height="120"
+                style="width: 100%; height: 120px; background: #fff; cursor: crosshair;"
+                @mousedown="startSigDrawing"
+                @mousemove="sigDraw"
+                @mouseup="stopSigDrawing"
+                @mouseleave="stopSigDrawing"
+                @touchstart="startSigDrawing"
+                @touchmove="sigDraw"
+                @touchend="stopSigDrawing"
+              ></canvas>
+              <div class="d-flex justify-end pr-2 pb-1">
+                <v-btn size="x-small" variant="text" @click="clearSigCanvas">Clear</v-btn>
+              </div>
+            </div>
+
+          <!-- Initials Section -->
+          <div class="mb-4">
+            <div class="text-subtitle-2 font-weight-bold mb-2">Initials</div>
+            <v-tabs v-model="initialsMode" density="compact" color="primary" class="mb-2">
+              <v-tab value="draw">Draw</v-tab>
+              <v-tab value="type">Type</v-tab>
+              <v-tab value="upload">Upload</v-tab>
+            </v-tabs>
+
+            <div v-if="initialsMode === 'draw'">
+              <div class="signature-canvas-container border rounded mb-2">
+                <canvas
+                  ref="initialsCanvas"
+                  width="500"
+                  height="80"
+                  style="width: 100%; height: 80px; background: #fff; cursor: crosshair;"
+                  @mousedown="startInitDrawing"
+                  @mousemove="initDraw"
+                  @mouseup="stopInitDrawing"
+                  @mouseleave="stopInitDrawing"
+                  @touchstart="startInitDrawing"
+                  @touchmove="initDraw"
+                  @touchend="stopInitDrawing"
+                ></canvas>
+                <div class="d-flex justify-end pr-2 pb-1">
+                  <v-btn size="x-small" variant="text" @click="clearInitCanvas">Clear</v-btn>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="initialsMode === 'type'">
+              <v-text-field
+                v-model="typedInitials"
+                label="Initials"
+                variant="outlined"
+                density="compact"
+                hide-details
+                class="mb-2"
+              />
+              <div class="initials-preview text-center pa-2 border rounded bg-grey-lighten-5 mb-2" :style="{ fontFamily: selectedFont, fontSize: '32px' }">
+                {{ typedInitials || 'Init' }}
+              </div>
+            </div>
+
+            <div v-else>
+              <v-file-input
+                label="Initials Image"
+                variant="outlined"
+                density="compact"
+                accept="image/*"
+                prepend-icon="ri-font-size"
+                @change="handleInitUpload"
+              />
+            </div>
+          </div>
+
+          <v-checkbox
+            v-model="saveToProfile"
+            label="Save as my default signature"
+            color="primary"
+            hide-details
+            density="compact"
+          />
         </v-card-text>
-        <v-card-actions>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="text" @click="showSelfSignDialog = false">Cancel</v-btn>
           <v-spacer />
-          <v-btn @click="showSelfSignDialog = false" variant="text">Cancel</v-btn>
-          <v-btn color="primary" @click="handleSelfSign" :loading="saving" prepend-icon="ri-quill-pen-line">Sign & Finish</v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="saving"
+            @click="handleSelfSign"
+          >
+            <v-icon icon="ri-quill-pen-line" class="mr-1" />
+            Sign & Complete
+          </v-btn>
         </v-card-actions>
       </v-card>
   </v-dialog>
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script&family=Pacifico&family=Pinyon+Script&family=Great+Vibes&family=Satisfy&display=swap');
+
 .prepare-page {
   display: flex;
   flex-direction: column;
@@ -1652,6 +1942,24 @@ async function handleSelfSign() {
   background: rgba(25, 118, 210, 0.1);
   pointer-events: none;
   border-radius: 4px;
+}
+
+.font-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.font-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+  text-align: center;
+}
+
+.font-card.selected {
+  border-color: rgb(var(--v-theme-primary));
+  background-color: rgba(var(--v-theme-primary), 0.05);
 }
 
 /* Hint Overlay */

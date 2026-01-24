@@ -11,11 +11,17 @@ import { hexToRgb } from '@core/utils/colorConverter'
 import { useAppStore } from '@/stores/app'
 import { onMounted } from 'vue'
 
+import { useAuthStore } from '@/stores/auth'
+
 const { global } = useTheme()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 
 onMounted(() => {
-  appStore.fetchSettings()
+  // Only fetch admin settings if user is logged in and is an Admin
+  if (authStore.isAuthenticated && authStore.role === 'Admin') {
+    appStore.fetchSettings()
+  }
 })
 
 // ℹ️ Sync current theme with initial loader theme

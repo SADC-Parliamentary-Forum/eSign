@@ -22,7 +22,10 @@ export const useAppStore = defineStore('app', {
                     this.settings = { ...this.settings, ...data }
                 }
             } catch (error) {
-                console.error('Failed to fetch app settings:', error)
+                // Silently handle 403 Forbidden errors (e.g. for non-admin users)
+                if (error.response?.status !== 403) {
+                    console.error('Failed to fetch app settings:', error)
+                }
             } finally {
                 this.loading = false
             }

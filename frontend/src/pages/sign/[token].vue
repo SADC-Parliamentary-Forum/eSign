@@ -19,7 +19,7 @@ const token = computed(() => route.params.token)
 
 // Page state
 const currentView = ref('landing') // 'landing', 'preview', 'sign'
-const document = ref(null)
+const doc = ref(null)
 const signer = ref(null)
 const fields = ref([])
 const requiresAccount = ref(false)
@@ -31,16 +31,22 @@ const submitting = ref(false)
 const pdfSource = ref(null)
 const pageCount = ref(0)
 
-// Saved signatures
+// Saved signatures & initials
 const savedSignatures = ref([])
+const savedInitials = ref([])
 const selectedSignatureId = ref(null)
+const selectedInitialsId = ref(null)
 const useSavedSignature = ref(false)
+const useSavedInitials = ref(false)
 const loadingSignatures = ref(false)
 
-// Signature canvas
+// Signature & Initials canvas
 const canvas = ref(null)
+const initialsCanvas = ref(null)
 let ctx = null
+let initialsCtx = null
 let isDrawing = false
+let isDrawingInitials = false
 
 // Decline dialog
 const showDeclineDialog = ref(false)
@@ -61,10 +67,23 @@ const registering = ref(false)
 // Quick sign mode (use saved signature directly)
 const quickSignMode = ref(false)
 
-// Signature Mode
-const signatureMode = ref('draw') // 'draw' | 'upload'
+// Signature & Initials Mode
+const signatureMode = ref('draw') // 'draw' | 'upload' | 'type'
+const initialsMode = ref('draw') // 'draw' | 'upload' | 'type'
 const uploadedSignature = ref(null)
+const uploadedInitials = ref(null)
+const typedName = ref('')
+const typedInitials = ref('')
+const selectedFont = ref('Dancing Script')
 const saveToProfile = ref(false)
+
+const signatureFonts = [
+  'Dancing Script',
+  'Pacifico',
+  'Pinyon Script',
+  'Great Vibes',
+  'Satisfy',
+]
 
 function handleFileUpload(event) {
   const file = event.target.files[0]
@@ -74,6 +93,16 @@ function handleFileUpload(event) {
 
   reader.onload = e => {
     uploadedSignature.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+function handleInitialsUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    uploadedInitials.value = e.target.result
   }
   reader.readAsDataURL(file)
 }
@@ -96,10 +125,16 @@ async function fetchDocument() {
       return
     }
     
-    document.value = data.document
+    doc.value = data.document
     signer.value = data.signer
     fields.value = data.fields || []
     requiresAccount.value = data.requires_account
+
+    // Pre-fill typed name from signer
+    if (signer.value?.name) {
+      typedName.value = signer.value.name
+      typedInitials.value = signer.value.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    }
 
     const requiresVerification = data.requires_verification
 
@@ -160,16 +195,22 @@ async function fetchSavedSignatures() {
 
     if (res.ok) {
       const data = await res.json()
+      const allSigs = Array.isArray(data) ? data : data.data || []
 
-      savedSignatures.value = (Array.isArray(data) ? data : data.data || [])
-        .filter(s => s.type === 'signature')
+      savedSignatures.value = allSigs.filter(s => s.type === 'signature')
+      savedInitials.value = allSigs.filter(s => s.type === 'initials')
       
-      // Auto-select default signature
+      // Auto-select defaults
       if (savedSignatures.value.length > 0) {
         const defaultSig = savedSignatures.value.find(s => s.is_default)
-
         selectedSignatureId.value = defaultSig?.id || savedSignatures.value[0].id
         useSavedSignature.value = true
+      }
+      
+      if (savedInitials.value.length > 0) {
+        const defaultInit = savedInitials.value.find(s => s.is_default)
+        selectedInitialsId.value = defaultInit?.id || savedInitials.value[0].id
+        useSavedInitials.value = true
       }
     }
   } catch (e) {
@@ -212,48 +253,105 @@ function backToLanding() {
 
 // Canvas methods
 function initCanvas() {
-  if (!canvas.value) return
-  ctx = canvas.value.getContext('2d')
-  ctx.lineWidth = 2
-  ctx.lineCap = 'round'
-  ctx.strokeStyle = '#000'
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  if (canvas.value) {
+    ctx = canvas.value.getContext('2d')
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#000'
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+  }
+  
+  if (initialsCanvas.value) {
+    initialsCtx = initialsCanvas.value.getContext('2d')
+    initialsCtx.lineWidth = 2
+    initialsCtx.lineCap = 'round'
+    initialsCtx.strokeStyle = '#000'
+    initialsCtx.fillStyle = '#fff'
+    initialsCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+  }
 }
 
 function startDrawing(e) {
   isDrawing = true
-
   const rect = canvas.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
   const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
-
   ctx.beginPath()
   ctx.moveTo(x, y)
 }
 
+function startDrawingInitials(e) {
+  isDrawingInitials = true
+  const rect = initialsCanvas.value.getBoundingClientRect()
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+  initialsCtx.beginPath()
+  initialsCtx.moveTo(x, y)
+}
+
 function draw(e) {
   if (!isDrawing) return
-  e.preventDefault()
-
+  if (e.cancelable) e.preventDefault()
   const rect = canvas.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
   const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
-
   ctx.lineTo(x, y)
   ctx.stroke()
 }
 
+function drawInitials(e) {
+  if (!isDrawingInitials) return
+  if (e.cancelable) e.preventDefault()
+  const rect = initialsCanvas.value.getBoundingClientRect()
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+  initialsCtx.lineTo(x, y)
+  initialsCtx.stroke()
+}
+
 function stopDrawing() {
   isDrawing = false
+  isDrawingInitials = false
   ctx?.closePath()
+  initialsCtx?.closePath()
 }
 
 function clearCanvas() {
-  if (!ctx) return
+  if (ctx) {
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
+    ctx.strokeStyle = '#000'
+  }
+}
+
+function clearInitialsCanvas() {
+  if (initialsCtx) {
+    initialsCtx.fillStyle = '#fff'
+    initialsCtx.fillRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+    initialsCtx.strokeStyle = '#000'
+  }
+}
+
+function generateTypedImage(text, font, width = 540, height = 120) {
+  const offscreen = window.document.createElement('canvas')
+  offscreen.width = width
+  offscreen.height = height
+  const ctx = offscreen.getContext('2d')
+  
   ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, canvas.value.width, canvas.value.height)
-  ctx.strokeStyle = '#000'
+  ctx.fillRect(0, 0, width, height)
+  
+  ctx.fillStyle = '#000'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  
+  const fontSize = height * 0.6
+  ctx.font = `${fontSize}px "${font}", cursive`
+  
+  ctx.fillText(text, width / 2, height / 2)
+  
+  return offscreen.toDataURL('image/png')
 }
 
 // Registration
@@ -289,11 +387,9 @@ async function register() {
 }
 
 // Submit signature
-// Submit signature
 async function submitSignature() {
   if (requiresAccount.value && !authStore.isAuthenticated) {
     showRegister.value = true
-    
     return
   }
   
@@ -301,47 +397,38 @@ async function submitSignature() {
   error.value = ''
   
   let signatureData = null
+  let initialsData = null
   let userSignatureId = null
   
-  // Determine signature source
+  // 1. Determine Signature
   if (useSavedSignature.value && selectedSignatureId.value) {
-    // Using saved signature
     userSignatureId = selectedSignatureId.value
-    
-    // Fetch the signature data if needed
-    const authToken = localStorage.getItem('token')
-    if (authToken) {
-      try {
-        const res = await fetch(`/api/signatures/mine/${selectedSignatureId.value}`, {
-          headers: { 'Authorization': `Bearer ${authToken}` },
-        })
-
-        if (res.ok) {
-          const sig = await res.json()
-
-          signatureData = sig.image_data
-        }
-      } catch (e) {
-        error.value = 'Failed to load saved signature'
-        submitting.value = false
-        quickSignMode.value = false
-        
-        return
-      }
-    }
+    const sig = savedSignatures.value.find(s => s.id === userSignatureId)
+    signatureData = sig?.image_data
   } else if (signatureMode.value === 'upload' && uploadedSignature.value) {
-    // Using uploaded signature
     signatureData = uploadedSignature.value
+  } else if (signatureMode.value === 'type' && typedName.value) {
+    signatureData = generateTypedImage(typedName.value, selectedFont.value, 540, 120)
   } else if (canvas.value) {
-    // Using drawn signature
     signatureData = canvas.value.toDataURL('image/png')
   }
   
-  if (!signatureData && !userSignatureId) {
-    error.value = 'Please draw a signature or select a saved signature'
+  // 2. Determine Initials
+  if (useSavedInitials.value && selectedInitialsId.value) {
+    const ini = savedInitials.value.find(s => s.id === selectedInitialsId.value)
+    initialsData = ini?.image_data
+  } else if (initialsMode.value === 'upload' && uploadedInitials.value) {
+    initialsData = uploadedInitials.value
+  } else if (initialsMode.value === 'type' && typedInitials.value) {
+    initialsData = generateTypedImage(typedInitials.value, selectedFont.value, 540, 80)
+  } else if (initialsCanvas.value) {
+    initialsData = initialsCanvas.value.toDataURL('image/png')
+  }
+  
+  if (!signatureData) {
+    error.value = 'Please provide a signature'
     submitting.value = false
     quickSignMode.value = false
-    
     return
   }
   
@@ -356,7 +443,9 @@ async function submitSignature() {
       },
       body: JSON.stringify({ 
         signature_data: signatureData,
+        initials_data: initialsData,
         user_signature_id: userSignatureId,
+        user_initials_id: selectedInitialsId.value,
         save_to_profile: saveToProfile.value,
       }),
     })
@@ -366,16 +455,15 @@ async function submitSignature() {
     if (!res.ok) {
       if (data.requires_registration) {
         showRegister.value = true
-        
         return
       }
       error.value = data.message || 'Signing failed'
-      
       return
     }
     
     router.push('/sign/success')
   } catch (e) {
+    console.error('Signing failed:', e)
     error.value = 'Signing failed'
   } finally {
     submitting.value = false
@@ -429,8 +517,15 @@ const selectedSignaturePreview = computed(() => {
   return sig?.image_data || null
 })
 
+const selectedInitialsPreview = computed(() => {
+  if (!selectedInitialsId.value) return null
+  const ini = savedInitials.value.find(s => s.id === selectedInitialsId.value)
+  return ini?.image_data || null
+})
+
 // Check if user has saved signatures
 const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
+const hasSavedInitials = computed(() => savedInitials.value.length > 0)
 </script>
 
 <template>
@@ -452,7 +547,7 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
 
     <!-- Error -->
     <VCard
-      v-else-if="error && !document"
+      v-else-if="error && !doc"
       class="error-card mx-auto my-8"
       max-width="500"
     >
@@ -500,10 +595,10 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
           <!-- Document Info -->
           <div class="document-info mb-6">
             <div class="text-h6 mb-1">
-              {{ document.title }}
+              {{ doc.title }}
             </div>
             <div class="text-body-2 text-medium-emphasis">
-              From: {{ document.user?.name || 'Document Owner' }}
+              From: {{ doc.user?.name || 'Document Owner' }}
             </div>
           </div>
 
@@ -672,7 +767,7 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
           @click="backToLanding"
         />
         <VToolbarTitle class="text-subtitle-1">
-          {{ document.title }}
+          {{ doc.title }}
         </VToolbarTitle>
         <VSpacer />
         <VBtn 
@@ -743,7 +838,7 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             />
           </template>
           <VCardTitle>Sign Document</VCardTitle>
-          <VCardSubtitle>{{ document.title }}</VCardSubtitle>
+          <VCardSubtitle>{{ doc.title }}</VCardSubtitle>
         </VCardItem>
 
         <VDivider />
@@ -762,23 +857,21 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             By signing, you agree to be legally bound by this document.
           </VAlert>
 
-          <!-- Saved Signatures Option -->
-          <div
-            v-if="hasSavedSignatures"
-            class="mb-6"
-          >
-            <VSwitch
-              v-model="useSavedSignature"
-              label="Use my saved signature"
-              color="primary"
-              hide-details
-              class="mb-3"
-            />
+          <!-- Signature Section -->
+          <div class="mb-8">
+            <div class="d-flex align-center justify-space-between mb-2">
+              <h3 class="text-subtitle-1 font-weight-bold">Signature</h3>
+              <VCheckbox
+                v-if="hasSavedSignatures"
+                v-model="useSavedSignature"
+                label="Use saved signature"
+                density="compact"
+                hide-details
+                color="primary"
+              />
+            </div>
 
-            <div
-              v-if="useSavedSignature"
-              class="saved-signatures-section"
-            >
+            <div v-if="useSavedSignature && hasSavedSignatures" class="saved-capture-area">
               <VSelect
                 v-model="selectedSignatureId"
                 :items="savedSignatures"
@@ -789,117 +882,184 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
                 density="compact"
                 class="mb-3"
               />
+              <div v-if="selectedSignaturePreview" class="signature-preview border rounded pa-2 text-center bg-grey-lighten-5">
+                <img :src="selectedSignaturePreview" alt="Signature preview" style="max-height: 80px; max-width: 100%;">
+              </div>
+            </div>
 
-              <!-- Preview selected signature -->
-              <div
-                v-if="selectedSignaturePreview"
-                class="signature-preview pa-3 rounded border"
-              >
-                <div class="text-caption text-medium-emphasis mb-2">
-                  Preview:
+            <div v-else>
+              <VTabs v-model="signatureMode" density="compact" color="primary" class="mb-4">
+                <VTab value="draw">Draw</VTab>
+                <VTab value="type">Type</VTab>
+                <VTab value="upload">Upload</VTab>
+              </VTabs>
+
+              <div v-if="signatureMode === 'draw'">
+                <div class="canvas-wrapper border rounded mb-2">
+                  <canvas 
+                    ref="canvas" 
+                    width="540" 
+                    height="120"
+                    style="width: 100%; height: 120px; touch-action: none;"
+                    @mousedown="startDrawing"
+                    @mousemove="draw"
+                    @mouseup="stopDrawing"
+                    @mouseleave="stopDrawing"
+                    @touchstart="startDrawing"
+                    @touchmove="draw"
+                    @touchend="stopDrawing"
+                  />
                 </div>
-                <img 
-                  :src="selectedSignaturePreview" 
-                  alt="Signature preview" 
-                  class="signature-image"
-                >
+                <div class="d-flex justify-end">
+                  <VBtn size="x-small" variant="text" @click="clearCanvas">Clear</VBtn>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Draw/Upload Signature (if not using saved) -->
-          <div v-if="!useSavedSignature">
-            <VTabs
-              v-model="signatureMode"
-              density="compact"
-              color="primary"
-              class="mb-4"
-            >
-              <VTab value="draw">
-                Draw
-              </VTab>
-              <VTab value="upload">
-                Upload Image
-              </VTab>
-            </VTabs>
-
-            <div v-if="signatureMode === 'draw'">
-              <p class="text-body-2 text-medium-emphasis mb-3">
-                Sign in the box below using your mouse or finger
-              </p>
-              
-              <div class="canvas-wrapper mb-4">
-                <canvas 
-                  ref="canvas" 
-                  width="540" 
-                  height="150"
-                  @mousedown="startDrawing"
-                  @mousemove="draw"
-                  @mouseup="stopDrawing"
-                  @mouseleave="stopDrawing"
-                  @touchstart="startDrawing"
-                  @touchmove="draw"
-                  @touchend="stopDrawing"
+              <div v-else-if="signatureMode === 'type'">
+                <VTextField
+                  v-model="typedName"
+                  label="Type your name"
+                  variant="outlined"
+                  class="mb-4"
+                  @input="e => typedInitials = e.target.value.split(' ').map(n => n[0]).join('').toUpperCase()"
                 />
+                <div class="font-selection-grid mb-4">
+                  <VCard
+                    v-for="font in signatureFonts"
+                    :key="font"
+                    :class="['font-card', { 'selected': selectedFont === font }]"
+                    variant="outlined"
+                    @click="selectedFont = font"
+                  >
+                    <div :style="{ fontFamily: font, fontSize: '24px' }" class="pa-2">
+                      {{ typedName || 'Signature' }}
+                    </div>
+                  </VCard>
+                </div>
+              </div>
+
+              <div v-else class="upload-area pa-4 border rounded text-center">
+                <VFileInput
+                  label="Upload Signature Image"
+                  accept="image/*"
+                  density="compact"
+                  variant="outlined"
+                  @change="handleFileUpload"
+                />
+                <div v-if="uploadedSignature" class="mt-2 border rounded pa-2 text-center bg-grey-lighten-5">
+                  <img :src="uploadedSignature" style="max-height: 80px; max-width: 100%;">
+                </div>
               </div>
             </div>
-
-            <div
-              v-else
-              class="upload-section pa-4 border rounded mb-4 text-center"
-            >
-              <VFileInput
-                label="Upload Signature Image"
-                accept="image/*"
-                prepend-icon="mdi-camera"
-                variant="outlined"
-                @change="handleFileUpload"
-              />
-              <div
-                v-if="uploadedSignature"
-                class="mt-4"
-              >
-                <img
-                  :src="uploadedSignature"
-                  alt="Uploaded Signature"
-                  style="max-height: 100px; max-width: 100%; border: 1px dashed #ccc; padding: 5px;"
-                >
-              </div>
-            </div>
-
-            <VCheckbox
-              v-if="authStore.isAuthenticated"
-              v-model="saveToProfile"
-              label="Save this signature to my profile for future use"
-              density="compact"
-              color="primary"
-              hide-details
-              class="mb-4"
-            />
           </div>
+
+          <!-- Initials Section -->
+          <div class="mb-8">
+            <div class="d-flex align-center justify-space-between mb-2">
+              <h3 class="text-subtitle-1 font-weight-bold">Initials</h3>
+              <VCheckbox
+                v-if="hasSavedInitials"
+                v-model="useSavedInitials"
+                label="Use saved initials"
+                density="compact"
+                hide-details
+                color="primary"
+              />
+            </div>
+
+            <div v-if="useSavedInitials && hasSavedInitials" class="saved-capture-area">
+              <VSelect
+                v-model="selectedInitialsId"
+                :items="savedInitials"
+                item-title="name"
+                item-value="id"
+                label="Select initials"
+                variant="outlined"
+                density="compact"
+                class="mb-3"
+              />
+              <div v-if="selectedInitialsPreview" class="signature-preview border rounded pa-2 text-center bg-grey-lighten-5">
+                <img :src="selectedInitialsPreview" alt="Initials preview" style="max-height: 50px; max-width: 100%;">
+              </div>
+            </div>
+
+            <div v-else>
+              <VTabs v-model="initialsMode" density="compact" color="primary" class="mb-4">
+                <VTab value="draw">Draw</VTab>
+                <VTab value="type">Type</VTab>
+                <VTab value="upload">Upload</VTab>
+              </VTabs>
+
+              <div v-if="initialsMode === 'draw'">
+                <div class="canvas-wrapper border rounded mb-2">
+                  <canvas 
+                    ref="initialsCanvas" 
+                    width="540" 
+                    height="80"
+                    style="width: 100%; height: 80px; touch-action: none;"
+                    @mousedown="startDrawingInitials"
+                    @mousemove="drawInitials"
+                    @mouseup="stopDrawing"
+                    @mouseleave="stopDrawing"
+                    @touchstart="startDrawingInitials"
+                    @touchmove="drawInitials"
+                    @touchend="stopDrawing"
+                  />
+                </div>
+                <div class="d-flex justify-end">
+                  <VBtn size="x-small" variant="text" @click="clearInitialsCanvas">Clear</VBtn>
+                </div>
+              </div>
+
+              <div v-else-if="initialsMode === 'type'">
+                <VTextField
+                  v-model="typedInitials"
+                  label="Your Initials"
+                  variant="outlined"
+                  class="mb-4"
+                />
+                <div class="initials-preview text-center pa-2 border rounded bg-grey-lighten-5" :style="{ fontFamily: selectedFont, fontSize: '32px' }">
+                  {{ typedInitials || 'Init' }}
+                </div>
+              </div>
+
+              <div v-else class="upload-area pa-4 border rounded text-center">
+                <VFileInput
+                  label="Upload Initials Image"
+                  accept="image/*"
+                  density="compact"
+                  variant="outlined"
+                  @change="handleInitialsUpload"
+                />
+                <div v-if="uploadedInitials" class="mt-2 border rounded pa-2 text-center bg-grey-lighten-5">
+                  <img :src="uploadedInitials" style="max-height: 50px; max-width: 100%;">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <VCheckbox
+            v-if="authStore.isAuthenticated"
+            v-model="saveToProfile"
+            label="Save these to my profile for future use"
+            density="compact"
+            color="primary"
+            hide-details
+            class="mb-4"
+          />
 
           <VAlert
             v-if="error"
             type="error"
             variant="tonal"
             class="mb-4"
+            closable
+            @click:close="error = ''"
           >
             {{ error }}
           </VAlert>
 
-          <div class="d-flex gap-2">
-            <VBtn
-              v-if="!useSavedSignature"
-              variant="text"
-              @click="clearCanvas"
-            >
-              <VIcon
-                icon="mdi-eraser"
-                class="mr-1"
-              />
-              Clear
-            </VBtn>
-            <VSpacer />
+          <div class="d-flex gap-2 justify-end">
             <VBtn
               variant="outlined"
               @click="currentView = 'preview'"
@@ -948,14 +1108,6 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             rows="3"
             placeholder="Enter your reason..."
           />
-          <VAlert
-            v-if="error"
-            type="error"
-            variant="tonal"
-            class="mt-3"
-          >
-            {{ error }}
-          </VAlert>
         </VCardText>
         <VCardActions class="pa-4">
           <VBtn
@@ -988,9 +1140,6 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
           Create Account to Sign
         </VCardTitle>
         <VCardText>
-          <p class="text-body-2 text-medium-emphasis mb-4">
-            Create an account to sign this document. Your signature will be saved for future use.
-          </p>
           <VTextField
             v-model="registerForm.name"
             label="Full Name"
@@ -998,8 +1147,7 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
           />
           <VTextField
             v-model="registerForm.email"
-            label="Email"
-            type="email"
+            label="Email Address"
             class="mb-3"
           />
           <VTextField
@@ -1012,31 +1160,20 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
             v-model="registerForm.password_confirmation"
             label="Confirm Password"
             type="password"
+            class="mb-4"
           />
-          <VAlert
-            v-if="error"
-            type="error"
-            variant="tonal"
-            class="mt-3"
-          >
-            {{ error }}
-          </VAlert>
-        </VCardText>
-        <VCardActions class="pa-4">
           <VBtn
-            variant="text"
-            @click="showRegister = false"
-          >
-            Cancel
-          </VBtn>
-          <VSpacer />
-          <VBtn
+            block
             color="primary"
+            size="large"
             :loading="registering"
             @click="register"
           >
-            Create Account
+            Create Account & Sign
           </VBtn>
+        </VCardText>
+        <VCardActions>
+          <VBtn block variant="text" @click="showRegister = false">Cancel</VBtn>
         </VCardActions>
       </VCard>
     </VDialog>
@@ -1044,10 +1181,12 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script&family=Pacifico&family=Pinyon+Script&family=Great+Vibes&family=Satisfy&display=swap');
+
 .sign-page {
   min-height: 100vh;
-  background: rgb(var(--v-theme-background));
-  padding: 16px;
+  background: #f5f7fa;
+  padding: 40px 20px;
 }
 
 .loading-state {
@@ -1055,119 +1194,108 @@ const hasSavedSignatures = computed(() => savedSignatures.value.length > 0)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 400px;
 }
 
-.landing-view {
-  padding-top: 24px;
+.landing-view, .sign-view {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .actions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
 }
 
 .action-card {
   transition: all 0.2s ease;
-  cursor: pointer;
 }
 
 .action-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-}
-
-.cursor-pointer {
-  cursor: pointer;
-}
-
-.preview-view {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .pdf-viewer-container {
-  flex: 1;
-  overflow-y: auto;
+  min-height: 600px;
 }
 
 .pdf-page {
-  width: 700px;
-  min-height: 900px;
-  border-radius: 4px;
-  overflow: hidden;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
 
 .my-field {
-  border: 3px solid #4CAF50;
-  background-color: rgba(76, 175, 80, 0.15);
-  border-radius: 4px;
-  animation: pulse 2s infinite;
+  border: 2px solid #ff5252;
+  background: rgba(255, 82, 82, 0.1);
+  pointer-events: none;
 }
 
 .field-badge {
   position: absolute;
-  top: -12px;
-  left: 4px;
-  background: #4CAF50;
-  color: white;
+  top: -20px;
+  left: 0;
   font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  background: #ff5252;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 2px;
 }
 
 .page-number {
   position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255,255,255,0.9);
-  padding: 2px 12px;
-  border-radius: 12px;
+  bottom: 10px;
+  right: 10px;
   font-size: 12px;
-}
-
-.sign-view {
-  padding-top: 24px;
+  color: #888;
+  background: rgba(255,255,255,0.8);
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .canvas-wrapper {
-  border: 2px dashed rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
   background: white;
   overflow: hidden;
 }
 
-canvas {
-  display: block;
-  width: 100%;
-  cursor: crosshair;
-  touch-action: none;
+.signature-preview {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.signature-preview {
-  background: white;
+.font-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.font-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
   text-align: center;
 }
 
-.signature-image {
-  max-width: 100%;
-  max-height: 100px;
-  object-fit: contain;
+.font-card:hover {
+  border-color: rgba(var(--v-theme-primary), 0.5);
 }
 
-.saved-signatures-section {
-  padding: 16px;
-  background: rgba(var(--v-theme-success), 0.05);
-  border-radius: 8px;
-  border: 1px solid rgba(var(--v-theme-success), 0.2);
+.font-card.selected {
+  border-color: rgb(var(--v-theme-primary));
+  background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.initials-preview {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

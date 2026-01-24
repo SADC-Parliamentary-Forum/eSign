@@ -772,30 +772,59 @@ class DocumentController extends Controller
 
         $user = $request->user();
 
-        // 1. Validate Default Signatures exist
-        $defaultSignature = \App\Models\UserSignature::where('user_id', $user->id)
-            ->where('type', 'signature')->where('is_default', true)->first();
-        $defaultInitials = \App\Models\UserSignature::where('user_id', $user->id)
-            ->where('type', 'initials')->where('is_default', true)->first();
+        // 1. Validate request and optional signature data
+        $validated = $request->validate([
+            'signature_data' => 'nullable|string', // Base64 encoded image
+            'initials_data' => 'nullable|string',  // Base64 encoded image
+            'save_to_profile' => 'nullable|boolean',
+        ]);
 
-        // 2. Start Atomic Transaction
+        // Start Atomic Transaction
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($document, $user, $defaultSignature, $defaultInitials, $request) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($document, $user, $validated, $request) {
                 // A. Transition to IN_PROGRESS
                 $document->update([
                     'status' => 'IN_PROGRESS',
                     'sent_at' => now(),
-                    'sequential_signing' => false, // It's just me
+                    'sequential_signing' => false,
                 ]);
 
-                // B. Find "My" Signer record (should have been created by addSigners just before this)
+                // B. Find "My" Signer record
                 $mySigner = $document->signers->where('email', $user->email)->first();
                 if (!$mySigner) {
                     throw new \Exception('You are not listed as a signer on this document.');
                 }
 
-                // C. Identify and Sign Fields
-                $myFields = $document->fields; // All fields should be mine in self-sign
+                // C. Handle new signature data if provided
+                $defaultSignature = \App\Models\UserSignature::where('user_id', $user->id)
+                    ->where('type', 'signature')->where('is_default', true)->first();
+                $defaultInitials = \App\Models\UserSignature::where('user_id', $user->id)
+                    ->where('type', 'initials')->where('is_default', true)->first();
+
+                // If new signature data is provided, use it and optionally save to profile
+                $requestedSigData = $validated['signature_data'] ?? null;
+                $requestedInitalsData = $validated['initials_data'] ?? null;
+
+                if ($requestedSigData && (empty($validated['save_to_profile']) || $validated['save_to_profile'])) {
+                    \App\Models\UserSignature::updateOrCreate(
+                        ['user_id' => $user->id, 'type' => 'signature', 'is_default' => true],
+                        ['image_data' => $requestedSigData, 'name' => 'Default Signature', 'method' => 'DRAWN']
+                    );
+                    $defaultSignature = \App\Models\UserSignature::where('user_id', $user->id)
+                        ->where('type', 'signature')->where('is_default', true)->first();
+                }
+
+                if ($requestedInitalsData && (empty($validated['save_to_profile']) || $validated['save_to_profile'])) {
+                    \App\Models\UserSignature::updateOrCreate(
+                        ['user_id' => $user->id, 'type' => 'initials', 'is_default' => true],
+                        ['image_data' => $requestedInitalsData, 'name' => 'Default Initials', 'method' => 'DRAWN']
+                    );
+                    $defaultInitials = \App\Models\UserSignature::where('user_id', $user->id)
+                        ->where('type', 'initials')->where('is_default', true)->first();
+                }
+
+                // D. Identify and Sign Fields
+                $myFields = $document->fields;
 
                 if ($myFields->isEmpty()) {
                     throw new \Exception('Please place at least one signature field before finishing.');
@@ -806,22 +835,19 @@ class DocumentController extends Controller
                     $isSigned = false;
 
                     if ($field->type === 'SIGNATURE') {
-                        if (!$defaultSignature)
-                            throw new \Exception('Please create a default signature in your profile first.');
-                        $signatureData = $defaultSignature->image_data;
+                        $signatureData = $requestedSigData ?: $defaultSignature?->image_data;
+                        if (!$signatureData) {
+                            throw new \Exception('Please provide a signature or create a default in your profile.');
+                        }
                         $isSigned = true;
                     } elseif ($field->type === 'INITIALS') {
-                        if (!$defaultInitials)
-                            throw new \Exception('Please create default initials in your profile first.');
-                        $signatureData = $defaultInitials->image_data;
+                        $signatureData = $requestedInitalsData ?: $defaultInitials?->image_data;
+                        if (!$signatureData) {
+                            throw new \Exception('Please provide initials or create a default in your profile.');
+                        }
                         $isSigned = true;
                     } elseif ($field->type === 'DATE') {
                         $field->update(['text_value' => now()->toDateString(), 'signed_at' => now()]);
-                    } elseif ($field->required && empty($field->text_value)) {
-                        // Text fields might have been filled in UI? 
-                        // For now assume if required text is empty, it fails? 
-                        // Or maybe we treat text fields as "filled during placement" for self-sign?
-                        // Let's assume text fields are handled separately or filled.
                     }
 
                     if ($isSigned && $signatureData) {
@@ -838,10 +864,10 @@ class DocumentController extends Controller
                     }
                 }
 
-                // D. Update Signer Status
+                // E. Update Signer Status
                 $mySigner->update(['status' => 'signed', 'signed_at' => now()]);
 
-                // E. Check Completion (Should complete immediately)
+                // F. Check Completion
                 $this->workflowService->checkDocumentCompletion($document);
             });
 

@@ -98,7 +98,9 @@ class SignerController extends Controller
 
         $validated = $request->validate([
             'signature_data' => 'required|string', // Base64 signature image
+            'initials_data' => 'nullable|string',  // Base64 initials image
             'user_signature_id' => 'nullable|uuid', // If using saved signature
+            'user_initials_id' => 'nullable|uuid',  // If using saved initials
             'save_to_profile' => 'nullable|boolean',
         ]);
 
@@ -130,17 +132,37 @@ class SignerController extends Controller
             $signer->update(['user_id' => $request->user()->id]);
         }
 
-        // Save to profile if requested
+        $user = $request->user();
+
+        // Save signature to profile if requested
         if (($validated['save_to_profile'] ?? false) && empty($validated['user_signature_id'])) {
             try {
-                $request->user()->signatures()->create([
-                    'type' => 'signature',
-                    'name' => 'Signed Document ' . $document->title,
-                    'image_data' => $validated['signature_data'],
-                    'is_default' => !$request->user()->signatures()->exists(),
-                ]);
+                $user->signatures()->updateOrCreate(
+                    ['type' => 'signature', 'is_default' => true],
+                    [
+                        'name' => 'Default Signature',
+                        'image_data' => $validated['signature_data'],
+                        'method' => 'DRAWN',
+                    ]
+                );
             } catch (\Exception $e) {
                 // Ignore error if saving fails, don't block signing
+            }
+        }
+
+        // Save initials to profile if requested
+        if (($validated['save_to_profile'] ?? false) && !empty($validated['initials_data']) && empty($validated['user_initials_id'])) {
+            try {
+                $user->signatures()->updateOrCreate(
+                    ['type' => 'initials', 'is_default' => true],
+                    [
+                        'name' => 'Default Initials',
+                        'image_data' => $validated['initials_data'],
+                        'method' => 'DRAWN',
+                    ]
+                );
+            } catch (\Exception $e) {
+                // Ignore
             }
         }
 
@@ -148,6 +170,7 @@ class SignerController extends Controller
             $document = $this->workflowService->processSignature(
                 $signer,
                 $validated['signature_data'],
+                $validated['initials_data'] ?? null,
                 $request->ip(),
                 $request->userAgent()
             );
