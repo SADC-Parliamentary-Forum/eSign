@@ -72,10 +72,12 @@ class DelegationTest extends TestCase
 
         // 3. Create document assigned to DELEGATOR
         $document = Document::factory()->create();
+
         $signer = DocumentSigner::create([
             'document_id' => $document->id,
             'user_id' => $delegator->id,
             'email' => $delegator->email,
+            'name' => $delegator->name,
             'sign_sequence' => 1
         ]);
 
@@ -84,8 +86,10 @@ class DelegationTest extends TestCase
             'document_signer_id' => $signer->id,
             'type' => 'SIGNATURE',
             'page_number' => 1,
-            'x_position' => 100,
-            'y_position' => 100
+            'x' => 100,
+            'y' => 100,
+            'width' => 150,
+            'height' => 50
         ]);
 
         // 4. Delegate attempts to sign

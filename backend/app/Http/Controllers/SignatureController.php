@@ -105,6 +105,17 @@ class SignatureController extends Controller
                         'signature_id' => $sig->id,
                         'signed_at' => now()
                     ]);
+
+                    \App\Models\AuditLog::create([
+                        'user_id' => $user->id,
+                        'event' => 'signed',
+                        'resource_type' => 'document',
+                        'resource_id' => $document->id,
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                        'details' => ['field_id' => $field->id, 'type' => $field->type],
+                        'created_at' => now()
+                    ]);
                 } else {
                     // Text/Date/Checkbox
                     $val = $input['value'];

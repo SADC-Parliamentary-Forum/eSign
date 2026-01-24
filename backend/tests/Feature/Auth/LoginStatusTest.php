@@ -22,7 +22,7 @@ class LoginStatusTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
@@ -38,7 +38,7 @@ class LoginStatusTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
@@ -55,7 +55,7 @@ class LoginStatusTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);

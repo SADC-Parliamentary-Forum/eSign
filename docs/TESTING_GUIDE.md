@@ -2,7 +2,9 @@
 
 ## Overview
 
-This guide provides comprehensive testing scenarios for validating the eSign platform before production deployment.
+
+This guide provides comprehensive testing scenarios for validating the eSign platform before production deployment. For higher-level objectives, scope, and governance, please refer to the [Test Strategy Document](./TEST_STRATEGY.md).
+
 
 ---
 

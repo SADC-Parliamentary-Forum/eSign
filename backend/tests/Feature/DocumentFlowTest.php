@@ -56,20 +56,36 @@ class DocumentFlowTest extends TestCase
         $user = User::factory()->create();
         $document = Document::factory()->create([
             'user_id' => $user->id,
-            'status' => 'pending'
+            'status' => 'IN_PROGRESS'
+        ]);
+
+        $field = \App\Models\DocumentField::create([
+            'document_id' => $document->id,
+            'type' => 'SIGNATURE',
+            'page_number' => 1,
+            'x' => 100,
+            'y' => 100,
+            'width' => 150,
+            'height' => 50,
+            'signer_email' => $user->email // Self sign
         ]);
 
         $signatureData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKwAEQAAAABJRU5ErkJggg==';
 
         $response = $this->actingAs($user)->postJson("/api/documents/{$document->id}/sign", [
-            'signature_data' => $signatureData
+            'fields' => [
+                [
+                    'field_id' => $field->id,
+                    'value' => $signatureData
+                ]
+            ]
         ]);
 
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('documents', [
             'id' => $document->id,
-            'status' => 'signed'
+            'status' => 'COMPLETED'
         ]);
 
         $this->assertDatabaseHas('signatures', [
