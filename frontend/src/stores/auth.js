@@ -37,14 +37,14 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (response.ok) {
         setAuth(data.access_token, data.user)
-        
+
         return true
       } else {
         throw new Error(data.message || 'Login failed')
       }
     } catch (error) {
       console.error(error)
-      
+
       return false
     }
   }
@@ -64,7 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (response.ok) {
         setAuth(data.access_token, data.user)
-        
+
         return true
       } else {
         throw new Error(data.message || 'Registration failed')
@@ -91,7 +91,17 @@ export const useAuthStore = defineStore('auth', () => {
         // Update user state without changing token
         user.value = userData
         localStorage.setItem('user', JSON.stringify(userData))
-        
+
+        return userData
+      } else if (response.status === 401) {
+        // Token is invalid or expired
+        clearAuth()
+
+
+        // Update user state without changing token
+        user.value = userData
+        localStorage.setItem('user', JSON.stringify(userData))
+
         return userData
       } else if (response.status === 401) {
         // Token is invalid or expired
@@ -102,5 +112,53 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, user, isAuthenticated, role, login, register, clearAuth, fetchUser }
+  async function forgotPassword(email) {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        return true
+      } else {
+        throw new Error(data.message || 'Failed to send reset link')
+      }
+    } catch (error) {
+      console.error(error)
+      throw error
+    }
+  }
+
+  async function resetPassword(payload) {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        return true
+      } else {
+        throw new Error(data.message || 'Failed to reset password')
+      }
+    } catch (error) {
+      console.error(error)
+      throw error
+    }
+  }
+
+  return { token, user, isAuthenticated, role, login, register, clearAuth, fetchUser, forgotPassword, resetPassword }
 })

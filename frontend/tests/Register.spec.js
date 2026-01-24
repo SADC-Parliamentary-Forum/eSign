@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
-import Login from '@/pages/login.vue'
+import Register from '@/pages/register.vue'
 import { useAuthStore } from '@/stores/auth'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
@@ -21,7 +21,7 @@ vi.mock('vue-router', () => ({
 // Mock definePage macro
 global.definePage = vi.fn()
 
-describe('Login.vue', () => {
+describe('Register.vue', () => {
     let wrapper
     let authStore
     const vuetify = createVuetify({
@@ -31,7 +31,7 @@ describe('Login.vue', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        wrapper = mount(Login, {
+        wrapper = mount(Register, {
             global: {
                 plugins: [
                     createTestingPinia({
@@ -47,50 +47,45 @@ describe('Login.vue', () => {
         authStore = useAuthStore()
     })
 
-    it('renders login form', () => {
-        expect(wrapper.text()).toContain('Welcome to SADC PF eSign!')
+    it('renders register form', () => {
+        expect(wrapper.text()).toContain('Create an Account')
+        expect(wrapper.find('input[placeholder="John Doe"]').exists()).toBe(true) // Name
         expect(wrapper.find('input[type="email"]').exists()).toBe(true)
-        expect(wrapper.find('input[type="password"]').exists()).toBe(true)
-        // Forgot password link exists
-        expect(wrapper.text()).toContain('Forgot Password?')
+        expect(wrapper.findAll('input[type="password"]').length).toBe(2) // Password and Confirm
     })
 
-    it('handles successful login', async () => {
-        // Mock login success
-        authStore.login.mockResolvedValue(true)
-
-        // Fill form
+    it('handles password mismatch', async () => {
         await wrapper.find('input[type="email"]').setValue('test@example.com')
-        await wrapper.find('input[type="password"]').setValue('password')
+        const passwords = wrapper.findAll('input[type="password"]')
+        await passwords[0].setValue('password123')
+        await passwords[1].setValue('password456') // Mismatch
 
-        // Submit
         await wrapper.find('form').trigger('submit.prevent')
 
-        // Assert
-        expect(authStore.login).toHaveBeenCalledWith('test@example.com', 'password')
-        // Flush promises to allow async push to be called
+        await wrapper.vm.$nextTick()
+        expect(wrapper.text()).toContain('Passwords do not match')
+        expect(authStore.register).not.toHaveBeenCalled()
+    })
+
+    it('handles successful registration', async () => {
+        authStore.register.mockResolvedValue(true)
+
+        await wrapper.find('input[placeholder="John Doe"]').setValue('John Doe')
+        await wrapper.find('input[type="email"]').setValue('test@example.com')
+        const passwords = wrapper.findAll('input[type="password"]')
+        await passwords[0].setValue('password123')
+        await passwords[1].setValue('password123')
+
+        await wrapper.find('form').trigger('submit.prevent')
+
+        expect(authStore.register).toHaveBeenCalledWith({
+            name: 'John Doe',
+            email: 'test@example.com',
+            password: 'password123',
+            password_confirmation: 'password123'
+        })
+
         await new Promise(resolve => setTimeout(resolve, 0))
         expect(pushMock).toHaveBeenCalledWith('/')
-    })
-
-    it('handles failed login', async () => {
-        // Mock login failure
-        authStore.login.mockResolvedValue(false)
-
-        // Fill form
-        await wrapper.find('input[type="email"]').setValue('test@example.com')
-        await wrapper.find('input[type="password"]').setValue('wrongpassword')
-
-        // Submit
-        await wrapper.find('form').trigger('submit.prevent')
-
-        // Assert
-        expect(authStore.login).toHaveBeenCalled()
-
-        // Wait for UI update
-        await wrapper.vm.$nextTick()
-
-        expect(wrapper.text()).toContain('Invalid email or password')
-        expect(pushMock).not.toHaveBeenCalled()
     })
 })

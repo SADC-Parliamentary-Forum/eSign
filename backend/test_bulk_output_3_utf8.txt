@@ -1,0 +1,30 @@
+﻿{#1999
+  +"message": """
+    SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "bulk_batches" does not exist\n
+    LINE 1: insert into "bulk_batches" ("template_id", "user_id", "statu...\n
+                        ^ (Connection: pgsql, SQL: insert into "bulk_batches" ("template_id", "user_id", "status", "source_file_path", "total_count", "id", "updated_at", "created_at") values (a0e954f0-63e3-461f-9511-71b6fb6d8580, a0e954f0-522c-463a-bfc3-766374845870, PROCESSING, bulk-imports/5W2SLId9THBvHpKKlQAf7VxnyxRHISIGmTZGzrsY.csv, 0, a0e954f0-9319-467c-8ce9-924337a6c43d, 2026-01-24 07:35:28, 2026-01-24 07:35:28))
+    """
+} // vendor/laravel/framework/src/Illuminate/Testing/TestResponse.php:1709
+
+   FAIL  Tests\Feature\BulkCreateTest
+  Γ¿» can upload csv for bulk creation                                     0.57s  
+  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ  
+   FAILED  Tests\Feature\BulkCreateTest > can upload csv for bulk creation      
+  Expected response status code [202] but received 400.
+Failed asserting that 400 is identical to 202.
+
+  at tests/Feature/BulkCreateTest.php:46
+     42Γûò             'file' => $file
+     43Γûò         ]);
+     44Γûò 
+     45Γûò         $response->dump();
+  Γ₧£  46Γûò         $response->assertStatus(202);
+     47Γûò         $response->assertJsonStructure(['batch' => ['id', 'status', 'total_count']]);
+     48Γûò 
+     49Γûò         $batchId = $response->json('batch.id');
+     50Γûò
+
+
+  Tests:    1 failed (1 assertions)
+  Duration: 0.64s
+

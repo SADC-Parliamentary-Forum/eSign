@@ -1,0 +1,26 @@
+﻿
+   FAIL  Tests\Feature\BulkCreateTest
+  Γ¿» can upload csv for bulk creation                                     0.59s  
+  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ  
+   FAILED  Tests\Feature\BulkCreateTest > can upload csv forΓÇª  QueryException   
+  SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "code" of relation "organizational_roles" violates not-null constraint
+DETAIL:  Failing row contains (a0e9540b-becd-4865-8f61-0420d2cb7dd9, Vendor, null, 0, null, t, 2026-01-24 07:32:58, 2026-01-24 07:32:58). (Connection: pgsql, SQL: insert into "organizational_roles" ("name", "id", "updated_at", "created_at") values (Vendor, a0e9540b-becd-4865-8f61-0420d2cb7dd9, 2026-01-24 07:32:58, 2026-01-24 07:32:58))
+
+  at vendor/laravel/framework/src/Illuminate/Database/Connection.php:825
+    821Γûò                     $this->getName(), $query, $this->prepareBindings($bindings), $e
+    822Γûò                 );
+    823Γûò             }
+    824Γûò 
+  Γ₧£ 825Γûò             throw new QueryException(
+    826Γûò                 $this->getName(), $query, $this->prepareBindings($bindings), $e
+    827Γûò             );
+    828Γûò         }
+    829Γûò     }
+
+      [2m+17 vendor frames [22m
+  18  tests/Feature/BulkCreateTest.php:25
+
+
+  Tests:    1 failed (0 assertions)
+  Duration: 0.67s
+

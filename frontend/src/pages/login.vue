@@ -104,12 +104,12 @@ async function handleLogin() {
                   label="Remember me"
                 />
 
-                <a
+                <RouterLink
                   class="text-primary"
-                  href="javascript:void(0)"
+                  :to="{ name: 'forgot-password' }"
                 >
                   Forgot Password?
-                </a>
+                </RouterLink>
               </div>
 
               <!-- login button -->

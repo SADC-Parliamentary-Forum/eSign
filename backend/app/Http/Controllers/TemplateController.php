@@ -16,15 +16,18 @@ class TemplateController extends Controller
     protected DocumentService $documentService;
     protected TemplateService $templateService;
     protected FinancialThresholdService $thresholdService;
+    protected \App\Services\BulkDocumentService $bulkService;
 
     public function __construct(
         DocumentService $documentService,
         TemplateService $templateService,
-        FinancialThresholdService $thresholdService
+        FinancialThresholdService $thresholdService,
+        \App\Services\BulkDocumentService $bulkService
     ) {
         $this->documentService = $documentService;
         $this->templateService = $templateService;
         $this->thresholdService = $thresholdService;
+        $this->bulkService = $bulkService;
     }
 
     /**
@@ -640,6 +643,34 @@ class TemplateController extends Controller
             ->get();
 
         return response()->json($templates);
+    }
+
+    /**
+     * Create multiple documents from a CSV file (Bulk).
+     */
+    public function bulkCreate(Request $request, $id)
+    {
+        $template = Template::availableTo($request->user()->id)->findOrFail($id);
+
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240', // 10MB limit
+        ]);
+
+        try {
+            $batch = $this->bulkService->processBatch(
+                $request->user(),
+                $template,
+                $request->file('file')
+            );
+
+            return response()->json([
+                'message' => 'Bulk creation started',
+                'batch' => $batch
+            ], 202);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
     }
 }
 

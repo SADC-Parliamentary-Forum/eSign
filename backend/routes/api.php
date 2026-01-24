@@ -33,6 +33,15 @@ Route::post('documents/{id}/send', [DocumentController::class, 'send']);
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 
+// Password Reset
+Route::post('/auth/forgot-password', [App\Http\Controllers\PasswordResetController::class, 'sendResetLinkEmail'])
+    ->middleware('guest')
+    ->name('password.email');
+
+Route::post('/auth/reset-password', [App\Http\Controllers\PasswordResetController::class, 'reset'])
+    ->middleware('guest')
+    ->name('password.update');
+
 // Magic Link Login
 Route::get('/auth/magic/login/{id}', [MagicLinkController::class, 'login'])
     ->name('login.magic')
@@ -117,6 +126,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Templates
     // -------------------------------------------------------------------------
     Route::apiResource('templates', TemplateController::class);
+    Route::post('templates/{id}/bulk-create', [TemplateController::class, 'bulkCreate']);
     Route::post('templates/{id}/fields', [TemplateController::class, 'storeFields']);
 
     // Template Governance & Management

@@ -68,6 +68,14 @@ class Document extends Model implements \OwenIt\Auditing\Contracts\Auditable
     }
 
     /**
+     * Get the bulk batch this document belongs to.
+     */
+    public function bulkBatch()
+    {
+        return $this->belongsTo(BulkBatch::class);
+    }
+
+    /**
      * Get the template this document was created from.
      */
     public function template()
