@@ -7,7 +7,7 @@ services:
     container_name: esign_nginx
     restart: unless-stopped
     ports:
-      - "8000:80"  # Expose on 8000 for the host Reverse Proxy
+      - "127.0.0.1:8000:80"  # Expose ONLY to localhost for the host Reverse Proxy
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ../backend:/var/www/html
@@ -44,6 +44,8 @@ services:
     env_file: .env.production
     volumes:
       - esign_db_data:/var/lib/postgresql/data
+    # ports:
+    #   - "5432:5432" # Disabled for security (Internal access only)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sadc_esign"]
       interval: 10s
@@ -60,11 +62,35 @@ services:
     command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
       - esign_redis_data:/data
+    # ports:
+    #   - "6379:6379" # Disabled for security (Internal access only)
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - esign_network
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: esign_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - esign_minio_data:/data
+    ports:
+      - "127.0.0.1:9001:9001" # Console restricted to localhost
+      # - "9000:9000" # API restricted to internal network (enable if needed)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
     networks:
       - esign_network
 
@@ -75,3 +101,4 @@ networks:
 volumes:
   esign_db_data:
   esign_redis_data:
+  esign_minio_data:
