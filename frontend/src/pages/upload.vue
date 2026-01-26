@@ -6,6 +6,7 @@ const router = useRouter()
 const isDragging = ref(false)
 const fileInput = ref(null)
 const isSelfSign = ref(false)
+const isUploading = ref(false)
 
 function onFileChange(eventOrFiles) {
     let file = null
@@ -28,6 +29,9 @@ function onDrop(e) {
 }
 
 async function uploadSingleFile(file) {
+    if (isUploading.value) return
+    
+    isUploading.value = true
     try {
         const formData = new FormData()
         formData.append('file', file)
@@ -41,6 +45,8 @@ async function uploadSingleFile(file) {
     } catch(e) {
         console.error(e)
         // Ideally show toast
+    } finally {
+        isUploading.value = false
     }
 }
 </script>
@@ -132,6 +138,19 @@ async function uploadSingleFile(file) {
             <div class="pa-3 text-center text-caption text-medium-emphasis">
                 Supported formats: PDF, DOCX, DOC • Max size: 25MB
             </div>
+
+            <VOverlay
+                v-model="isUploading"
+                contained
+                class="align-center justify-center"
+                persistent
+            >
+                <div class="text-center bg-surface pa-6 rounded-xl elevation-10">
+                    <VProgressCircular indeterminate color="primary" size="48" class="mb-4" />
+                    <h3 class="text-h6 font-weight-bold">Uploading...</h3>
+                    <p class="text-caption text-medium-emphasis">Please wait while we process your file</p>
+                </div>
+            </VOverlay>
         </VCard>
 
         <!-- SECONDARY ACTIONS -->

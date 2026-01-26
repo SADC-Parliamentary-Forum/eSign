@@ -1,16 +1,43 @@
 import { ofetch } from 'ofetch'
 
+import { config } from '@/config'
+
 export const $api = ofetch.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: config.api.baseUrl,
   headers: {
     Accept: 'application/json',
   },
-  async onRequest({ options }) {
+  async onRequest({ options, request }) {
     options.headers = new Headers(options.headers)
 
     const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
     if (accessToken)
       options.headers.set('Authorization', `Bearer ${accessToken}`)
+
+    // Bot Protection
+    if (window.grecaptcha && config.botProtection.enabled) {
+      let action = null
+      const url = request.toString()
+
+      // Simple URL mapping to Actions
+      if (url.includes('/auth/login')) action = 'login'
+      else if (url.includes('/auth/register')) action = 'register'
+      else if (url.includes('/auth/forgot-password')) action = 'forgot_password'
+      else if (url.includes('/documents/bulk-sign')) action = 'bulk_sign'
+      else if (url.match(/\/documents\/\d+\/sign$/)) action = 'sign_document'
+      else if (url.endsWith('/documents') && options.method === 'POST') action = 'document_upload'
+
+      if (action) {
+        try {
+          const token = await window.grecaptcha.execute(config.botProtection.siteKey, { action })
+          if (token) {
+            options.headers.set('X-Human-Token', token)
+          }
+        } catch (e) {
+          console.warn('Bot Protection Token Check Failed', e)
+        }
+      }
+    }
   },
   async onResponseError({ response }) {
     if (response.status === 401) {

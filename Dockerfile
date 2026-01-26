@@ -66,11 +66,15 @@ RUN mkdir -p /var/log/supervisor
 # Copy Supervisor config
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Copy Entrypoint Script
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Permissions
 RUN usermod -u 1000 www-data
 
 # Expose ports: 8000 (Laravel), 5173 (Vue)
 EXPOSE 8000 5173
 
-# Start Supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Set Entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

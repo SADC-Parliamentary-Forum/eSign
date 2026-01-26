@@ -1562,7 +1562,7 @@ async function handleSelfSign() {
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </div>
+
     <!-- Self Sign Dialog -->
     <v-dialog v-model="showSelfSignDialog" max-width="550" persistent>
       <v-card rounded="lg">
@@ -1718,6 +1718,7 @@ async function handleSelfSign() {
         </v-card-actions>
       </v-card>
   </v-dialog>
+  </div>
 </template>
 
 <style scoped>

@@ -30,12 +30,12 @@ Route::post('documents/{id}/send', [DocumentController::class, 'send']);
 // =============================================================================
 // Public Routes
 // =============================================================================
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
-Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:5,1', 'human:login']);
+Route::post('/auth/register', [AuthController::class, 'register'])->middleware(['throttle:5,1', 'human:register']);
 
 // Password Reset
 Route::post('/auth/forgot-password', [App\Http\Controllers\PasswordResetController::class, 'sendResetLinkEmail'])
-    ->middleware('guest')
+    ->middleware(['guest', 'human:forgot_password'])
     ->name('password.email');
 
 Route::post('/auth/reset-password', [App\Http\Controllers\PasswordResetController::class, 'reset'])
@@ -165,11 +165,14 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('documents/stats', [App\Http\Controllers\DocumentStatsController::class, 'index']);
     Route::get('documents/stats/weekly', [App\Http\Controllers\DocumentStatsController::class, 'weekly']);
     Route::post('documents/bulk-delete', [App\Http\Controllers\DocumentController::class, 'bulkDestroy']);
-    Route::post('documents/bulk-sign', [App\Http\Controllers\DocumentController::class, 'bulkSign']);
+    Route::post('documents/bulk-sign', [App\Http\Controllers\DocumentController::class, 'bulkSign'])->middleware('human:bulk_sign');
     Route::post('documents/bulk-download', [App\Http\Controllers\DocumentController::class, 'bulkDownload']);
     Route::get('documents/activity', [App\Http\Controllers\DocumentActivityController::class, 'index']);
     Route::get('documents/pending', [DocumentController::class, 'pending']);
-    Route::apiResource('documents', DocumentController::class)->except(['update']);
+
+    // Explicit Upload Route for Bot Protection
+    Route::post('documents', [DocumentController::class, 'store'])->middleware('human:document_upload');
+    Route::apiResource('documents', DocumentController::class)->except(['update', 'store']);
     Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);
     Route::get('documents/{id}/fields', [DocumentFieldController::class, 'index']);
     Route::post('documents/{id}/fields', [DocumentFieldController::class, 'store']);
@@ -181,7 +184,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // -------------------------------------------------------------------------
     // Signing (for authenticated users viewing their assigned documents)
     // -------------------------------------------------------------------------
-    Route::post('documents/{id}/sign', [SignatureController::class, 'sign']);
+    Route::post('documents/{id}/sign', [SignatureController::class, 'sign'])->middleware('human:sign_document');
     Route::post('documents/{id}/reject', [SignatureController::class, 'reject']);
 
     // -------------------------------------------------------------------------

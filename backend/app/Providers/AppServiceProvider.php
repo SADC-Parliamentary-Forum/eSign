@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Auth\Notifications\VerifyEmail::createUrlUsing(function ($notifiable) {
-            $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+            $frontendUrl = config('app.frontend_url');
 
             $verifyUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
                 'verification.verify',
@@ -39,6 +39,12 @@ class AppServiceProvider extends ServiceProvider
                 '&hash=' . sha1($notifiable->getEmailForVerification()) .
                 '&expires=' . ($queryParams['expires'] ?? '') .
                 '&signature=' . ($queryParams['signature'] ?? '');
+        });
+
+        \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(function ($notifiable, $token) {
+            $frontendUrl = config('app.frontend_url');
+
+            return $frontendUrl . '/reset-password?token=' . $token . '&email=' . $notifiable->getEmailForPasswordReset();
         });
     }
 }

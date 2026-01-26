@@ -13,7 +13,7 @@ class IdentityVerificationService
     /**
      * Create email verification.
      */
-    public function createEmailVerification(DocumentSigner $signer, string $ipAddress = null): IdentityVerification
+    public function createEmailVerification(DocumentSigner $signer, ?string $ipAddress = null): IdentityVerification
     {
         $token = Str::random(64);
 
@@ -68,7 +68,7 @@ class IdentityVerificationService
     /**
      * Create OTP verification.
      */
-    public function createOTPVerification(DocumentSigner $signer, string $ipAddress = null): IdentityVerification
+    public function createOTPVerification(DocumentSigner $signer, ?string $ipAddress = null): IdentityVerification
     {
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
@@ -139,7 +139,7 @@ class IdentityVerificationService
     public function createDeviceVerification(
         DocumentSigner $signer,
         array $deviceFingerprint,
-        string $ipAddress = null
+        ?string $ipAddress = null
     ): IdentityVerification {
         $geolocation = $this->getGeolocation($ipAddress);
 
@@ -173,7 +173,8 @@ class IdentityVerificationService
 
         try {
             // Use ipapi.co for IP geolocation (free tier: 1000 req/day)
-            $response = file_get_contents("https://ipapi.co/{$ipAddress}/json/");
+            $baseUrl = config('esign.services.ipapi.url');
+            $response = file_get_contents("{$baseUrl}/{$ipAddress}/json/");
             $data = json_decode($response, true);
 
             return [

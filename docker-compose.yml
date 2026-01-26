@@ -5,7 +5,7 @@ services:
   # API Gateway - Traefik
   # =============================================================================
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3
     container_name: sadc_esign_gateway
     restart: unless-stopped
     command:
@@ -36,7 +36,8 @@ services:
     volumes:
       - .:/var/www/html
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
-      - backend_vendor:/var/www/html/backend/vendor
+      - /var/www/html/frontend/node_modules
+      - /var/www/html/backend/node_modules
     ports:
       - "8000:8000"
       - "5173:5173"
@@ -174,4 +175,3 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
-  backend_vendor:

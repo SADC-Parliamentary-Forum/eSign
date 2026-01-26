@@ -8,6 +8,13 @@ use App\Models\User;
 
 class AuthController extends Controller
 {
+    protected $auditService;
+
+    public function __construct(\App\Services\AuditService $auditService)
+    {
+        $this->auditService = $auditService;
+    }
+
     /**
      * Handle login request
      */
@@ -21,13 +28,6 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
 
-            // Check MFA (Todo: Implement OTP check)
-            /*
-            if ($user->mfa_enabled) {
-                return response()->json(['status' => 'mfa_required'], 200);
-            }
-            */
-
             // Check if user is active
             if (!$user->isActive()) {
                 Auth::logout();
@@ -36,7 +36,27 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            // MFA Check
+            if ($user->mfa_enabled) {
+                // Issue Partial Token checking 'mfa-pending' ability
+                $token = $user->createToken('mfa_partial_token', ['mfa:verify'])->plainTextToken;
+
+                // Trigger sending code
+                // Ideally call MfaController::send logic here or let frontend trigger it.
+                // For better UX, let's trigger it here or assume frontend calls /api/mfa/send immediately.
+                // Let's assume frontend will call /send using this token.
+
+                return response()->json([
+                    'status' => 'mfa_required',
+                    'message' => 'MFA verification required',
+                    'access_token' => $token, // Restricted token
+                    'token_type' => 'Bearer',
+                ], 200);
+            }
+
+            $token = $user->createToken('auth_token', ['*'])->plainTextToken;
+
+            $this->auditService->log($user, 'login', 'user', $user->id);
 
             return response()->json([
                 'access_token' => $token,

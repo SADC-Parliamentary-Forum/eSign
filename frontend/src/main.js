@@ -10,8 +10,22 @@ import '@styles/styles.scss'
 const app = createApp(App)
 
 
+import { VueRecaptchaV3Plugin } from 'vue-recaptcha-v3'
+import { config } from '@/config'
+
+// ...
+
 // Register plugins
 registerPlugins(app)
+
+if (config.botProtection.siteKey) {
+    app.use(VueRecaptchaV3Plugin, {
+        siteKey: config.botProtection.siteKey,
+        loaderOptions: {
+            autoHideBadge: true
+        }
+    })
+}
 
 // Mount vue app
 app.mount('#app')
