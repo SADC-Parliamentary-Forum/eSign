@@ -37,7 +37,9 @@ class ArchiveExpiredDocuments implements ShouldQueue
         $expiredDocs = Document::whereIn('status', ['COMPLETED', 'VOIDED'])
             ->whereNull('archived_at')
             ->where('is_legal_hold', false)
-            ->whereRaw('completed_at < DATE_SUB(NOW(), INTERVAL COALESCE(retention_period_days, 3650) DAY)')
+            // Use safe standard SQL or bindings if possible.
+            // Since interval is dynamic (column), we use safe string interpolation assuming column name is safe.
+            ->whereRaw("completed_at < NOW() - (COALESCE(retention_period_days, 3650) || ' DAY')::INTERVAL")
             ->get();
 
         foreach ($expiredDocs as $doc) {

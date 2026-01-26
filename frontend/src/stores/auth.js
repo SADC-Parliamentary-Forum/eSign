@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { $api } from '@/utils/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token'))
   const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
 
-  const isAuthenticated = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!user.value)
   const role = computed(() => user.value?.role?.name)
 
   function setAuth(newToken, newUser) {
@@ -24,112 +25,72 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email, password) {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/login`, {
+      // 1. Get CSRF Cookie
+      // Helper to handle relative path issue if API_URL includes /api
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+      const csrfUrl = apiUrl.endsWith('/api')
+        ? apiUrl.replace('/api', '/sanctum/csrf-cookie')
+        : `${apiUrl}/sanctum/csrf-cookie`
+
+      await $api(csrfUrl, { method: 'GET' })
+
+      // 2. Login using $api (triggers interceptors for Bot Protection)
+      const data = await $api('/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+        body: { email, password },
       })
 
-      const data = await response.json()
+      // Update State
+      user.value = data.user
+      localStorage.setItem('user', JSON.stringify(data.user))
+      token.value = 'session-active'
 
-      if (response.ok) {
-        setAuth(data.access_token, data.user)
-
-        return true
-      } else {
-        throw new Error(data.message || 'Login failed')
-      }
+      return true
     } catch (error) {
       console.error(error)
-
-      return false
+      throw error // Re-throw to handle UI feedback
     }
   }
 
   async function register(userData) {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/register`, {
+      const data = await $api('/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(userData),
+        body: userData,
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setAuth(data.access_token, data.user)
-
-        return true
-      } else {
-        throw new Error(data.message || 'Registration failed')
-      }
+      setAuth(data.access_token, data.user)
+      return true
     } catch (error) {
       console.error(error)
-      throw error // Re-throw to handle in component
+      throw error
     }
   }
 
   async function fetchUser() {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token.value}`,
-          'Accept': 'application/json',
-        },
-      })
+      const userData = await $api('/auth/me')
 
-      if (response.ok) {
-        const userData = await response.json()
+      // Update user state
+      user.value = userData
+      localStorage.setItem('user', JSON.stringify(userData))
 
-
-        // Update user state without changing token
-        user.value = userData
-        localStorage.setItem('user', JSON.stringify(userData))
-
-        return userData
-      } else if (response.status === 401) {
-        // Token is invalid or expired
-        clearAuth()
-
-
-        // Update user state without changing token
-        user.value = userData
-        localStorage.setItem('user', JSON.stringify(userData))
-
-        return userData
-      } else if (response.status === 401) {
-        // Token is invalid or expired
-        clearAuth()
-      }
+      return userData
     } catch (error) {
       console.error('Failed to fetch user:', error)
+      if (error.status === 401) {
+        clearAuth()
+      }
     }
   }
 
   async function forgotPassword(email) {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/forgot-password`, {
+      await $api('/auth/forgot-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email }),
+        body: { email },
       })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        return true
-      } else {
-        throw new Error(data.message || 'Failed to send reset link')
-      }
+      return true
     } catch (error) {
       console.error(error)
       throw error
@@ -138,22 +99,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function resetPassword(payload) {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/reset-password`, {
+      await $api('/auth/reset-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        return true
-      } else {
-        throw new Error(data.message || 'Failed to reset password')
-      }
+      return true
     } catch (error) {
       console.error(error)
       throw error

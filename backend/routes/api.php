@@ -22,10 +22,7 @@ Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 // ...
 
-Route::post('documents/{id}/signers', [DocumentController::class, 'addSigners']);
-Route::get('documents/{id}/fields', [DocumentFieldController::class, 'index']);
-Route::post('documents/{id}/fields', [DocumentFieldController::class, 'store']);
-Route::post('documents/{id}/send', [DocumentController::class, 'send']);
+// ...
 
 // =============================================================================
 // Public Routes
@@ -35,11 +32,11 @@ Route::post('/auth/register', [AuthController::class, 'register'])->middleware([
 
 // Password Reset
 Route::post('/auth/forgot-password', [App\Http\Controllers\PasswordResetController::class, 'sendResetLinkEmail'])
-    ->middleware(['guest', 'human:forgot_password'])
+    ->middleware(['guest', 'human:forgot_password', 'throttle:5,1'])
     ->name('password.email');
 
 Route::post('/auth/reset-password', [App\Http\Controllers\PasswordResetController::class, 'reset'])
-    ->middleware('guest')
+    ->middleware(['guest', 'throttle:5,1'])
     ->name('password.update');
 
 // Magic Link Login

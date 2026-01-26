@@ -29,8 +29,8 @@ class MfaController extends Controller
             return response()->json(['message' => 'MFA not enabled for this user'], 400);
         }
 
-        $code = Str::random(6); // Numeric or scanning logic later. For now alphanumeric is fine.
-        $code = rand(100000, 999999); // Numeric is better for manual entry
+        // $code = Str::random(6); // Numeric or scanning logic later. For now alphanumeric is fine.
+        $code = random_int(100000, 999999); // Cryptographically secure integer
 
         // Store in Redis for 5 minutes
         Cache::put('mfa:' . $user->id, $code, 300);

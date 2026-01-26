@@ -93,6 +93,14 @@ class SignatureController extends Controller
                 }
 
                 if ($field->type === 'SIGNATURE' || $field->type === 'INITIALS') {
+                    // Security: Validate Signature Data
+                    $sigData = $input['value'];
+                    if (strlen($sigData) > 680000) {
+                        abort(422, 'Signature image too large. Max 500KB.');
+                    }
+                    if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $sigData)) {
+                        abort(422, 'Invalid signature format. must be PNG or JPEG.');
+                    }
                     $sig = Signature::create([
                         'document_id' => $document->id,
                         'user_id' => $user->id, // The actor (Delegate)

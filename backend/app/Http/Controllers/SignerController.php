@@ -104,6 +104,24 @@ class SignerController extends Controller
             'save_to_profile' => 'nullable|boolean',
         ]);
 
+        // Security: Validate Signature Data Size & Format
+        if (!empty($validated['signature_data'])) {
+            if (strlen($validated['signature_data']) > 680000) {
+                return response()->json(['message' => 'Signature too large.'], 422);
+            }
+            if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $validated['signature_data'])) {
+                return response()->json(['message' => 'Invalid signature format (PNG/JPEG only).'], 422);
+            }
+        }
+        if (!empty($validated['initials_data'])) {
+            if (strlen($validated['initials_data']) > 680000) {
+                return response()->json(['message' => 'Initials too large.'], 422);
+            }
+            if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $validated['initials_data'])) {
+                return response()->json(['message' => 'Invalid initials format (PNG/JPEG only).'], 422);
+            }
+        }
+
         // 1. Enforce Authentication
         if (!$request->user()) {
             return response()->json([
@@ -180,7 +198,8 @@ class SignerController extends Controller
                 'document_status' => $document->status,
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 400);
+            $message = app()->isProduction() ? 'An error occurred during closing.' : $e->getMessage();
+            return response()->json(['message' => $message], 400);
         }
     }
 
@@ -210,7 +229,8 @@ class SignerController extends Controller
                 'document_status' => $document->status,
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 400);
+            $message = app()->isProduction() ? 'An error occurred.' : $e->getMessage();
+            return response()->json(['message' => $message], 400);
         }
     }
 }

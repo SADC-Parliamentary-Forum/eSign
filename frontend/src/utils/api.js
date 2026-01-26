@@ -7,12 +7,17 @@ export const $api = ofetch.create({
   headers: {
     Accept: 'application/json',
   },
+  defaults: {
+    withCredentials: true,
+  },
   async onRequest({ options, request }) {
     options.headers = new Headers(options.headers)
+    options.credentials = 'include'; // Ensure credentials are sent
 
-    const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
-    if (accessToken)
-      options.headers.set('Authorization', `Bearer ${accessToken}`)
+    // Removed LocalStorage Token injection for Security Remediation
+    // const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
+    // if (accessToken)
+    //   options.headers.set('Authorization', `Bearer ${accessToken}`)
 
     // Bot Protection
     if (window.grecaptcha && config.botProtection.enabled) {
