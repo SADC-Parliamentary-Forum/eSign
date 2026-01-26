@@ -7,6 +7,7 @@ import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useDisplay } from 'vuetify'
 import { formatDate } from '@/utils/formatters'
+import { getErrorMessage } from '@/utils/api'
 import AppDateTimePicker from '@core/components/app-form-elements/AppDateTimePicker.vue'
 
 const route = useRoute()
@@ -175,7 +176,7 @@ async function fetchDocument() {
 
   } catch (e) {
     console.error('Failed to load document', e)
-    showSnackbar('Failed to load document', 'error')
+    showSnackbar('Failed to load document: ' + getErrorMessage(e), 'error')
   }
 }
 
@@ -195,7 +196,7 @@ async function fetchPdfBlob(id) {
         pdfSource.value = URL.createObjectURL(blob)
     } catch (e) {
         console.error('PDF Load Error', e)
-        showSnackbar('Could not load PDF file', 'error')
+        showSnackbar('Could not load PDF file: ' + getErrorMessage(e), 'error')
     }
 }
 
@@ -517,7 +518,7 @@ async function downloadEvidence() {
         // Let's improve the logic in the main function:
         // If !response.ok, we try to read text/json instead of blob.
         console.error('Failed to download evidence:', e)
-        showSnackbar(e.message || msg, 'error')
+        showSnackbar(getErrorMessage(e) || msg, 'error')
     } finally {
         downloadingEvidence.value = false
     }
@@ -554,7 +555,7 @@ async function finishSigning() {
     if (e.response?.status === 403 && e.response?.data?.requires_verification) {
          showVerificationDialog.value = true
     } else {
-         showSnackbar('Failed to sign: ' + e.message, 'error')
+         showSnackbar('Failed to sign: ' + getErrorMessage(e), 'error')
     }
   }
 }
@@ -570,7 +571,7 @@ async function analyzeDocument() {
       showSnackbar(`${risks.value.length} risks detected`, 'warning')
     }
   } catch (e) {
-    showSnackbar(`Analysis failed: ${e.message}`, 'error')
+    showSnackbar(`Analysis failed: ${getErrorMessage(e)}`, 'error')
   } finally {
     analyzing.value = false
   }
@@ -586,7 +587,7 @@ async function cancelWorkflow() {
     showCancelDialog.value = false
     await Promise.all([fetchDocument(), fetchWorkflow()])
   } catch (e) {
-    showSnackbar(`Failed to cancel workflow: ${e.message}`, 'error')
+    showSnackbar(`Failed to cancel workflow: ${getErrorMessage(e)}`, 'error')
   } finally {
     canceling.value = false
   }

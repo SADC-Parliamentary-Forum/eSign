@@ -49,7 +49,7 @@ async function handleRegister() {
       router.push(returnUrl)
     }
   } catch (e) {
-    error.value = e.message || 'Registration failed'
+    error.value = getErrorMessage(e)
   } finally {
     loading.value = false
   }

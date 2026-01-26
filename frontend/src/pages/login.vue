@@ -2,6 +2,7 @@
 // Auth Logic
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
+import { getErrorMessage } from '@/utils/api'
 
 definePage({
   meta: {
@@ -28,16 +29,18 @@ async function handleLogin() {
   loading.value = true
   error.value = ''
   
-  const success = await authStore.login(form.value.email, form.value.password)
-  
-  if (success) {
-    const returnUrl = route.query.returnUrl || '/'
-
-    router.push(returnUrl)
-  } else {
-    error.value = 'Invalid email or password'
+  try {
+    const success = await authStore.login(form.value.email, form.value.password)
+    
+    if (success) {
+      const returnUrl = route.query.returnUrl || '/'
+      router.push(returnUrl)
+    }
+  } catch (e) {
+    error.value = getErrorMessage(e)
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 </script>
 

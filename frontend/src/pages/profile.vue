@@ -4,7 +4,7 @@
  * Modern tabbed layout with signature management, activity, and security
  */
 import { useAuthStore } from '@/stores/auth'
-import { $api } from '@/utils/api'
+import { $api, getErrorMessage } from '@/utils/api'
 import { useDisplay } from 'vuetify'
 import { formatDateTime } from '@/utils/formatters'
 
@@ -86,7 +86,7 @@ async function loadProfile() {
     }
     avatarPreview.value = user.avatar_url || null
   } catch (e) {
-    error.value = 'Failed to load profile: ' + (e.message || 'Unknown error')
+    error.value = 'Failed to load profile: ' + getErrorMessage(e)
   } finally {
     loading.value = false
   }
@@ -109,7 +109,7 @@ async function saveProfile() {
     success.value = 'Profile updated successfully!'
     await authStore.fetchUser()
   } catch (e) {
-    error.value = 'Failed to update profile: ' + (e.message || 'Unknown error')
+    error.value = 'Failed to update profile: ' + getErrorMessage(e)
   } finally {
     saving.value = false
   }
@@ -134,7 +134,7 @@ async function changePassword() {
     success.value = 'Password changed successfully!'
     passwordForm.value = { current_password: '', password: '', password_confirmation: '' }
   } catch (e) {
-    error.value = 'Failed to change password: ' + (e.message || 'Unknown error')
+    error.value = 'Failed to change password: ' + getErrorMessage(e)
   } finally {
     saving.value = false
   }
@@ -166,7 +166,7 @@ async function uploadAvatar() {
     avatarFile.value = null
     await authStore.fetchUser()
   } catch (e) {
-    error.value = 'Failed to upload avatar: ' + e.message
+    error.value = 'Failed to upload avatar: ' + getErrorMessage(e)
   } finally {
     saving.value = false
   }
@@ -293,7 +293,7 @@ async function saveSignature() {
     await loadSignatures()
     success.value = 'Signature saved!'
   } catch (e) {
-    error.value = 'Failed to save signature: ' + e.message
+    error.value = 'Failed to save signature: ' + getErrorMessage(e)
   } finally {
     signatureSaving.value = false
   }
@@ -307,7 +307,7 @@ async function deleteSignature(id) {
     await loadSignatures()
     success.value = 'Signature deleted'
   } catch (e) {
-    error.value = 'Failed to delete signature: ' + e.message
+    error.value = 'Failed to delete signature: ' + getErrorMessage(e)
   }
 }
 
@@ -317,7 +317,7 @@ async function setDefaultSignature(id) {
     await loadSignatures()
     success.value = 'Default signature updated'
   } catch (e) {
-    error.value = 'Failed to set default: ' + e.message
+    error.value = 'Failed to set default: ' + getErrorMessage(e)
   }
 }
 

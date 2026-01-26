@@ -131,3 +131,12 @@ export const aiAPI = {
     return $api('/ai/best-match', { method: 'POST', body: formData })
   },
 }
+
+export const getErrorMessage = error => {
+  if (error?.data?.errors) {
+    const firstField = Object.keys(error.data.errors)[0]
+    if (firstField)
+      return error.data.errors[firstField][0]
+  }
+  return error?.data?.message || error?.message || 'An unknown error occurred'
+}

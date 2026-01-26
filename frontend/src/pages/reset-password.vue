@@ -2,6 +2,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { ref } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
+import { getErrorMessage } from '@/utils/api'
 
 definePage({
   meta: {
@@ -51,7 +52,7 @@ async function handleResetPassword() {
       }, 2000)
     }
   } catch (e) {
-    error.value = e.message || 'Failed to reset password'
+    error.value = getErrorMessage(e)
   } finally {
     loading.value = false
   }
