@@ -10,7 +10,7 @@ COPY frontend/ .
 RUN npm run build
 
 # Stage 2: Build Backend & Serve
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,14 +20,15 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libpq-dev \
+    postgresql-client \
     zip \
     unzip \
     supervisor \
-    default-mysql-client \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd
 
 # Get Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -57,7 +58,7 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 COPY docker/production/config/nginx.conf /etc/nginx/sites-available/default
 COPY docker/production/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/production/config/entrypoint.sh /usr/local/bin/entrypoint.sh
-
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 3000

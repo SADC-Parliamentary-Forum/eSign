@@ -10,42 +10,59 @@ services:
     ports:
       - "8000:8000" # Laravel
       - "5173:5173" # Vite
+      - "8080:8080" # Reverb
     volumes:
       - ./:/var/www/html
       - /var/www/html/node_modules
       - /var/www/html/frontend/node_modules
+      # Mount config files so we don't need to rebuild for config changes
+      - ./docker/development/config/nginx.conf:/etc/nginx/sites-available/default
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
     environment:
       APP_ENV: local
       APP_DEBUG: true
       APP_URL: http://localhost:8000
-      DB_CONNECTION: mysql
+      DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: esign
-      DB_USERNAME: esign_user
-      DB_PASSWORD: secure_password
+      DB_PORT: 5432
+      DB_DATABASE: sadc_esign
+      DB_USERNAME: sadc_esign
+      DB_PASSWORD: secret
       REDIS_HOST: redis
       REDIS_PASSWORD: null
       REDIS_PORT: 6379
+      FILESYSTEM_DISK: minio
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: esign-documents
+      MINIO_ENDPOINT: http://minio:9000
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_healthy
     networks:
       - esign-dev-network
 
   db:
-    image: mysql:8.0
+    image: postgres:15-alpine
     container_name: esign_db_dev
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: esign
-      MYSQL_USER: esign_user
-      MYSQL_PASSWORD: secure_password
-      MYSQL_ROOT_PASSWORD: root_secure_password
+      POSTGRES_DB: sadc_esign
+      POSTGRES_USER: sadc_esign
+      POSTGRES_PASSWORD: secret
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - db_data_dev:/var/lib/mysql
+      - pg_data_dev_v2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sadc_esign"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - esign-dev-network
 
@@ -58,9 +75,41 @@ services:
     networks:
       - esign-dev-network
 
+  minio:
+    image: minio/minio
+    container_name: esign_minio_dev
+    ports:
+      - "9000:9000"
+      - "9002:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data_dev:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - esign-dev-network
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: esign_mailpit_dev
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - esign-dev-network
+
 networks:
   esign-dev-network:
     driver: bridge
 
 volumes:
-  db_data_dev:
+  pg_data_dev_v2:
+  minio_data_dev:

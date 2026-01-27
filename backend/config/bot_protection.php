@@ -9,7 +9,7 @@ return [
     | Enable or disable the entire bot protection system.
     |
     */
-    'enabled' => env('BOT_PROTECTION_ENABLED', true),
+    'enabled' => env('BOT_PROTECTION_ENABLED', !in_array(env('APP_ENV'), ['local', 'testing'])),
 
     /*
     |--------------------------------------------------------------------------

@@ -62,9 +62,14 @@ class DocumentController extends Controller
 
         $limit = $request->input('limit', 10);
 
-        return response()->json(
-            $query->with('signers')->paginate($limit)
-        );
+        // Generate a unique cache key based on query parameters
+        $cacheKey = 'documents.list.' . $user->id . '.' . md5(json_encode($request->all()));
+
+        $documents = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($query, $limit) {
+            return $query->with(['signers', 'fields'])->paginate($limit);
+        });
+
+        return response()->json($documents);
     }
 
     /**
@@ -126,9 +131,9 @@ class DocumentController extends Controller
             'file' => [
                 'required_without:template_id',
                 'file',
-                'mimes:pdf,docx,doc', // Extensions
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword', // Content-Type
-                'max:10240', // 10MB Limit (reduced from 20MB for safety, or keep 20MB but enforce strictly) -> Let's use 10MB as safest default.
+                'mimes:pdf,docx,doc',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword',
+                'max:10240',
             ],
             'template_id' => 'required_without:file|exists:templates,id',
             'signature_level' => 'nullable|string',
@@ -136,119 +141,44 @@ class DocumentController extends Controller
         ]);
 
         try {
-            $path = null;
-            $hash = null;
-            $template = null;
+            $user = $request->user();
+            $document = null;
 
             if ($request->template_id) {
                 $template = Template::with('fields')->findOrFail($request->template_id);
+                $document = $this->documentService->createFromTemplate($template, $user, [
+                    'title' => $validated['title'],
+                    'signature_level' => $validated['signature_level'] ?? null,
+                ]);
+            } elseif ($request->hasFile('file')) {
+                // Async Upload
+                $document = $this->documentService->upload($request->file('file'), $user, [
+                    'title' => $validated['title'],
+                    'signature_level' => $validated['signature_level'] ?? 'SIMPLE',
+                ]);
+            } else {
+                return response()->json(['message' => 'File or Template required.'], 422);
             }
 
-            // Handle File Source
-            if ($request->hasFile('file')) {
-                $file = $request->file('file');
-                $path = $file->store('documents', 'minio');
-                $hash = hash_file('sha256', $file->getPathname());
-            } elseif ($template) {
-                // Copy template file to new location
-                $extension = pathinfo($template->file_path, PATHINFO_EXTENSION);
-                $newPath = 'documents/' . Str::random(40) . '.' . $extension;
-
-                if (Storage::disk('minio')->exists($template->file_path)) {
-                    Storage::disk('minio')->copy($template->file_path, $newPath);
-                    $path = $newPath;
-                    $hash = $template->file_hash;
-                } else {
-                    throw new \Exception('Template file not found.');
-                }
-            }
-
-            if (!$path) {
-                throw new \Exception('Failed to store file or find template.');
-            }
-
-            // Convert Word documents to PDF
-            $originalPath = $path;
-            $conversionResult = $this->conversionService->convertToPdfIfNeeded($path, 'minio');
-            $path = $conversionResult['path'];
-            $wasConverted = $conversionResult['converted'] ?? false;
-
-            $size = 0;
-            if (isset($file)) {
-                $size = (int) $file->getSize();
-            } elseif ($template) {
-                $size = (int) Storage::disk('minio')->size($template->file_path);
-            }
-
-            $mimeType = 'application/pdf';
-            if (isset($file)) {
-                $mimeType = $file->getMimeType();
-            } elseif ($template) {
-                /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-                $disk = Storage::disk('minio');
-                $mimeType = $disk->mimeType($template->file_path);
-            }
-
-            // If file was converted to PDF, update mime type and size
-            if ($wasConverted) {
-                $mimeType = 'application/pdf';
-                $size = (int) Storage::disk('minio')->size($path);
-            }
-
-            $createData = [
-                'user_id' => $request->user()->id,
-                'title' => $validated['title'],
-                'file_path' => $path,
-                'file_hash' => $hash,
-                'size' => $size,
-                'mime_type' => $mimeType,
-                'status' => 'DRAFT',
-                'signature_level' => $template ? $template->required_signature_level : ($validated['signature_level'] ?? 'SIMPLE'),
-                'is_self_sign' => $validated['is_self_sign'] ?? false,
-            ];
-
-            $document = Document::create($createData);
-
-            $signer = null;
+            // Handle Self-Sign Signer creation
+            // Note: If async, document might be PROCESSING, but we can still add signer logic to DB.
             if ($validated['is_self_sign'] ?? false) {
-                // Auto-create signer for self-signed documents
-                $user = $request->user();
-                $signer = \App\Models\DocumentSigner::create([
+                $document->update(['is_self_sign' => true]);
+
+                \App\Models\DocumentSigner::create([
                     'document_id' => $document->id,
                     'user_id' => $user->id,
                     'email' => $user->email,
                     'name' => $user->name,
                     'signing_order' => 1,
-                    // 'role' => 'Owner', // Optional
+                    // 'role' => 'Owner',
                 ]);
-            }
-
-            // If created from template, copy fields
-            if ($template && $template->fields) {
-                foreach ($template->fields as $field) {
-                    DocumentField::create([
-                        'document_id' => $document->id,
-                        'type' => $field->type,
-                        'page_number' => $field->page_number,
-                        'x' => $field->x_position,
-                        'y' => $field->y_position,
-                        'width' => $field->width,
-                        'height' => $field->height,
-                        'signer_role' => $field->signer_role,
-                        'label' => $field->label,
-                        'required' => $field->required,
-                        'organizational_role_id' => $field->organizational_role_id,
-                        'fill_mode' => $field->fill_mode ?? 'SIGNER_FILL',
-                        // Map to self-signer if applicable, otherwise leave null for manual assignment
-                        'document_signer_id' => $signer ? $signer->id : null,
-                        'signer_email' => $signer ? $signer->email : null,
-                    ]);
-                }
             }
 
             return response()->json($document, 201);
 
         } catch (\Exception $e) {
+            \Log::error('Document creation failed: ' . $e->getMessage());
             $message = app()->isProduction() ? 'An error occurred while creating the document.' : 'Failed to create document: ' . $e->getMessage();
             return response()->json(['message' => $message], 500);
         }
@@ -896,6 +826,10 @@ class DocumentController extends Controller
      */
     public function bulkDownload(Request $request)
     {
+        // Increase execution time for bulk operations
+        set_time_limit(300); // 5 minutes
+        ini_set('max_execution_time', 300);
+
         $validated = $request->validate([
             'ids' => 'required|array|min:1',
             'ids.*' => 'exists:documents,id'
@@ -928,18 +862,17 @@ class DocumentController extends Controller
         }
 
         try {
-            $zipPath = $this->createBulkDownloadBundle($accessibleDocs);
-
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('minio');
-
+            // Get local path to the generated ZIP
+            $localZipPath = $this->createBulkDownloadBundle($accessibleDocs);
             $filename = 'SignedDocuments_' . date('Y-m-d_His') . '.zip';
 
-            return $disk->download($zipPath, $filename, [
-                'Content-Type' => 'application/zip',
-            ]);
+            // Serve directly from local filesystem and delete after sending
+            return response()->download($localZipPath, $filename)->deleteFileAfterSend(true);
+
         } catch (\Exception $e) {
-            \Log::error('Bulk download error: ' . $e->getMessage());
+            \Log::error('Bulk download error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
             $message = app()->isProduction() ? 'Error creating download bundle.' : 'Error creating download bundle: ' . $e->getMessage();
             return response()->json(['message' => $message], 500);
         }
@@ -993,14 +926,8 @@ class DocumentController extends Controller
 
         $zip->close();
 
-        // Upload to MinIO
-        Storage::disk('minio')->put($zipPath, file_get_contents($localZipPath));
-
-        // Cleanup temp files
-        unlink($localZipPath);
-        rmdir($tempDir);
-
-        return $zipPath;
+        // Return the local zip path for direct serving
+        return $localZipPath;
     }
 
     /**

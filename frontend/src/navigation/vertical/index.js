@@ -5,6 +5,11 @@ export default [
     icon: { icon: 'ri-home-smile-line' },
   },
   {
+    title: 'Documents',
+    to: { path: '/documents' },
+    icon: { icon: 'ri-file-text-line' },
+  },
+  {
     title: 'Upload Document',
     to: { name: 'upload' },
     icon: { icon: 'ri-upload-cloud-line' },

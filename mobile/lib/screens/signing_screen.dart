@@ -54,7 +54,7 @@ class _SigningScreenState extends State<SigningScreen> {
       final Uint8List? data = await _controller.toPngBytes();
       if (data == null) return;
 
-      final base64Signature = 'data:image/png;base64,' + base64Encode(data);
+      final base64Signature = 'data:image/png;base64,${base64Encode(data)}';
       
       final token = await ApiService.getToken();
       // The original line was: final url = Uri.parse('${ApiService.baseUrl}/documents/${widget.documentId}/sign');

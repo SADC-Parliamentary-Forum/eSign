@@ -377,6 +377,7 @@
     "useToast": true,
     "formatDateTime": true,
     "formatRelative": true,
-    "formatDateIntl": true
+    "formatDateIntl": true,
+    "getErrorMessage": true
   }
 }

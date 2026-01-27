@@ -144,44 +144,29 @@ class DocumentService
      */
     public function upload(UploadedFile $file, $user, array $metadata = []): Document
     {
-        // 1. Generate Temp Path
+        // 1. Move to Processing Storage (Persistent vs UploadedFile which is tmp)
         $ext = $file->getClientOriginalExtension();
-        $tempPath = $file->storeAs('temp', Str::uuid() . '.' . $ext);
-        $fullTempPath = Storage::path($tempPath);
+        $processingPath = 'processing/' . Str::uuid() . '.' . $ext;
 
-        // 2. Convert to PDF/A if needed
-        $finalPath = $fullTempPath;
-        $mimeType = $file->getClientMimeType();
+        // Store in restricted local disk (e.g. storage/app/processing)
+        // We use 'local' disk which maps to storage/app
+        Storage::disk('local')->putFileAs('processing', $file, basename($processingPath));
+        $fullLocalPath = Storage::disk('local')->path($processingPath);
 
-        if (in_array($ext, ['doc', 'docx'])) {
-            $finalPath = $this->convertToPdf($fullTempPath);
-            $mimeType = 'application/pdf';
-        }
-
-        // 3. Calculate Hash
-        $hash = hash_file('sha256', $finalPath);
-
-        // 4. Store in MinIO
-        $storagePath = 'documents/' . date('Y/m') . '/' . $hash . '.pdf';
-        Storage::disk('minio')->put($storagePath, file_get_contents($finalPath));
-
-        // 5. Create Record
+        // 2. Create Record with PROCESSING status
         $document = Document::create([
             'user_id' => $user->id,
             'title' => $metadata['title'] ?? $file->getClientOriginalName(),
-            'file_path' => $storagePath,
-            'file_hash' => $hash,
-            'status' => 'DRAFT',
-            'mime_type' => $mimeType,
-            'size' => filesize($finalPath),
+            'file_path' => null, // Placeholder until processed
+            'file_hash' => null,
+            'status' => 'PROCESSING',
+            'mime_type' => $file->getClientMimeType(),
+            'size' => $file->getSize(),
             'metadata' => $metadata,
         ]);
 
-        // Cleanup temp
-        Storage::delete($tempPath);
-        if ($finalPath !== $fullTempPath) {
-            @unlink($finalPath);
-        }
+        // 3. Dispatch Job
+        \App\Jobs\ProcessDocumentUpload::dispatch($document, $fullLocalPath);
 
         return $document;
     }

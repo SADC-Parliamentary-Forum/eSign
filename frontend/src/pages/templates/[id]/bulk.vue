@@ -124,13 +124,20 @@ async function downloadAll() {
     const documentIds = createdDocuments.value.map(d => d.id)
     const token = localStorage.getItem('token')
     
-    const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/bulk-download`, {
+    // Use proxy in development to avoid CORS issues
+    const apiUrl = import.meta.env.DEV 
+      ? '/api' 
+      : (import.meta.env.VITE_API_URL || '/api')
+
+    const response = await fetch(`${apiUrl}/documents/bulk-download`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ document_ids: documentIds })
+      body: JSON.stringify({ ids: documentIds }),
+      // Increase timeout for bulk downloads
+      signal: AbortSignal.timeout(300000), // 5 minutes
     })
     
     if (response.ok) {

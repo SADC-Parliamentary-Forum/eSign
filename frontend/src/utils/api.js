@@ -14,10 +14,11 @@ export const $api = ofetch.create({
     options.headers = new Headers(options.headers)
     options.credentials = 'include'; // Ensure credentials are sent
 
-    // Removed LocalStorage Token injection for Security Remediation
-    // const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
-    // if (accessToken)
-    //   options.headers.set('Authorization', `Bearer ${accessToken}`)
+    // Inject Authorization Token
+    const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
+    if (accessToken) {
+      options.headers.set('Authorization', `Bearer ${accessToken}`)
+    }
 
     // Bot Protection
     if (window.grecaptcha && config.botProtection.enabled) {
@@ -44,7 +45,12 @@ export const $api = ofetch.create({
       }
     }
   },
-  async onResponseError({ response }) {
+  async onResponseError({ request, response }) {
+    // Ignore 401s from login/register endpoints to allow form to handle errors
+    if (request.toString().includes('/auth/login') || request.toString().includes('/auth/register')) {
+      return
+    }
+
     if (response.status === 401) {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('token')

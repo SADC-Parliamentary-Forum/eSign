@@ -41,9 +41,8 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       // Update State
-      user.value = data.user
-      localStorage.setItem('user', JSON.stringify(data.user))
-      token.value = 'session-active'
+      // Update State using the centralized helper
+      setAuth(data.access_token, data.user)
 
       return true
     } catch (error) {

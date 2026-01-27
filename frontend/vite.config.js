@@ -27,6 +27,8 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_PROXY_TARGET || 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
+          timeout: 300000,
+          proxyTimeout: 300000,
         },
         '/broadcasting': {
           target: env.VITE_PROXY_TARGET || 'http://localhost:8000',

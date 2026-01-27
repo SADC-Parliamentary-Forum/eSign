@@ -16,6 +16,8 @@ class DocumentFlowTest extends TestCase
     public function test_user_can_upload_document()
     {
         Storage::fake('minio');
+        Storage::fake('local');
+        \Illuminate\Support\Facades\Queue::fake();
 
         $user = User::factory()->create();
         $file = UploadedFile::fake()->create('contract.pdf', 100);
@@ -28,12 +30,16 @@ class DocumentFlowTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('title', 'Test Contract');
+            ->assertJsonPath('title', 'Test Contract')
+            ->assertJsonPath('status', 'PROCESSING'); // Updated status assertion
 
         $this->assertDatabaseHas('documents', [
             'title' => 'Test Contract',
-            'user_id' => $user->id
+            'user_id' => $user->id,
+            'status' => 'PROCESSING'
         ]);
+
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ProcessDocumentUpload::class);
     }
 
     public function test_user_cannot_view_others_document()
@@ -57,6 +63,14 @@ class DocumentFlowTest extends TestCase
         $document = Document::factory()->create([
             'user_id' => $user->id,
             'status' => 'IN_PROGRESS'
+        ]);
+
+        \App\Models\DocumentSigner::create([
+            'document_id' => $document->id,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'name' => $user->name,
+            'signing_order' => 1
         ]);
 
         $field = \App\Models\DocumentField::create([

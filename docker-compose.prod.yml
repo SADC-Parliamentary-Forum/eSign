@@ -10,16 +10,17 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+      - "8080:8080" # Reverb
     environment:
       APP_ENV: production
       APP_DEBUG: false
       APP_URL: https://esign.sadcpf.org
-      DB_CONNECTION: mysql
+      DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: esign
-      DB_USERNAME: esign_user
-      DB_PASSWORD: secure_password
+      DB_PORT: 5432
+      DB_DATABASE: sadc_esign
+      DB_USERNAME: sadc_esign
+      DB_PASSWORD: secret
       REDIS_HOST: redis
       REDIS_PASSWORD: null
       REDIS_PORT: 6379
@@ -30,16 +31,15 @@ services:
       - esign-prod-network
 
   db:
-    image: mysql:8.0
+    image: postgres:15-alpine
     container_name: esign_db_prod
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: esign
-      MYSQL_USER: esign_user
-      MYSQL_PASSWORD: secure_password
-      MYSQL_ROOT_PASSWORD: root_secure_password
+      POSTGRES_DB: sadc_esign
+      POSTGRES_USER: sadc_esign
+      POSTGRES_PASSWORD: secret
     volumes:
-      - db_data_prod:/var/lib/mysql
+      - pg_data_prod_v2:/var/lib/postgresql/data
     networks:
       - esign-prod-network
 
@@ -55,4 +55,4 @@ networks:
     driver: bridge
 
 volumes:
-  db_data_prod:
+  pg_data_prod_v2:

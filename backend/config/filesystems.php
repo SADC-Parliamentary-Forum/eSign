@@ -69,7 +69,7 @@ return [
             'url' => env('MINIO_ENDPOINT'),
             'endpoint' => env('MINIO_ENDPOINT'),
             'use_path_style_endpoint' => true,
-            'throw' => false,
+            'throw' => true,
         ],
 
     ],

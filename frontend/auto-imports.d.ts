@@ -61,6 +61,7 @@ declare global {
   const getActivePinia: typeof import('pinia')['getActivePinia']
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
   const getCurrentScope: typeof import('vue')['getCurrentScope']
+  const getErrorMessage: typeof import('./src/utils/api.js')['getErrorMessage']
   const getReadableDate: typeof import('./src/utils/accessibility.js')['getReadableDate']
   const getStatusDescription: typeof import('./src/utils/accessibility.js')['getStatusDescription']
   const h: typeof import('vue')['h']
@@ -438,6 +439,7 @@ declare module 'vue' {
     readonly getActivePinia: UnwrapRef<typeof import('pinia')['getActivePinia']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
+    readonly getErrorMessage: UnwrapRef<typeof import('./src/utils/api.js')['getErrorMessage']>
     readonly getReadableDate: UnwrapRef<typeof import('./src/utils/accessibility.js')['getReadableDate']>
     readonly getStatusDescription: UnwrapRef<typeof import('./src/utils/accessibility.js')['getStatusDescription']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
