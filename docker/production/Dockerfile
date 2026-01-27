@@ -52,9 +52,11 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 
 # Configure Nginx & Supervisor
 # Config files are now relative to the build context
-COPY docker/production/nginx.conf /etc/nginx/sites-available/default
-COPY docker/production/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/production/entrypoint.sh /usr/local/bin/entrypoint.sh
+# Configure Nginx & Supervisor
+# Config files are now relative to the build context
+COPY docker/production/config/nginx.conf /etc/nginx/sites-available/default
+COPY docker/production/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/production/config/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

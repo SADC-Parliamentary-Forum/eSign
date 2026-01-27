@@ -30,8 +30,10 @@ WORKDIR /var/www/html
 # But we might need to copy basics if we want the container to be buildable without mount?
 # Usually dev containers rely on volumes.
 
-COPY docker/development/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/development/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/development/config/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 8000 5173
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
