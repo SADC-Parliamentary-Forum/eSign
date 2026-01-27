@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'human' => \App\Http\Middleware\VerifyHuman::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

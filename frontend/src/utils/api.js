@@ -1,16 +1,48 @@
 import { ofetch } from 'ofetch'
 
+import { config } from '@/config'
+
 export const $api = ofetch.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: config.api.baseUrl,
   headers: {
     Accept: 'application/json',
   },
-  async onRequest({ options }) {
+  defaults: {
+    withCredentials: true,
+  },
+  async onRequest({ options, request }) {
     options.headers = new Headers(options.headers)
+    options.credentials = 'include'; // Ensure credentials are sent
 
-    const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
-    if (accessToken)
-      options.headers.set('Authorization', `Bearer ${accessToken}`)
+    // Removed LocalStorage Token injection for Security Remediation
+    // const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
+    // if (accessToken)
+    //   options.headers.set('Authorization', `Bearer ${accessToken}`)
+
+    // Bot Protection
+    if (window.grecaptcha && config.botProtection.enabled) {
+      let action = null
+      const url = request.toString()
+
+      // Simple URL mapping to Actions
+      if (url.includes('/auth/login')) action = 'login'
+      else if (url.includes('/auth/register')) action = 'register'
+      else if (url.includes('/auth/forgot-password')) action = 'forgot_password'
+      else if (url.includes('/documents/bulk-sign')) action = 'bulk_sign'
+      else if (url.match(/\/documents\/\d+\/sign$/)) action = 'sign_document'
+      else if (url.endsWith('/documents') && options.method === 'POST') action = 'document_upload'
+
+      if (action) {
+        try {
+          const token = await window.grecaptcha.execute(config.botProtection.siteKey, { action })
+          if (token) {
+            options.headers.set('X-Human-Token', token)
+          }
+        } catch (e) {
+          console.warn('Bot Protection Token Check Failed', e)
+        }
+      }
+    }
   },
   async onResponseError({ response }) {
     if (response.status === 401) {
@@ -98,4 +130,13 @@ export const aiAPI = {
 
     return $api('/ai/best-match', { method: 'POST', body: formData })
   },
+}
+
+export const getErrorMessage = error => {
+  if (error?.data?.errors) {
+    const firstField = Object.keys(error.data.errors)[0]
+    if (firstField)
+      return error.data.errors[firstField][0]
+  }
+  return error?.data?.message || error?.message || 'An unknown error occurred'
 }

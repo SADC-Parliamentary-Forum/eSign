@@ -32,10 +32,10 @@ class MagicLinkController extends Controller
             ]
         );
 
-        // Generate signed URL valid for 7 days
+        // Generate signed URL valid for 60 minutes
         $url = URL::temporarySignedRoute(
             'login.magic',
-            now()->addDays(7),
+            now()->addMinutes(60),
             ['id' => $user->id]
         );
 

@@ -45,7 +45,8 @@ class SystemLogController extends Controller
 
             return response()->json(['content' => $content]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error reading logs: ' . $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'Error reading logs.' : 'Error reading logs: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 }

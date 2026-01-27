@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/development/Dockerfile
+    image: esign-app-dev:latest
+    container_name: esign_app_dev
+    ports:
+      - "8000:8000" # Laravel
+      - "5173:5173" # Vite
+    volumes:
+      - ./:/var/www/html
+      - /var/www/html/node_modules
+      - /var/www/html/frontend/node_modules
+    environment:
+      APP_ENV: local
+      APP_DEBUG: true
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: esign
+      DB_USERNAME: esign_user
+      DB_PASSWORD: secure_password
+      REDIS_HOST: redis
+      REDIS_PASSWORD: null
+      REDIS_PORT: 6379
+    depends_on:
+      - db
+      - redis
+    networks:
+      - esign-dev-network
+
+  db:
+    image: mysql:8.0
+    container_name: esign_db_dev
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: esign
+      MYSQL_USER: esign_user
+      MYSQL_PASSWORD: secure_password
+      MYSQL_ROOT_PASSWORD: root_secure_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data_dev:/var/lib/mysql
+    networks:
+      - esign-dev-network
+
+  redis:
+    image: redis:alpine
+    container_name: esign_redis_dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - esign-dev-network
+
+networks:
+  esign-dev-network:
+    driver: bridge
+
+volumes:
+  db_data_dev:

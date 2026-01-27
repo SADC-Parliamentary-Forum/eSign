@@ -52,6 +52,7 @@ declare global {
   const emailValidator: typeof import('./src/@core/utils/validators.js')['emailValidator']
   const extendRef: typeof import('@vueuse/core')['extendRef']
   const formatDate: typeof import('./src/utils/formatters.js')['formatDate']
+  const formatDateIntl: typeof import('./src/@core/utils/formatters.js')['formatDateIntl']
   const formatDateTime: typeof import('./src/utils/formatters.js')['formatDateTime']
   const formatDateToMonthShort: typeof import('./src/@core/utils/formatters.js')['formatDateToMonthShort']
   const formatRelative: typeof import('./src/utils/formatters.js')['formatRelative']
@@ -427,8 +428,8 @@ declare module 'vue' {
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
     readonly emailValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['emailValidator']>
     readonly extendRef: UnwrapRef<typeof import('@vueuse/core')['extendRef']>
-    readonly formatDate: UnwrapRef<typeof import('./src/@core/utils/formatters.js')['formatDate']>
     readonly formatDate: UnwrapRef<typeof import('./src/utils/formatters.js')['formatDate']>
+    readonly formatDateIntl: UnwrapRef<typeof import('./src/@core/utils/formatters.js')['formatDateIntl']>
     readonly formatDateTime: UnwrapRef<typeof import('./src/utils/formatters.js')['formatDateTime']>
     readonly formatDateToMonthShort: UnwrapRef<typeof import('./src/@core/utils/formatters.js')['formatDateToMonthShort']>
     readonly formatRelative: UnwrapRef<typeof import('./src/utils/formatters.js')['formatRelative']>
@@ -455,6 +456,7 @@ declare module 'vue' {
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
     readonly isToday: UnwrapRef<typeof import('./src/@core/utils/helpers.js')['isToday']>
+    readonly kFormatter: UnwrapRef<typeof import('./src/@core/utils/formatters.js')['kFormatter']>
     readonly lengthValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['lengthValidator']>
     readonly logicAnd: UnwrapRef<typeof import('@vueuse/math')['logicAnd']>
     readonly logicNot: UnwrapRef<typeof import('@vueuse/math')['logicNot']>

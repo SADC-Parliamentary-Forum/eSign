@@ -14,11 +14,13 @@ class SignatureController extends Controller
 {
     protected $delegationService;
     protected $documentService;
+    protected $auditService;
 
-    public function __construct(DelegationService $delegationService, \App\Services\DocumentService $documentService)
+    public function __construct(DelegationService $delegationService, \App\Services\DocumentService $documentService, \App\Services\AuditService $auditService)
     {
         $this->delegationService = $delegationService;
         $this->documentService = $documentService;
+        $this->auditService = $auditService;
     }
 
     public function sign(Request $request, $documentId)
@@ -91,6 +93,14 @@ class SignatureController extends Controller
                 }
 
                 if ($field->type === 'SIGNATURE' || $field->type === 'INITIALS') {
+                    // Security: Validate Signature Data
+                    $sigData = $input['value'];
+                    if (strlen($sigData) > 680000) {
+                        abort(422, 'Signature image too large. Max 500KB.');
+                    }
+                    if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $sigData)) {
+                        abort(422, 'Invalid signature format. must be PNG or JPEG.');
+                    }
                     $sig = Signature::create([
                         'document_id' => $document->id,
                         'user_id' => $user->id, // The actor (Delegate)
@@ -106,16 +116,13 @@ class SignatureController extends Controller
                         'signed_at' => now()
                     ]);
 
-                    \App\Models\AuditLog::create([
-                        'user_id' => $user->id,
-                        'event' => 'signed',
-                        'resource_type' => 'document',
-                        'resource_id' => $document->id,
-                        'ip_address' => $request->ip(),
-                        'user_agent' => $request->userAgent(),
-                        'details' => ['field_id' => $field->id, 'type' => $field->type],
-                        'created_at' => now()
-                    ]);
+                    $this->auditService->log(
+                        $user,
+                        'signed',
+                        'document',
+                        $document->id,
+                        ['field_id' => $field->id, 'type' => $field->type]
+                    );
                 } else {
                     // Text/Date/Checkbox
                     $val = $input['value'];

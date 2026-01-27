@@ -123,7 +123,13 @@ class DocumentController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'file' => 'required_without:template_id|file|mimes:pdf,docx,doc|max:20480',
+            'file' => [
+                'required_without:template_id',
+                'file',
+                'mimes:pdf,docx,doc', // Extensions
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword', // Content-Type
+                'max:10240', // 10MB Limit (reduced from 20MB for safety, or keep 20MB but enforce strictly) -> Let's use 10MB as safest default.
+            ],
             'template_id' => 'required_without:file|exists:templates,id',
             'signature_level' => 'nullable|string',
             'is_self_sign' => 'nullable|boolean',
@@ -243,7 +249,8 @@ class DocumentController extends Controller
             return response()->json($document, 201);
 
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to create document: ' . $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'An error occurred while creating the document.' : 'Failed to create document: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -419,9 +426,8 @@ class DocumentController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to send document: ' . $e->getMessage());
             \Log::error($e->getTraceAsString());
-            return response()->json([
-                'message' => 'Failed to send document: ' . $e->getMessage()
-            ], 500);
+            $message = app()->isProduction() ? 'An error occurred while sending the document.' : 'Failed to send document: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -487,7 +493,8 @@ class DocumentController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Evidence download error: ' . $e->getMessage());
-            return response()->json(['message' => 'Error generating bundle: ' . $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'Error generating evidence bundle.' : 'Error generating bundle: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -525,7 +532,8 @@ class DocumentController extends Controller
             ]);
         } catch (\Exception $e) {
 
-            return response()->json(['message' => 'Error loading document: ' . $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'Error loading document.' : 'Error loading document: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
     /**
@@ -549,7 +557,8 @@ class DocumentController extends Controller
 
             return response()->json(['message' => 'Document deleted successfully']);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to delete document: ' . $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'An error occurred while deleting the document.' : 'Failed to delete document: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
     /**
@@ -877,7 +886,8 @@ class DocumentController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 400);
+            $message = app()->isProduction() ? 'An error occurred while finishing the document.' : $e->getMessage();
+            return response()->json(['message' => $message], 400);
         }
     }
 
@@ -930,9 +940,8 @@ class DocumentController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Bulk download error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Error creating download bundle: ' . $e->getMessage()
-            ], 500);
+            $message = app()->isProduction() ? 'Error creating download bundle.' : 'Error creating download bundle: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 

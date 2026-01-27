@@ -42,7 +42,8 @@ class AIController extends Controller
                 'ai_model' => 'Heuristic-v1',
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'AI Analysis failed: ' . $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'AI Analysis failed.' : 'AI Analysis failed: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -73,7 +74,8 @@ class AIController extends Controller
                 'driver' => 'single',
                 'path' => storage_path('logs/ai_error.log'),
             ])->error($e);
-            return response()->json(['message' => $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'An error occurred during template suggestion.' : $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -97,7 +99,8 @@ class AIController extends Controller
 
             return response()->json($analysis);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'An error occurred during AI processing.' : $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -123,7 +126,8 @@ class AIController extends Controller
 
             return response()->json($validation);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'An error occurred during AI processing.' : $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -157,7 +161,8 @@ class AIController extends Controller
                 'message' => 'Best matching template found'
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            $message = app()->isProduction() ? 'An error occurred during AI processing.' : $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 }

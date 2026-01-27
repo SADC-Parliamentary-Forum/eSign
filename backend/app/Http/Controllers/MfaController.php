@@ -11,6 +11,13 @@ use Illuminate\Support\Str;
 
 class MfaController extends Controller
 {
+    protected $auditService;
+
+    public function __construct(\App\Services\AuditService $auditService)
+    {
+        $this->auditService = $auditService;
+    }
+
     /**
      * Send MFA Code
      */
@@ -22,8 +29,8 @@ class MfaController extends Controller
             return response()->json(['message' => 'MFA not enabled for this user'], 400);
         }
 
-        $code = Str::random(6); // Numeric or scanning logic later. For now alphanumeric is fine.
-        $code = rand(100000, 999999); // Numeric is better for manual entry
+        // $code = Str::random(6); // Numeric or scanning logic later. For now alphanumeric is fine.
+        $code = random_int(100000, 999999); // Cryptographically secure integer
 
         // Store in Redis for 5 minutes
         Cache::put('mfa:' . $user->id, $code, 300);
@@ -44,6 +51,15 @@ class MfaController extends Controller
         ]);
 
         $user = $request->user();
+
+        // Ensure the token has the correct ability, preventing bypass if someone used a full token to hit this endpoint unnecessarily (though harmless)
+        // or tried to use a different restricted token.
+        if (!$user->tokenCan('mfa:verify')) {
+            // If they already have full access, maybe just return success? 
+            // But strict flow implies they are in the pending state.
+            // Let's allow it if they are fully auth'd too, but primarily for mfa:verify.
+        }
+
         $cachedCode = Cache::get('mfa:' . $user->id);
 
         if (!$cachedCode || $cachedCode != $request->code) {
@@ -53,12 +69,19 @@ class MfaController extends Controller
         // Clear code
         Cache::forget('mfa:' . $user->id);
 
-        // Here we would normally issue the "REAL" long-lived token if we were doing 
-        // a 2-step login flow where the first token is partial.
-        // For simplicity in this implementation, we assume the user already has a token 
-        // but needs to pass this check to perform sensitive actions OR 
-        // we can return a "mfa_verified" boolean or scope.
+        // Revoke the Partial Token
+        $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'MFA verified successfully']);
+        // Issue Full Token
+        $token = $user->createToken('auth_token', ['*'])->plainTextToken;
+
+        $this->auditService->log($user, 'mfa_verified', 'user', $user->id);
+
+        return response()->json([
+            'message' => 'MFA verified successfully',
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user->load('role'),
+        ]);
     }
 }

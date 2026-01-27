@@ -376,6 +376,7 @@
     "workflowAPI": true,
     "useToast": true,
     "formatDateTime": true,
-    "formatRelative": true
+    "formatRelative": true,
+    "formatDateIntl": true
   }
 }

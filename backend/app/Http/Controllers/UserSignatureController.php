@@ -50,9 +50,15 @@ class UserSignatureController extends Controller
         ]);
 
         // Validate base64 image
-        if (!preg_match('/^data:image\/(png|jpeg|jpg|svg\+xml);base64,/', $validated['image_data'])) {
+        // 1. Max size check (approx 500KB = 680,000 base64 chars)
+        if (strlen($validated['image_data']) > 680000) {
+            return response()->json(['message' => 'Signature image too large. Max 500KB.'], 422);
+        }
+
+        // 2. Strict format check (No SVGs allowed)
+        if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $validated['image_data'])) {
             return response()->json([
-                'message' => 'Invalid image format. Must be a base64 encoded PNG, JPEG, or SVG image.'
+                'message' => 'Invalid image format. Must be a base64 encoded PNG or JPEG image.'
             ], 422);
         }
 
@@ -99,9 +105,12 @@ class UserSignatureController extends Controller
         ]);
 
         if (isset($validated['image_data'])) {
-            if (!preg_match('/^data:image\/(png|jpeg|jpg|svg\+xml);base64,/', $validated['image_data'])) {
+            if (strlen($validated['image_data']) > 680000) {
+                return response()->json(['message' => 'Signature image too large. Max 500KB.'], 422);
+            }
+            if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $validated['image_data'])) {
                 return response()->json([
-                    'message' => 'Invalid image format.'
+                    'message' => 'Invalid image format. Must be PNG or JPEG.'
                 ], 422);
             }
         }

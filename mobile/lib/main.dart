@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/config/app_config.dart';
 import 'services/api_service.dart';
 import 'services/database_helper.dart';
 import 'screens/signing_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.load();
   runApp(const MyApp());
 }
 

@@ -2,6 +2,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getErrorMessage } from '@/utils/api'
 
 definePage({
   meta: {
@@ -27,7 +28,7 @@ async function handleForgotPassword() {
       message.value = 'We have emailed your password reset link!'
     }
   } catch (e) {
-    error.value = e.message || 'Failed to send reset link'
+    error.value = getErrorMessage(e)
   } finally {
     loading.value = false
   }
