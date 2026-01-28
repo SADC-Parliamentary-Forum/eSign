@@ -17,6 +17,19 @@ use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\DocumentFieldController;
 use App\Http\Controllers\NotificationController;
 
+// Health check endpoint
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+        'services' => [
+            'database' => DB::connection()->getPdo() ? 'up' : 'down',
+            'cache' => Cache::has('health_check') || Cache::put('health_check', true, 10) ? 'up' : 'down',
+            // 'storage' => Storage::disk('s3')->exists('health_check.txt') ? 'up' : 'down', // Uncomment when S3 is configured
+        ],
+    ]);
+});
+
 // Broadcasting auth route for private channels
 Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
