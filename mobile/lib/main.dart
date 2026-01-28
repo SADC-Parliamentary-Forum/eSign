@@ -3,6 +3,16 @@ import 'package:mobile/config/app_config.dart';
 import 'services/api_service.dart';
 import 'services/database_helper.dart';
 import 'screens/signing_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/reset_password_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/document_detail_screen.dart';
+import 'screens/notifications_screen.dart';
+import 'screens/templates_screen.dart';
+import 'screens/signatures_screen.dart';
+import 'screens/guest_signer_screen.dart';
+import 'screens/verification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,19 +102,26 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    final success = await ApiService.login(
-      _emailController.text,
-      _passwordController.text,
-    );
-
-    setState(() => _isLoading = false);
-
-    if (success && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+    try {
+      final result = await ApiService.login(
+        _emailController.text,
+        _passwordController.text,
       );
-    } else {
-      setState(() => _errorMessage = 'Invalid credentials or connection error');
+
+      setState(() => _isLoading = false);
+
+      if (result != null && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+        );
+      } else {
+        setState(() => _errorMessage = 'Invalid credentials or connection error');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -165,8 +182,109 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Text('Sign In'),
               ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                  );
+                },
+                child: const Text('Forgot Password?'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  );
+                },
+                child: const Text('Create Account'),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const DashboardScreen(),
+    const TemplatesScreen(),
+    const SignaturesScreen(),
+    const NotificationsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_currentIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+          NavigationDestination(icon: Icon(Icons.description), label: 'Templates'),
+          NavigationDestination(icon: Icon(Icons.draw), label: 'Signatures'),
+          NavigationDestination(icon: Icon(Icons.notifications), label: 'Notifications'),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color(0xFF2D3748)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.security, size: 48, color: Colors.white),
+                  SizedBox(height: 8),
+                  Text(
+                    'SADC-eSign',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                await ApiService.logout();
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -230,6 +348,7 @@ import 'database_helper.dart';
   Widget build(BuildContext context) {
     final pendingCount = _documents.where((d) => d['status'] == 'pending' || d['status'] == 'draft').length;
     final signedCount = _documents.where((d) => d['status'] == 'signed').length;
+    final totalCount = _documents.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -247,26 +366,115 @@ import 'database_helper.dart';
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Stats Cards
                 Row(
                   children: [
-                    _StatCard(title: 'Pending', value: '$pendingCount', color: Colors.orange),
-                    const SizedBox(width: 16),
-                    _StatCard(title: 'Signed', value: '$signedCount', color: Colors.green),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Total',
+                        value: '$totalCount',
+                        color: Colors.blue,
+                        icon: Icons.description,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Pending',
+                        value: '$pendingCount',
+                        color: Colors.orange,
+                        icon: Icons.pending,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Signed',
+                        value: '$signedCount',
+                        color: Colors.green,
+                        icon: Icons.check_circle,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
+                // Quick Actions
                 const Text(
-                  'Recent Documents',
+                  'Quick Actions',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ActionCard(
+                        icon: Icons.description,
+                        label: 'Templates',
+                        color: Colors.blue,
+                        onTap: () {
+                          // Navigate to templates - handled by bottom nav
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ActionCard(
+                        icon: Icons.draw,
+                        label: 'Signatures',
+                        color: Colors.purple,
+                        onTap: () {
+                          // Navigate to signatures - handled by bottom nav
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ActionCard(
+                        icon: Icons.notifications,
+                        label: 'Notifications',
+                        color: Colors.orange,
+                        onTap: () {
+                          // Navigate to notifications - handled by bottom nav
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Recent Documents',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        // Show all documents
+                      },
+                      child: const Text('View All'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 if (_documents.isEmpty)
-                  const Center(child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: Text('No documents found'),
-                  ))
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        children: [
+                          Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No documents found',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 else
-                  ..._documents.map((doc) => _DocumentCard(doc: doc)),
+                  ..._documents.take(10).map((doc) => _DocumentCard(doc: doc)),
               ],
             ),
           ),
@@ -278,28 +486,107 @@ class _StatCard extends StatelessWidget {
   final String title;
   final String value;
   final Color color;
+  final IconData icon;
 
-  const _StatCard({required this.title, required this.value, required this.color});
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
-          ],
-          border: Border(left: BorderSide(color: color, width: 4)),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(color: Colors.grey[600])),
+            Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -322,34 +609,85 @@ class _DocumentCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(Icons.description, color: Colors.blue[700]),
-        title: Text(doc['title'] ?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${doc['department'] ?? 'General'} • $status'),
-        trailing: Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
-        ),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
         onTap: () async {
-          if (status == 'pending') {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SigningScreen(
-                  documentId: doc['id'], 
-                  documentTitle: doc['title']
-                ),
-              ),
-            );
-            
-            // Refresh logic if signed
-            if (result == true) {
-              // We need a callback or global state to refresh. 
-              // For simplicity, we assume the user will pull-to-refresh or we could pass a callback.
-            }
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DocumentDetailScreen(documentId: doc['id'].toString()),
+            ),
+          );
+          if (result == true) {
+            // Refresh handled by parent
           }
         },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.description, color: statusColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doc['title'] ?? 'Untitled',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.folder, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          doc['department'] ?? 'General',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey[400]),
+            ],
+          ),
+        ),
       ),
     );
   }
