@@ -265,13 +265,20 @@ async function bulkDownload() {
     const token = localStorage.getItem('token')
     const ids = selectedCompletedDocs.value.map(d => d.id)
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/bulk-download`, {
+    // Use proxy in development to avoid CORS issues
+    const apiUrl = import.meta.env.DEV 
+      ? '/api' 
+      : (import.meta.env.VITE_API_URL || '/api')
+
+    const response = await fetch(`${apiUrl}/documents/bulk-download`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ ids }),
+      // Increase timeout for bulk downloads
+      signal: AbortSignal.timeout(300000), // 5 minutes
     })
     
     if (!response.ok) {
@@ -303,7 +310,12 @@ async function downloadEvidence(doc) {
   try {
     const token = localStorage.getItem('token')
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/documents/${doc.id}/evidence`, {
+    // Use proxy in development to avoid CORS issues
+    const apiUrl = import.meta.env.DEV 
+      ? '/api' 
+      : (import.meta.env.VITE_API_URL || '/api')
+
+    const response = await fetch(`${apiUrl}/documents/${doc.id}/evidence`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

@@ -89,7 +89,7 @@ class AuthController extends Controller
             'phone_number' => $validated['phone_number'] ?? null,
         ]);
 
-        $user->sendEmailVerificationNotification();
+        \App\Jobs\SendEmailVerificationNotification::dispatch($user);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -106,7 +106,11 @@ class AuthController extends Controller
      */
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('role'));
+        $userId = $request->user()->id;
+        $user = \Illuminate\Support\Facades\Cache::remember("user.{$userId}", 3600, function () use ($userId) {
+            return User::with('role')->find($userId);
+        });
+        return response()->json($user);
     }
 
     /**
@@ -132,6 +136,9 @@ class AuthController extends Controller
 
         $user = $request->user();
         $user->update($validated);
+
+        // Invalidate cache
+        \Illuminate\Support\Facades\Cache::forget("user.{$user->id}");
 
         return response()->json([
             'message' => 'Profile updated successfully',

@@ -3,9 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../services/api_service.dart';
-import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SigningScreen extends StatefulWidget {
   final String documentId;
@@ -54,7 +51,7 @@ class _SigningScreenState extends State<SigningScreen> {
       final Uint8List? data = await _controller.toPngBytes();
       if (data == null) return;
 
-      final base64Signature = 'data:image/png;base64,' + base64Encode(data);
+      final base64Signature = 'data:image/png;base64,${base64Encode(data)}';
       
       final token = await ApiService.getToken();
       // The original line was: final url = Uri.parse('${ApiService.baseUrl}/documents/${widget.documentId}/sign');
@@ -66,25 +63,19 @@ class _SigningScreenState extends State<SigningScreen> {
       // It seems to remove the 'documents/${widget.documentId}' part and adds '/sign/$token' to the base URL.
       // Also, 'rs:' should be 'headers:'. And '_token' should be 'token'.
       
-      final response = await http.post(
-        Uri.parse('${AppConfig.instance.apiBaseUrl}/sign/$token'), // Corrected _token to token and removed documents/${widget.documentId}
-        headers: { // Corrected 'rs:' to 'headers:'
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'signature_data': base64Signature}),
+      await ApiService.signDocument(
+        widget.documentId,
+        base64Signature,
       );
 
-      if (response.statusCode == 200) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Document signed successfully!')),
-          );
-          Navigator.pop(context, true); // Return true to refresh
-        }
-      } else {
-        throw Exception('Failed to sign (Status: ${response.statusCode})');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document signed successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true); // Return true to refresh
       }
     } catch (e) {
       setState(() => _errorMessage = e.toString());

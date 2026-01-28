@@ -32,6 +32,18 @@ class User extends Authenticatable implements MustVerifyEmail, \OwenIt\Auditing\
         'job_title',
     ];
 
+    protected $attributes = [
+        'status' => 'ACTIVE',
+        'mfa_enabled' => false,
+    ];
+
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array
+     */
+    protected $with = ['role'];
+
     /**
      * The attributes that should be hidden for serialization.
      *

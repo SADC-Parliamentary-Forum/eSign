@@ -1,25 +1,48 @@
-version: '3.8'
+version: '3.9'
 
 services:
+  # Nginx - Production Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: esign_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./backend/public:/var/www/html/backend/public:ro
+      - ./frontend/dist:/var/www/html/frontend/dist:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - esign-prod-network
+
+  # Laravel App (PHP-FPM)
   app:
     build:
       context: .
       dockerfile: docker/production/Dockerfile
     image: esign-app-prod:latest
-    container_name: esign_app_prod
+    container_name: esign_app
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html/backend
+      - ./storage:/var/www/html/backend/storage
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini:ro
     environment:
       APP_ENV: production
-      APP_DEBUG: false
+      APP_DEBUG: "false"
       APP_URL: https://esign.sadcpf.org
-      DB_CONNECTION: mysql
+      DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: esign
-      DB_USERNAME: esign_user
-      DB_PASSWORD: secure_password
+      DB_PORT: 5432
+      DB_DATABASE: sadc_esign
+      DB_USERNAME: sadc_esign
+      DB_PASSWORD: secret
       REDIS_HOST: redis
       REDIS_PASSWORD: null
       REDIS_PORT: 6379
@@ -29,24 +52,95 @@ services:
     networks:
       - esign-prod-network
 
-  db:
-    image: mysql:8.0
-    container_name: esign_db_prod
+  # Queue Worker
+  queue:
+    build:
+      context: .
+      dockerfile: docker/production/Dockerfile
+    container_name: esign_queue
     restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: esign
-      MYSQL_USER: esign_user
-      MYSQL_PASSWORD: secure_password
-      MYSQL_ROOT_PASSWORD: root_secure_password
+    command: php artisan queue:work --queue=default,high --tries=3 --timeout=300
     volumes:
-      - db_data_prod:/var/lib/mysql
+      - ./backend:/var/www/html/backend
+      - ./storage:/var/www/html/backend/storage
+    depends_on:
+      - app
+      - redis
     networks:
       - esign-prod-network
 
+  # Reverb WebSocket
+  reverb:
+    build:
+      context: .
+      dockerfile: docker/production/Dockerfile
+    container_name: esign_reverb
+    restart: unless-stopped
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/var/www/html/backend
+    depends_on:
+      - app
+      - redis
+    networks:
+      - esign-prod-network
+
+  # PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: esign_db_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sadc_esign
+      POSTGRES_USER: sadc_esign
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - pg_data_prod_v2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sadc_esign"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - esign-prod-network
+
+  # Redis
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: esign_redis_prod
     restart: unless-stopped
+    command: redis-server --requirepass null --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - esign-prod-network
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: esign_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9091"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9091:9091"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
     networks:
       - esign-prod-network
 
@@ -55,4 +149,6 @@ networks:
     driver: bridge
 
 volumes:
-  db_data_prod:
+  pg_data_prod_v2:
+  redis_data:
+  minio_data:
