@@ -86,15 +86,6 @@ class RoleSeeder extends Seeder
         }
 
         // Create a default admin user
-        $adminRole = Role::where('name', 'admin')->first();
-        User::updateOrCreate(
-            ['email' => 'admin@sadcpf.org'],
-            [
-                'name' => 'SADC Admin',
-                'password' => Hash::make('password'),
-                'role_id' => $adminRole->id,
-                'mfa_enabled' => false,
-            ]
-        );
+
     }
 }
