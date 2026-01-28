@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../services/api_service.dart';
+import '../widgets/loading_skeleton.dart';
+import '../widgets/error_widget.dart';
 
 class SignaturesScreen extends StatefulWidget {
   const SignaturesScreen({super.key});
@@ -13,6 +15,8 @@ class SignaturesScreen extends StatefulWidget {
 class _SignaturesScreenState extends State<SignaturesScreen> {
   List<dynamic> _signatures = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -21,7 +25,11 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
   }
 
   Future<void> _loadSignatures() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final signatures = await ApiService.getUserSignatures();
       setState(() {
@@ -29,12 +37,11 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load signatures: $e')),
-        );
-      }
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -114,28 +121,24 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _signatures.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.draw, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No signatures saved',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
+          ? const ListSkeleton(itemCount: 3)
+          : _error
+              ? ErrorRetryWidget(
+                  message: _errorMessage ?? 'Failed to load signatures',
+                  onRetry: _loadSignatures,
+                )
+              : _signatures.isEmpty
+                  ? EmptyStateWidget(
+                      icon: Icons.draw,
+                      title: 'No signatures saved',
+                      subtitle: 'Create your first signature to get started',
+                      action: FilledButton.icon(
                         onPressed: _createSignature,
                         icon: const Icon(Icons.add),
                         label: const Text('Create Signature'),
                       ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
+                    )
+                  : RefreshIndicator(
                   onRefresh: _loadSignatures,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),

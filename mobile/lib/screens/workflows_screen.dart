@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import 'workflow_detail_screen.dart';
+import '../widgets/loading_skeleton.dart';
+import '../widgets/error_widget.dart';
 
 class WorkflowsScreen extends StatefulWidget {
   const WorkflowsScreen({super.key});
@@ -13,6 +15,8 @@ class WorkflowsScreen extends StatefulWidget {
 class _WorkflowsScreenState extends State<WorkflowsScreen> {
   List<dynamic> _workflows = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -21,7 +25,11 @@ class _WorkflowsScreenState extends State<WorkflowsScreen> {
   }
 
   Future<void> _loadWorkflows() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final workflows = await ApiService.getUserPendingWorkflows();
       setState(() {
@@ -29,12 +37,11 @@ class _WorkflowsScreenState extends State<WorkflowsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load workflows: $e')),
-        );
-      }
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -68,22 +75,19 @@ class _WorkflowsScreenState extends State<WorkflowsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _workflows.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.work_outline, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No pending workflows',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                      ),
-                    ],
-                  ),
+          ? const ListSkeleton(itemCount: 5)
+          : _error
+              ? ErrorRetryWidget(
+                  message: _errorMessage ?? 'Failed to load workflows',
+                  onRetry: _loadWorkflows,
                 )
-              : RefreshIndicator(
+              : _workflows.isEmpty
+                  ? const EmptyStateWidget(
+                      icon: Icons.work_outline,
+                      title: 'No pending workflows',
+                      subtitle: 'All caught up! No workflows require your attention.',
+                    )
+                  : RefreshIndicator(
                   onRefresh: _loadWorkflows,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),

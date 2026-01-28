@@ -1,9 +1,9 @@
 import 'dart:typed_data';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import 'signing_screen.dart';
+import 'document_activity_screen.dart';
 
 class DocumentDetailScreen extends StatefulWidget {
   final String documentId;
@@ -56,6 +56,71 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _showRejectDialog() async {
+    final reasonController = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Document'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Please provide a reason for rejecting this document:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                border: OutlineInputBorder(),
+                hintText: 'Enter rejection reason...',
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (reasonController.text.trim().isNotEmpty) {
+                Navigator.pop(context, true);
+              }
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && reasonController.text.trim().isNotEmpty) {
+      try {
+        await ApiService.rejectDocument(
+          widget.documentId,
+          reasonController.text.trim(),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Document rejected successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadDocument();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to reject document: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -123,7 +188,24 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
         backgroundColor: const Color(0xFF2D3748),
         foregroundColor: Colors.white,
         actions: [
-          if (status == 'pending')
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DocumentActivityScreen(documentId: widget.documentId),
+                ),
+              );
+            },
+            tooltip: 'Activity',
+          ),
+          if (status == 'pending') ...[
+            IconButton(
+              icon: const Icon(Icons.cancel),
+              onPressed: () => _showRejectDialog(),
+              tooltip: 'Reject',
+            ),
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () async {
@@ -140,7 +222,9 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
                   _loadDocument();
                 }
               },
+              tooltip: 'Sign',
             ),
+          ],
         ],
       ),
       body: Column(

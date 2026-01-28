@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'template_detail_screen.dart';
+import '../widgets/loading_skeleton.dart';
+import '../widgets/error_widget.dart';
 
 class TemplatesScreen extends StatefulWidget {
   const TemplatesScreen({super.key});
@@ -93,22 +95,19 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredTemplates.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.description, size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No templates found',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                            ),
-                          ],
-                        ),
+                ? const ListSkeleton(itemCount: 5)
+                : _error
+                    ? ErrorRetryWidget(
+                        message: _errorMessage ?? 'Failed to load templates',
+                        onRetry: _loadTemplates,
                       )
-                    : RefreshIndicator(
+                    : _filteredTemplates.isEmpty
+                        ? const EmptyStateWidget(
+                            icon: Icons.description,
+                            title: 'No templates found',
+                            subtitle: 'Templates will appear here when available',
+                          )
+                        : RefreshIndicator(
                         onRefresh: _loadTemplates,
                         child: ListView.builder(
                           padding: const EdgeInsets.all(16),

@@ -16,6 +16,13 @@ import 'screens/verification_screen.dart';
 import 'screens/workflows_screen.dart';
 import 'screens/upload_document_screen.dart';
 import 'screens/verification_otp_screen.dart';
+import 'screens/document_activity_screen.dart';
+import 'widgets/search_bar.dart';
+import 'widgets/loading_skeleton.dart';
+import 'widgets/error_widget.dart';
+import 'widgets/offline_indicator.dart';
+import 'widgets/bulk_select_app_bar.dart';
+import 'widgets/filter_bottom_sheet.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -302,43 +309,231 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _documents = [];
+  List<dynamic> _filteredDocuments = [];
   bool _loading = true;
+  bool _error = false;
+  String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
+  bool _bulkSelectMode = false;
+  final Set<String> _selectedIds = {};
+  String? _filterStatus;
+  String? _filterDepartment;
+  SortOption? _sortOption;
+  List<String> _departments = [];
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_filterDocuments);
     _fetchData();
+    _loadDepartments();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDepartments() async {
+    try {
+      final depts = await ApiService.getDepartments();
+      setState(() {
+        _departments = depts.map((d) => d['name'] as String? ?? '').where((n) => n.isNotEmpty).toList();
+      });
+    } catch (e) {
+      // Ignore error, departments are optional
+    }
+  }
+
+  void _applyFilters(String? status, String? department, SortOption? sort) {
+    setState(() {
+      _filterStatus = status;
+      _filterDepartment = department;
+      _sortOption = sort;
+    });
+    _filterDocuments();
+  }
+
+  void _filterDocuments() {
+    var filtered = List<dynamic>.from(_documents);
+    
+    // Apply search
+    final query = _searchController.text.toLowerCase();
+    if (query.isNotEmpty) {
+      filtered = filtered.where((doc) {
+        final title = (doc['title'] ?? '').toString().toLowerCase();
+        final department = (doc['department'] ?? '').toString().toLowerCase();
+        final status = (doc['status'] ?? '').toString().toLowerCase();
+        return title.contains(query) ||
+            department.contains(query) ||
+            status.contains(query);
+      }).toList();
+    }
+
+    // Apply status filter
+    if (_filterStatus != null) {
+      filtered = filtered.where((doc) => doc['status'] == _filterStatus).toList();
+    }
+
+    // Apply department filter
+    if (_filterDepartment != null) {
+      filtered = filtered.where((doc) => doc['department'] == _filterDepartment).toList();
+    }
+
+    // Apply sorting
+    if (_sortOption != null) {
+      switch (_sortOption) {
+        case SortOption.newest:
+          filtered.sort((a, b) {
+            final aDate = a['created_at'] ?? '';
+            final bDate = b['created_at'] ?? '';
+            return bDate.compareTo(aDate);
+          });
+          break;
+        case SortOption.oldest:
+          filtered.sort((a, b) {
+            final aDate = a['created_at'] ?? '';
+            final bDate = b['created_at'] ?? '';
+            return aDate.compareTo(bDate);
+          });
+          break;
+        case SortOption.titleAsc:
+          filtered.sort((a, b) {
+            final aTitle = (a['title'] ?? '').toString();
+            final bTitle = (b['title'] ?? '').toString();
+            return aTitle.compareTo(bTitle);
+          });
+          break;
+        case SortOption.titleDesc:
+          filtered.sort((a, b) {
+            final aTitle = (a['title'] ?? '').toString();
+            final bTitle = (b['title'] ?? '').toString();
+            return bTitle.compareTo(aTitle);
+          });
+          break;
+        case SortOption.status:
+          filtered.sort((a, b) {
+            final aStatus = (a['status'] ?? '').toString();
+            final bStatus = (b['status'] ?? '').toString();
+            return aStatus.compareTo(bStatus);
+          });
+          break;
+      }
+    }
+
+    setState(() {
+      _filteredDocuments = filtered;
+    });
   }
 
   Future<void> _fetchData() async {
+    setState(() {
+      _loading = true;
+      _error = false;
+      _errorMessage = null;
+    });
+
     try {
       final docs = await ApiService.getDocuments();
       if (docs.isNotEmpty) {
-        // Cache online results
         await DatabaseHelper.instance.cacheDocuments(docs);
-        setState(() {
-          _documents = docs;
-          _loading = false;
-        });
-      } else {
-        // If API returns empty (but no error), still valid.
-        setState(() {
-           _documents = [];
-           _loading = false;
-        });
       }
-    } catch (e) {
-      print('Network Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offline Mode: Showing cached data')),
-      );
-      
-      // Load from Cache
-      final cachedDocs = await DatabaseHelper.instance.getCachedDocuments();
       setState(() {
-        _documents = cachedDocs;
+        _documents = docs;
         _loading = false;
       });
+      _filterDocuments();
+    } catch (e) {
+      print('Network Error: $e');
+      
+      // Try to load from cache
+      try {
+        final cachedDocs = await DatabaseHelper.instance.getCachedDocuments();
+        setState(() {
+          _documents = cachedDocs;
+          _loading = false;
+        });
+        _filterDocuments();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Offline Mode: Showing cached data'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (cacheError) {
+        setState(() {
+          _loading = false;
+          _error = true;
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  void _toggleBulkSelect() {
+    setState(() {
+      _bulkSelectMode = !_bulkSelectMode;
+      if (!_bulkSelectMode) {
+        _selectedIds.clear();
+      }
+    });
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _bulkDelete() async {
+    if (_selectedIds.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Documents'),
+        content: Text('Are you sure you want to delete ${_selectedIds.length} document(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await ApiService.bulkDeleteDocuments(_selectedIds.toList());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Documents deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _toggleBulkSelect();
+          _fetchData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -349,21 +544,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final totalCount = _documents.length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: const Color(0xFF2D3748),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      body: _loading 
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
+      appBar: _bulkSelectMode
+          ? BulkSelectAppBar(
+              selectedCount: _selectedIds.length,
+              onCancel: _toggleBulkSelect,
+              onDelete: _bulkDelete,
+            )
+          : AppBar(
+              title: const Text('Dashboard'),
+              backgroundColor: const Color(0xFF2D3748),
+              foregroundColor: Colors.white,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (_) => FilterBottomSheet(
+                        selectedStatus: _filterStatus,
+                        selectedDepartment: _filterDepartment,
+                        sortOption: _sortOption,
+                        departments: _departments,
+                        onApply: _applyFilters,
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.select_all),
+                  onPressed: _toggleBulkSelect,
+                ),
+                IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh)),
+              ],
+            ),
+      body: Column(
+        children: [
+          const OfflineIndicator(),
+          Expanded(
+            child: _loading
+                ? const ListSkeleton(itemCount: 5)
+                : _error
+                    ? ErrorRetryWidget(
+                        message: _errorMessage ?? 'Failed to load documents',
+                        onRetry: _fetchData,
+                      )
+                    : RefreshIndicator(
             onRefresh: _fetchData,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(top: 8),
               children: [
+                SearchBarWidget(
+                  controller: _searchController,
+                  hintText: 'Search documents...',
+                  onChanged: (_) => _filterDocuments(),
+                  onClear: () => _filterDocuments(),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                 // Stats Cards
                 Row(
                   children: [
@@ -468,27 +708,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (_documents.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Column(
-                        children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No documents found',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
+                if (_filteredDocuments.isEmpty)
+                  EmptyStateWidget(
+                    icon: _searchController.text.isNotEmpty || _filterStatus != null
+                        ? Icons.search_off
+                        : Icons.inbox,
+                    title: _searchController.text.isNotEmpty || _filterStatus != null
+                        ? 'No documents match your filters'
+                        : 'No documents found',
+                    subtitle: _searchController.text.isEmpty && _filterStatus == null
+                        ? 'Upload your first document to get started'
+                        : 'Try adjusting your search or filters',
+                    action: _searchController.text.isNotEmpty || _filterStatus != null
+                        ? OutlinedButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _filterStatus = null;
+                                _filterDepartment = null;
+                                _sortOption = null;
+                              });
+                              _filterDocuments();
+                            },
+                            child: const Text('Clear Filters'),
+                          )
+                        : null,
                   )
                 else
-                  ..._documents.take(10).map((doc) => _DocumentCard(doc: doc)),
+                  ..._filteredDocuments.map((doc) => _DocumentCard(
+                        doc: doc,
+                        isSelected: _bulkSelectMode && _selectedIds.contains(doc['id'].toString()),
+                        onTap: _bulkSelectMode
+                            ? () => _toggleSelection(doc['id'].toString())
+                            : null,
+                      )),
+                    ],
+                  ),
               ],
             ),
+                    ),
           ),
+        ],
+      ),
     );
   }
 }
@@ -607,8 +868,14 @@ class _ActionCard extends StatelessWidget {
 
 class _DocumentCard extends StatelessWidget {
   final dynamic doc;
+  final bool isSelected;
+  final VoidCallback? onTap;
 
-  const _DocumentCard({required this.doc});
+  const _DocumentCard({
+    required this.doc,
+    this.isSelected = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -622,32 +889,45 @@ class _DocumentCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DocumentDetailScreen(documentId: doc['id'].toString()),
-            ),
-          );
-          if (result == true) {
-            // Refresh handled by parent
-          }
-        },
+        child: InkWell(
+          onTap: onTap ??
+              () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DocumentDetailScreen(documentId: doc['id'].toString()),
+                  ),
+                );
+                if (result == true) {
+                  // Refresh handled by parent
+                }
+              },
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                if (isSelected)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: Colors.blue[700],
+                      size: 24,
+                    ),
+                  ),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: isSelected
+                        ? Border.all(color: Colors.blue[700]!, width: 2)
+                        : null,
+                  ),
+                  child: Icon(Icons.description, color: statusColor),
                 ),
-                child: Icon(Icons.description, color: statusColor),
-              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../widgets/loading_skeleton.dart';
+import '../widgets/error_widget.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -98,22 +100,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _notifications.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.notifications_none, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No notifications',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                      ),
-                    ],
-                  ),
+          ? const ListSkeleton(itemCount: 5)
+          : _error
+              ? ErrorRetryWidget(
+                  message: _errorMessage ?? 'Failed to load notifications',
+                  onRetry: _loadNotifications,
                 )
-              : RefreshIndicator(
+              : _notifications.isEmpty
+                  ? const EmptyStateWidget(
+                      icon: Icons.notifications_none,
+                      title: 'No notifications',
+                      subtitle: 'You\'re all caught up!',
+                    )
+                  : RefreshIndicator(
                   onRefresh: _loadNotifications,
                   child: ListView.builder(
                     itemCount: _notifications.length,
