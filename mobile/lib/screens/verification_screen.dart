@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../main.dart'; // For DashboardScreen
+import '../main.dart'; // For LoginScreen
 
 class VerificationScreen extends StatefulWidget {
   final Uri uri;

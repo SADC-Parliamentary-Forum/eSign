@@ -13,6 +13,9 @@ import 'screens/templates_screen.dart';
 import 'screens/signatures_screen.dart';
 import 'screens/guest_signer_screen.dart';
 import 'screens/verification_screen.dart';
+import 'screens/workflows_screen.dart';
+import 'screens/upload_document_screen.dart';
+import 'screens/verification_otp_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -408,11 +411,32 @@ import 'database_helper.dart';
                   children: [
                     Expanded(
                       child: _ActionCard(
-                        icon: Icons.description,
-                        label: 'Templates',
+                        icon: Icons.upload,
+                        label: 'Upload',
                         color: Colors.blue,
                         onTap: () {
-                          // Navigate to templates - handled by bottom nav
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const UploadDocumentScreen()),
+                          ).then((result) {
+                            if (result == true) {
+                              _fetchData();
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ActionCard(
+                        icon: Icons.work,
+                        label: 'Workflows',
+                        color: Colors.purple,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const WorkflowsScreen()),
+                          );
                         },
                       ),
                     ),
@@ -421,20 +445,12 @@ import 'database_helper.dart';
                       child: _ActionCard(
                         icon: Icons.draw,
                         label: 'Signatures',
-                        color: Colors.purple,
-                        onTap: () {
-                          // Navigate to signatures - handled by bottom nav
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.notifications,
-                        label: 'Notifications',
                         color: Colors.orange,
                         onTap: () {
-                          // Navigate to notifications - handled by bottom nav
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SignaturesScreen()),
+                          );
                         },
                       ),
                     ),
