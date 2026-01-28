@@ -17,7 +17,6 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
   File? _selectedFile;
   String? _selectedDepartment;
   List<dynamic> _departments = [];
-  bool _isLoading = false;
   bool _isUploading = false;
 
   @override
@@ -168,9 +167,10 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
                           prefixIcon: Icon(Icons.folder),
                         ),
                         items: _departments.map((dept) {
-                          return DropdownMenuItem(
-                            value: dept['name'],
-                            child: Text(dept['name'] ?? 'Unknown'),
+                          final name = dept['name'] as String?;
+                          return DropdownMenuItem<String>(
+                            value: name,
+                            child: Text(name ?? 'Unknown'),
                           );
                         }).toList(),
                         onChanged: (value) {

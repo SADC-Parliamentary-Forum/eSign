@@ -41,23 +41,22 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _initDeepLinks() async {
-    // import 'package:app_links/app_links.dart';
-    // _appLinks = AppLinks();
-
-    // Check initial link
-    // final appLink = await _appLinks.getInitialLink();
-    // if (appLink != null) _handleLink(appLink);
-
-    // Subscribe to link changes
-    // _appLinks.uriLinkStream.listen((uri) {
-    //   _handleLink(uri);
-    // });
-    
-    // NOTE: Because I cannot run flutter pub get, I am commenting out the actual calls to avoid compilation errors until you run the command.
-    // Please uncomment the import and the code above after running `flutter pub get`.
-    
-    // For now, I will assume the user has run it or I will provide the FULL code and they might see errors until they run `flutter pub get`.
-    // Actually, I will write the FULL CODE assuming the user follows instructions.
+    try {
+      // Uncomment when app_links package is available
+      // import 'package:app_links/app_links.dart';
+      // _appLinks = AppLinks();
+      //
+      // Check initial link
+      // final appLink = await _appLinks.getInitialLink();
+      // if (appLink != null) _handleLink(appLink);
+      //
+      // Subscribe to link changes
+      // _appLinks.uriLinkStream.listen((uri) {
+      //   _handleLink(uri);
+      // });
+    } catch (e) {
+      print('Deep links initialization error: $e');
+    }
   }
   
   void _handleLink(Uri uri) {
@@ -310,10 +309,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _fetchData();
   }
-
-import 'database_helper.dart';
-
-// ... (In _DashboardScreenState)
 
   Future<void> _fetchData() async {
     try {
