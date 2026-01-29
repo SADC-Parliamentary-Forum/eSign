@@ -4,7 +4,8 @@ import { $api } from '@/utils/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token'))
-  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
+  const storedUser = localStorage.getItem('user')
+  const user = ref(storedUser && storedUser !== 'undefined' ? JSON.parse(storedUser) : null)
 
   const isAuthenticated = computed(() => !!user.value)
   const role = computed(() => user.value?.role?.name)
@@ -12,8 +13,14 @@ export const useAuthStore = defineStore('auth', () => {
   function setAuth(newToken, newUser) {
     token.value = newToken
     user.value = newUser
-    localStorage.setItem('token', newToken)
-    localStorage.setItem('user', JSON.stringify(newUser))
+
+    if (newToken) {
+      localStorage.setItem('token', newToken)
+    }
+
+    if (newUser) {
+      localStorage.setItem('user', JSON.stringify(newUser))
+    }
   }
 
   function clearAuth() {
@@ -40,9 +47,15 @@ export const useAuthStore = defineStore('auth', () => {
         body: { email, password },
       })
 
+      console.log('Login Response:', data)
+
+      if (!data.access_token && !data.token) {
+        throw new Error('Login failed: No access token received from server.')
+      }
+
       // Update State
       // Update State using the centralized helper
-      setAuth(data.access_token, data.user)
+      setAuth(data.access_token || data.token, data.user)
 
       return true
     } catch (error) {

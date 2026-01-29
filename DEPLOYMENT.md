@@ -245,24 +245,29 @@ Create `docker-compose.prod.yml`:
 version: '3.9'
 
 services:
-  # Nginx - Production Web Server
-  nginx:
-    image: nginx:alpine
-    container_name: esign_nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./backend/public:/var/www/html/backend/public:ro
-      - ./frontend/dist:/var/www/html/frontend/dist:ro
-      - ./docker/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - app
-    networks:
-      - esign_network
+## Nginx Configuration (Docker)
+
+Since your production server uses a global Nginx reverse proxy, the Docker Nginx container is configured to:
+1. Listen on `8000` (mapped to `80` inside container)
+2. Handle HTTP traffic only (SSL termination is done by the host)
+3. Proxy requests to the Backend and Frontend
+
+**Host Nginx Configuration (Reference):**
+
+Ensure your host's Nginx configuration includes:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+**Docker Nginx Config:**
+The file `docker/nginx/conf.d/esign.conf` is already configured to accept these headers.
 
   # Laravel App (PHP-FPM)
   app:
@@ -723,8 +728,8 @@ docker-compose exec minio mc mb myminio/documents
 # Check Reverb is running
 docker-compose logs reverb
 
-# Test WebSocket
-wscat -c ws://localhost:8080
+# Test WebSocket (via main domain)
+wscat -c wss://esign.sadcpf.org/app/sadc_esign_key?protocol=7&client=js&version=8.4.0&flash=false
 
 # Verify nginx proxy config
 docker-compose exec nginx nginx -t
