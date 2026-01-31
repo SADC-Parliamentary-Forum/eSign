@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/biometric_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,6 +18,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  
+  bool _biometricsAvailable = false;
+  bool _biometricsEnabled = false;
 
   @override
   void initState() {
@@ -56,6 +60,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('Load User Error: $e');
     } finally {
       setState(() => _isLoading = false);
+    }
+    
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final available = await BiometricService.isBiometricAvailable();
+    final enabled = await BiometricService.isBiometricEnabled();
+    if (mounted) {
+      setState(() {
+        _biometricsAvailable = available;
+        _biometricsEnabled = enabled;
+      });
     }
   }
 
@@ -205,6 +222,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _toggleBiometrics(bool value) async {
+    if (value) {
+      // Enabling - require password
+      final password = await _showPasswordDialogToEnableBiometrics();
+      if (password != null) {
+        // Verify password by attempting login (silent)
+        try {
+          final result = await ApiService.login(_emailController.text, password);
+          if (result != null) {
+            await BiometricService.storeCredentials(_emailController.text, password);
+            await BiometricService.setBiometricEnabled(true);
+            setState(() => _biometricsEnabled = true);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Biometric login enabled'), backgroundColor: Colors.green),
+              );
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invalid password'), backgroundColor: Colors.red),
+            );
+          }
+        }
+      }
+    } else {
+      // Disabling
+      await BiometricService.setBiometricEnabled(false);
+      setState(() => _biometricsEnabled = false);
+    }
+  }
+
+  Future<String?> _showPasswordDialogToEnableBiometrics() async {
+    final passwordController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Biometrics'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Please enter your password to enable biometric login.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, passwordController.text),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -306,6 +391,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Card(
                 child: Column(
                   children: [
+                    if (_biometricsAvailable) ...[
+                      SwitchListTile(
+                        secondary: const Icon(Icons.fingerprint),
+                        title: const Text('Biometric Login'),
+                        subtitle: const Text('Use fingerprint/face to login'),
+                        value: _biometricsEnabled,
+                        onChanged: _toggleBiometrics,
+                      ),
+                      const Divider(),
+                    ],
                     ListTile(
                       leading: const Icon(Icons.lock),
                       title: const Text('Change Password'),
