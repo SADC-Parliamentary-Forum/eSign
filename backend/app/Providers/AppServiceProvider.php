@@ -22,12 +22,15 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Auth\Notifications\VerifyEmail::createUrlUsing(function ($notifiable) {
             $frontendUrl = config('app.frontend_url');
 
+            // Security: Use SHA-256 instead of SHA-1 for email hash
+            $emailHash = hash('sha256', $notifiable->getEmailForVerification());
+
             $verifyUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
                 'verification.verify',
                 \Carbon\Carbon::now()->addMinutes(config('auth.verification.expire', 60)),
                 [
                     'id' => $notifiable->getKey(),
-                    'hash' => sha1($notifiable->getEmailForVerification()),
+                    'hash' => $emailHash,
                 ]
             );
 
@@ -36,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
             parse_str($parsed['query'] ?? '', $queryParams);
 
             return $frontendUrl . '/auth/verify-email?id=' . $notifiable->getKey() .
-                '&hash=' . sha1($notifiable->getEmailForVerification()) .
+                '&hash=' . $emailHash .
                 '&expires=' . ($queryParams['expires'] ?? '') .
                 '&signature=' . ($queryParams['signature'] ?? '');
         });

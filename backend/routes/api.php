@@ -190,6 +190,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('documents/{id}/status', [DocumentController::class, 'status']);
     Route::get('documents/{id}/evidence', [DocumentController::class, 'downloadEvidence']);
     Route::get('documents/{id}/pdf', [DocumentController::class, 'streamPdf']);
+    Route::get('documents/{id}/verify', [DocumentController::class, 'verifyIntegrity']);
 
     // -------------------------------------------------------------------------
     // Signing (for authenticated users viewing their assigned documents)

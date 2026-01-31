@@ -60,10 +60,15 @@ class EvidencePackageController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to generate evidence package',
+            \Log::error('Evidence package generation failed', [
+                'document_id' => $id,
                 'error' => $e->getMessage(),
-            ], 500);
+            ]);
+            // Security: Don't expose internal error details in production
+            $message = app()->isProduction()
+                ? 'Failed to generate evidence package'
+                : 'Failed to generate evidence package: ' . $e->getMessage();
+            return response()->json(['message' => $message], 500);
         }
     }
 
@@ -92,10 +97,15 @@ class EvidencePackageController extends Controller
                 $this->evidenceService->generateEvidencePackage($document);
                 $document->refresh();
             } catch (\Exception $e) {
-                \Log::error('Evidence package generation failed: ' . $e->getMessage());
-                return response()->json([
-                    'message' => 'Evidence package not found and could not be generated: ' . $e->getMessage(),
-                ], 500);
+                \Log::error('Evidence package generation failed', [
+                    'document_id' => $id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Security: Don't expose internal error details in production
+                $message = app()->isProduction()
+                    ? 'Evidence package not found and could not be generated'
+                    : 'Evidence package not found and could not be generated: ' . $e->getMessage();
+                return response()->json(['message' => $message], 500);
             }
         }
 

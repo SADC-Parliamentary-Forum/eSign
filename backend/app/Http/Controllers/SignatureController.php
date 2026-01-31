@@ -224,9 +224,48 @@ class SignatureController extends Controller
 
     public function reject(Request $request, $documentId)
     {
-        $document = Document::findOrFail($documentId);
-        // Log rejection...
-        $document->update(['status' => 'VOIDED']);
-        return response()->json(['message' => 'Document rejected']);
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        $document = Document::with('signers')->findOrFail($documentId);
+        $user = $request->user();
+
+        // Authorization: Only signers can reject
+        $signer = $document->signers
+            ->where('email', $user->email)
+            ->whereIn('status', ['pending', 'notified', 'viewed'])
+            ->first();
+
+        if (!$signer) {
+            return response()->json([
+                'message' => 'You are not authorized to reject this document.'
+            ], 403);
+        }
+
+        // Update signer status
+        $signer->update([
+            'status' => 'declined',
+            'declined_at' => now(),
+            'decline_reason' => $validated['reason'] ?? null,
+        ]);
+
+        // Update document status
+        $document->update([
+            'status' => 'DECLINED',
+            'declined_at' => now(),
+        ]);
+
+        // Audit: Log document rejection
+        $this->auditService->log($user, 'document_rejected', 'document', $document->id, [
+            'title' => $document->title,
+            'signer_email' => $user->email,
+            'reason' => $validated['reason'] ?? 'No reason provided',
+        ]);
+
+        return response()->json([
+            'message' => 'Document rejected successfully.',
+            'document' => $document->fresh(),
+        ]);
     }
 }

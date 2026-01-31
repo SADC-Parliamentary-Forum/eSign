@@ -8,6 +8,16 @@ use Illuminate\Http\Request;
 class DepartmentController extends Controller
 {
     /**
+     * Security: Require admin for write operations.
+     */
+    private function requireAdmin(Request $request): void
+    {
+        if (!$request->user() || !$request->user()->hasPermission('admin')) {
+            abort(403, 'Unauthorized. Admin access required.');
+        }
+    }
+
+    /**
      * List all departments.
      */
     public function index()
@@ -21,9 +31,12 @@ class DepartmentController extends Controller
 
     /**
      * Create a new department.
+     * Security: Requires admin role
      */
     public function store(Request $request)
     {
+        $this->requireAdmin($request);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:departments,code',
@@ -46,9 +59,12 @@ class DepartmentController extends Controller
 
     /**
      * Update a department.
+     * Security: Requires admin role
      */
     public function update(Request $request, $id)
     {
+        $this->requireAdmin($request);
+
         $department = Department::findOrFail($id);
 
         $validated = $request->validate([
@@ -65,9 +81,12 @@ class DepartmentController extends Controller
 
     /**
      * Delete a department.
+     * Security: Requires admin role
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
+        $this->requireAdmin($request);
+
         $department = Department::findOrFail($id);
         $department->delete();
 

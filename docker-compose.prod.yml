@@ -35,7 +35,7 @@ services:
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini:ro
     environment:
       APP_ENV: production
-      APP_DEBUG: "true"
+      APP_DEBUG: "false"
       APP_URL: https://esign.sadcpf.org
       DB_CONNECTION: pgsql
       DB_HOST: db

@@ -201,6 +201,74 @@ class DocumentService
     }
 
     /**
+     * Verify document integrity by comparing stored hash with current file hash.
+     * Security: Detects tampering of document files.
+     *
+     * @param Document $document
+     * @return array{valid: bool, stored_hash: string|null, current_hash: string|null, verified_at: string}
+     */
+    public function verifyDocumentIntegrity(Document $document): array
+    {
+        $storedHash = $document->file_hash;
+
+        if (!$storedHash) {
+            return [
+                'valid' => false,
+                'stored_hash' => null,
+                'current_hash' => null,
+                'verified_at' => now()->toIso8601String(),
+                'error' => 'No stored hash available for verification',
+            ];
+        }
+
+        if (!$document->file_path || !Storage::disk('minio')->exists($document->file_path)) {
+            return [
+                'valid' => false,
+                'stored_hash' => $storedHash,
+                'current_hash' => null,
+                'verified_at' => now()->toIso8601String(),
+                'error' => 'Document file not found',
+            ];
+        }
+
+        try {
+            $fileContent = Storage::disk('minio')->get($document->file_path);
+            $currentHash = hash('sha256', $fileContent);
+
+            $isValid = hash_equals($storedHash, $currentHash);
+
+            if (!$isValid) {
+                \Log::warning('Document integrity check failed - possible tampering', [
+                    'document_id' => $document->id,
+                    'stored_hash' => $storedHash,
+                    'current_hash' => $currentHash,
+                ]);
+            }
+
+            return [
+                'valid' => $isValid,
+                'stored_hash' => $storedHash,
+                'current_hash' => $currentHash,
+                'verified_at' => now()->toIso8601String(),
+                'algorithm' => 'SHA-256',
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Document integrity verification failed', [
+                'document_id' => $document->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'valid' => false,
+                'stored_hash' => $storedHash,
+                'current_hash' => null,
+                'verified_at' => now()->toIso8601String(),
+                'error' => 'Verification failed: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Generate a ZIP bundle containing the Signed Document and Audit Trail
      */
     /**

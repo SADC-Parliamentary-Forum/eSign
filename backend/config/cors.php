@@ -17,17 +17,28 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie', 'broadcasting/*'],
 
-    'allowed_methods' => ['*'],
+    // Security: Explicitly whitelist allowed HTTP methods instead of wildcard
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
     'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')),
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    // Security: Explicitly whitelist allowed headers instead of wildcard
+    'allowed_headers' => [
+        'Accept',
+        'Authorization',
+        'Content-Type',
+        'X-Requested-With',
+        'X-CSRF-TOKEN',
+        'X-Socket-Id',
+        'X-XSRF-TOKEN',
+    ],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['Content-Disposition'],
 
-    'max_age' => 0,
+    // Security: Cache preflight requests for 24 hours to reduce overhead
+    'max_age' => 86400,
 
     'supports_credentials' => true,
 

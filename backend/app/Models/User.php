@@ -30,11 +30,15 @@ class User extends Authenticatable implements MustVerifyEmail, \OwenIt\Auditing\
         'phone',
         'department',
         'job_title',
+        // Security: Account lockout fields
+        'failed_login_attempts',
+        'locked_until',
     ];
 
     protected $attributes = [
         'status' => 'ACTIVE',
         'mfa_enabled' => false,
+        'failed_login_attempts' => 0,
     ];
 
     /**
@@ -63,6 +67,9 @@ class User extends Authenticatable implements MustVerifyEmail, \OwenIt\Auditing\
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'mfa_enabled' => 'boolean',
+        // Security: Account lockout fields
+        'failed_login_attempts' => 'integer',
+        'locked_until' => 'datetime',
     ];
 
     public function role()
