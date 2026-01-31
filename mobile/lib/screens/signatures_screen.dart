@@ -111,7 +111,7 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Signatures'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -266,7 +266,7 @@ class _CreateSignatureScreenState extends State<CreateSignatureScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Signature'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: Column(

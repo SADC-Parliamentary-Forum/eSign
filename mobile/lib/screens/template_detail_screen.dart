@@ -72,7 +72,7 @@ class _TemplateDetailScreenState extends State<TemplateDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Template Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -83,7 +83,7 @@ class _TemplateDetailScreenState extends State<TemplateDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Template Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: Text('Template not found')),
@@ -93,7 +93,7 @@ class _TemplateDetailScreenState extends State<TemplateDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Template Details'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(

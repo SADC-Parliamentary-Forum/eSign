@@ -301,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
           if (_isEditing)
@@ -327,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Center(
                 child: CircleAvatar(
                   radius: 50,
-                  backgroundColor: const Color(0xFF2D3748),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Text(
                     (_user?['name'] ?? 'U')[0].toUpperCase(),
                     style: const TextStyle(fontSize: 36, color: Colors.white),

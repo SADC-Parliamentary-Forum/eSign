@@ -39,7 +39,7 @@ class _ScanDocumentScreenState extends State<ScanDocumentScreen> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Document',
-            toolbarColor: const Color(0xFF2D3748),
+            toolbarColor: Theme.of(context).colorScheme.primary,
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.original,
             lockAspectRatio: false,
@@ -106,7 +106,7 @@ class _ScanDocumentScreenState extends State<ScanDocumentScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Document'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
           if (_scannedPages.isNotEmpty)

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -14,6 +15,7 @@ class BiometricService {
 
   // Check if hardware is available
   static Future<bool> isBiometricAvailable() async {
+    if (kIsWeb) return false;
     try {
       final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
       final bool canAuthenticate =

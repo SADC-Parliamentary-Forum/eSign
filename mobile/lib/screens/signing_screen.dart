@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:signature/signature.dart';
 import '../services/api_service.dart';
+import '../widgets/glass_app_bar.dart';
+import '../widgets/premium_card.dart';
+import '../widgets/success_seal_overlay.dart';
 
 class SigningScreen extends StatefulWidget {
   final String documentId;
@@ -42,6 +46,8 @@ class _SigningScreenState extends State<SigningScreen> {
       return;
     }
 
+    await HapticFeedback.mediumImpact();
+
     setState(() {
       _isSigning = true;
       _errorMessage = null;
@@ -50,18 +56,8 @@ class _SigningScreenState extends State<SigningScreen> {
     try {
       final Uint8List? data = await _controller.toPngBytes();
       if (data == null) return;
-
-      final base64Signature = 'data:image/png;base64,${base64Encode(data)}';
       
-      final token = await ApiService.getToken();
-      // The original line was: final url = Uri.parse('${ApiService.baseUrl}/documents/${widget.documentId}/sign');
-      // The instruction implies replacing ApiService.baseUrl with AppConfig.instance.apiBaseUrl
-      // The provided snippet for http.post is syntactically incorrect and seems to change the path significantly.
-      // Assuming the intent is to update the base URL for the existing path.
-      // However, the instruction's "Code Edit" snippet explicitly shows a different URL structure for the http.post call.
-      // I will follow the provided "Code Edit" snippet as closely as possible, correcting syntax errors.
-      // It seems to remove the 'documents/${widget.documentId}' part and adds '/sign/$token' to the base URL.
-      // Also, 'rs:' should be 'headers:'. And '_token' should be 'token'.
+      final base64Signature = 'data:image/png;base64,${base64Encode(data)}';
       
       await ApiService.signDocument(
         widget.documentId,
@@ -69,49 +65,51 @@ class _SigningScreenState extends State<SigningScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Document signed successfully!'),
-            backgroundColor: Colors.green,
+        // Phase 3: Seal Animation
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => SuccessSealOverlay(
+            onCompleted: () => Navigator.pop(context),
           ),
         );
-        Navigator.pop(context, true); // Return true to refresh
+        
+        if (mounted) {
+            // Phase 4: Archive (Pop with result)
+            Navigator.pop(context, true); 
+        }
       }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
-      setState(() => _isSigning = false);
+      if (mounted) setState(() => _isSigning = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Sign: ${widget.documentTitle}'),
-        backgroundColor: const Color(0xFF2D3748),
-        foregroundColor: Colors.white,
+      extendBodyBehindAppBar: true,
+      appBar: GlassAppBar(
+        title: 'Sign: ${widget.documentTitle}',
       ),
       body: Column(
         children: [
+          SizedBox(height: kToolbarHeight + 40),
           Expanded(
             child: Container(
-              color: Colors.grey[200],
+              color: Colors.grey[100],
               child: Center(
                 child: Text(
-                  'PDF Preview Placeholder\n(Use flutter_pdfview or Syncfusion_flutter_pdfviewer)',
+                  'Document Preview would go here',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ),
             ),
           ),
-          Container(
+          PremiumCard(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black12)],
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -119,13 +117,17 @@ class _SigningScreenState extends State<SigningScreen> {
                 const SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.grey.shade50,
                   ),
-                  child: Signature(
-                    controller: _controller,
-                    height: 200,
-                    backgroundColor: Colors.white,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Signature(
+                      controller: _controller,
+                      height: 200,
+                      backgroundColor: Colors.transparent,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -148,7 +150,7 @@ class _SigningScreenState extends State<SigningScreen> {
                       child: FilledButton(
                         onPressed: _isSigning ? null : _submitSignature,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF2F855A), // Green
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                         ),
                         child: _isSigning 
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 

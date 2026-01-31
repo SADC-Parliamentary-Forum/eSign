@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:mobile/config/app_config.dart';
@@ -17,8 +19,10 @@ void main() async {
   await AppConfig.load();
 
   try {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(NotificationService.firebaseMessagingBackgroundHandler);
+    if (!kIsWeb) {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(NotificationService.firebaseMessagingBackgroundHandler);
+    }
     await NotificationService().initialize();
   } catch (e) {
     print('Initialization failed: $e');
@@ -54,8 +58,30 @@ class _MyAppState extends State<MyApp> {
       navigatorKey: _navigatorKey,
       title: 'SADC-eSign',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D3748)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1E3A8A), // Sapphire Blue
+          primary: const Color(0xFF1E3A8A),
+          secondary: const Color(0xFF3B82F6), // Vibrant Blue
+          surface: Colors.white,
+          background: const Color(0xFFEFF6FF), // Light Blue tint
+          error: const Color(0xFFEF4444), // Red 500
+        ),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFEFF6FF), // Light Blue tint
+        textTheme: GoogleFonts.interTextTheme(
+          Theme.of(context).textTheme,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E3A8A),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        cardTheme: CardTheme(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // Increased radius
+          color: Colors.white,
+          shadowColor: Colors.blueAccent.withOpacity(0.1),
+        ),
       ),
       // Start on MainScreen if already authenticated, otherwise LoginScreen
       home: widget.isAuthenticated ? const MainScreen() : const LoginScreen(),
@@ -99,11 +125,27 @@ class _MainScreenState extends State<MainScreen> {
           padding: EdgeInsets.zero,
           children: [
             const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF2D3748)),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)], // Gradient for premium feel
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.security, size: 48, color: Colors.white),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(42),
+                      child: Image.asset('assets/logo.jpg', height: 60, width: 60),
+                    ),
+                  ),
                   SizedBox(height: 8),
                   Text(
                     'SADC-eSign',
@@ -126,20 +168,4 @@ class _MainScreenState extends State<MainScreen> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                await ApiService.logout();
-                if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+              title: const Text('Logout', style: TextStyle(color: C

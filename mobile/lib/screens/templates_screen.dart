@@ -55,7 +55,7 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Templates'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(

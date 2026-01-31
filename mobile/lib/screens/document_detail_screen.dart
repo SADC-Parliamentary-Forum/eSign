@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import 'signing_screen.dart';
 import '../widgets/reject_dialog.dart';
 import '../widgets/activity_feed_list.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class DocumentDetailScreen extends StatefulWidget {
   final String documentId;
@@ -139,7 +140,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Document Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -150,7 +151,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Document Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: Center(
@@ -180,7 +181,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Document Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           bottom: const TabBar(
             labelColor: Colors.white,
@@ -198,6 +199,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
                 onPressed: _showRejectDialog,
                 tooltip: 'Reject',
               ),
+
               IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: () async {
@@ -215,7 +217,9 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
                   }
                 },
                 tooltip: 'Sign',
-              ),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .scaleXY(end: 1.2, duration: 800.ms)
+               .effect(duration: 800.ms, curve: Curves.easeInOut), // Subtle pulse
             ],
           ],
         ),

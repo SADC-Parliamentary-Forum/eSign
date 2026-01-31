@@ -142,7 +142,7 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Sign Document'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -153,7 +153,7 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Sign Document'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: Center(
@@ -177,7 +177,7 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_document!['title'] ?? 'Sign Document'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: Column(

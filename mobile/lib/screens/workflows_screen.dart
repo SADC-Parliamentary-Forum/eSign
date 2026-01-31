@@ -65,7 +65,7 @@ class _WorkflowsScreenState extends State<WorkflowsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Workflows'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(

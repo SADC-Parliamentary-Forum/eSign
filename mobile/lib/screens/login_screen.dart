@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.security, size: 64, color: Color(0xFF2D3748)),
+              Image.asset('assets/logo.jpg', height: 100),
               const SizedBox(height: 24),
               const Text(
                 'SADC-eSign',
@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _isLoading ? null : _login,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.all(16),
-                  backgroundColor: const Color(0xFF3182CE),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                 ),
                 child: _isLoading 
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
