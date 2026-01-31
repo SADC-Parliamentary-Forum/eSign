@@ -1,0 +1,10 @@
+{
+  "apiBaseUrl": "https://api.esign.example.com/api",
+  "features": {
+    "biometricSigning": true,
+    "offlineMode": true
+  },
+  "network": {
+    "timeoutMs": 30000
+  }
+}

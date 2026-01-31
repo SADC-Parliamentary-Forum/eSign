@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "esign-app"
+    metrics_path: "/metrics"
+    static_configs:
+      # Assuming app is reachable via 'app' hostname in the same network
+      # Since observability stack is in separate compose, we might need to bridge networks
+      # For now, placeholder:
+      - targets: ["host.docker.internal:8000"]

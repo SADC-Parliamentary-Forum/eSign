@@ -27,11 +27,17 @@ import 'widgets/filter_bottom_sheet.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.load();
-  runApp(const MyApp());
+
+  // Check if user has existing valid session
+  final isAuthenticated = await ApiService.isAuthenticated();
+
+  runApp(MyApp(isAuthenticated: isAuthenticated));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final bool isAuthenticated;
+
+  const MyApp({super.key, this.isAuthenticated = false});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -87,7 +93,8 @@ class _MyAppState extends State<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D3748)),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      // Start on MainScreen if already authenticated, otherwise LoginScreen
+      home: widget.isAuthenticated ? const MainScreen() : const LoginScreen(),
     );
   }
 }
@@ -419,6 +426,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return aStatus.compareTo(bStatus);
           });
           break;
+        case null:
+          break;
       }
     }
 
@@ -744,9 +753,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       )),
                     ],
                   ),
+                ),
               ],
             ),
-                    ),
+          ),
           ),
         ],
       ),

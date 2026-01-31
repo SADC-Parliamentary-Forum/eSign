@@ -186,9 +186,9 @@ class DocumentController extends Controller
             }
 
             // Handle Self-Sign Signer creation
-            // Note: If async, document might be PROCESSING, but we can still add signer logic to DB.
+            // Note: Self-sign documents start as DRAFT until user finalizes and signs
             if ($validated['is_self_sign'] ?? false) {
-                $document->update(['is_self_sign' => true]);
+                $document->update(['is_self_sign' => true, 'status' => 'DRAFT']);
 
                 \App\Models\DocumentSigner::create([
                     'document_id' => $document->id,

@@ -14,6 +14,8 @@ class TemplatesScreen extends StatefulWidget {
 class _TemplatesScreenState extends State<TemplatesScreen> {
   List<dynamic> _templates = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
   String _selectedCategory = 'All';
 
   @override
@@ -23,7 +25,11 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
   }
 
   Future<void> _loadTemplates() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final templates = await ApiService.getTemplates();
       setState(() {
@@ -31,12 +37,11 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load templates: $e')),
-        );
-      }
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 

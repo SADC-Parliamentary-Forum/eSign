@@ -1,0 +1,41 @@
+
+   FAIL  Tests\Feature\ProductionReadiness\FunctionalTest
+  ⨯ core user can login and fetch profile                              108.19s  
+  ⨯ login with invalid credentials returns friendly error                6.37s  
+  ✓ regular user cannot access admin routes                              2.61s  
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\ProductionReadiness\FunctionalTest > core user can…    
+  Expected response status code [200] but received 403.
+Failed asserting that 403 is identical to 200.
+
+  at tests/Feature/ProductionReadiness/FunctionalTest.php:32
+     28▕             'email' => $user->email,
+     29▕             'password' => 'StrongPass123!',
+     30▕         ]);
+     31▕ 
+  ➜  32▕         $response->assertStatus(200)
+     33▕             ->assertJsonStructure(['token', 'user']);
+     34▕ 
+     35▕         // Test authenticated route
+     36▕         Sanctum::actingAs($user);
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Feature\ProductionReadiness\FunctionalTest > login with inv…   
+  Expected response status code [401] but received 403.
+Failed asserting that 403 is identical to 401.
+
+  at tests/Feature/ProductionReadiness/FunctionalTest.php:54
+     50▕             'email' => $user->email,
+     51▕             'password' => 'WrongPassword',
+     52▕         ]);
+     53▕ 
+  ➜  54▕         $response->assertStatus(401)
+     55▕             ->assertJson(['message' => 'Invalid credentials']);
+     56▕ 
+     57▕         // Check for 422 on Validation
+     58▕         $responseValidation = $this->postJson('/api/auth/login', [
+
+
+  Tests:    2 failed, 1 passed (3 assertions)
+  Duration: 138.32s
+

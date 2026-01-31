@@ -1,0 +1,20 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname"]
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: "staging-alerts"
+  routes:
+    - receiver: "staging-alerts"
+      matchers:
+        - environment="staging"
+
+receivers:
+  - name: "staging-alerts"
+    email_configs:
+      - to: "engineering@sadcpf.org" # Placeholder
+        from: "alerts@sadcpf.org"
+        smarthost: "smtp.example.org:587"

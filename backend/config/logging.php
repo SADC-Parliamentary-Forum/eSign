@@ -107,6 +107,25 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
+        // Production JSON logging to stdout for container log aggregation
+        'stdout_json' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'info'),
+            'handler' => StreamHandler::class,
+            'formatter' => Monolog\Formatter\JsonFormatter::class,
+            'with' => [
+                'stream' => 'php://stdout',
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        // Production stack combining file and stdout
+        'production' => [
+            'driver' => 'stack',
+            'channels' => ['daily', 'stdout_json'],
+            'ignore_exceptions' => false,
+        ],
+
         'syslog' => [
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),
