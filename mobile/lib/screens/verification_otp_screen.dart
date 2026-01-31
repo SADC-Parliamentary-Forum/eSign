@@ -121,7 +121,7 @@ class _VerificationOTPScreenState extends State<VerificationOTPScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              Icon(Icons.security, size: 64, color: Theme.of(context).colorScheme.primary),
+              Image.asset('assets/logo.jpg', height: 80),
               const SizedBox(height: 24),
               const Text(
                 'Enter OTP',
