@@ -21,9 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'human' => \App\Http\Middleware\VerifyHuman::class,
         ]);
-        // Ensure CORS is handled for API routes
+
+        // Global middleware for Correlation ID (Web & API)
+        $middleware->append(\App\Http\Middleware\CorrelationId::class);
+
+        // API middleware: CORS handling and correlation ID for observability
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\CorrelationId::class,
         ]);
 
         // Exclude Login from CSRF (Use Token Auth instead of Session for Login)
