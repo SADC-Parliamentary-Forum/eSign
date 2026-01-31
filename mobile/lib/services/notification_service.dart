@@ -11,15 +11,17 @@ class NotificationService {
 
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  // final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance; // Removed explicit initialization
 
   Future<void> initialize() async {
+    if (kIsWeb) return; // Skip on web for now
     try {
       // Initialize Firebase (if not already handled in main)
       // Note: Usually Firebase.initializeApp() is called in main.dart
       
+      final firebaseMessaging = FirebaseMessaging.instance;
       // Request permissions
-      NotificationSettings settings = await _firebaseMessaging.requestPermission(
+      NotificationSettings settings = await firebaseMessaging.requestPermission(
         alert: true,
         announcement: false,
         badge: true,
@@ -39,7 +41,7 @@ class NotificationService {
       }
 
       // Get FCM Token
-      String? token = await _firebaseMessaging.getToken();
+      String? token = await firebaseMessaging.getToken();
       if (kDebugMode) {
         print("FCM Token: $token");
       }
