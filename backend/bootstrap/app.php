@@ -25,6 +25,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+
+        // Exclude Login from CSRF (Use Token Auth instead of Session for Login)
+        $middleware->validateCsrfTokens(except: [
+            'api/auth/login',
+            'api/auth/register',
+            'api/auth/forgot-password',
+            'api/auth/reset-password',
+            'api/email/*',
+            'broadcasting/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {

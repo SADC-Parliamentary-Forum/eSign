@@ -25,14 +25,16 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
+    libzip-dev \
     postgresql-client \
     zip \
     unzip \
     supervisor \
+    ghostscript \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # Get Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -48,7 +50,10 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interactio
 
 # Copy backend code
 # Copy backend code
-COPY backend/ .
+COPY --chown=www-data:www-data backend/ .
+
+# Regenerate autoloader to include new classes (like BroadcastServiceProvider)
+RUN composer dump-autoload --optimize
 
 # Copy built frontend assets
 COPY --from=frontend /app/dist public/

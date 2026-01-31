@@ -16,9 +16,15 @@ echo "Ensuring storage structure exists..."
 mkdir -p /var/www/html/storage/framework/views
 mkdir -p /var/www/html/storage/framework/cache
 mkdir -p /var/www/html/storage/framework/sessions
-mkdir -p /var/www/html/storage/logs
 chmod -R 775 /var/www/html/storage
 chown -R www-data:www-data /var/www/html/storage
+
+# Fix permissions for application code (Critical for Docker root-built files)
+echo "Fixing application permissions..."
+chown -R www-data:www-data /var/www/html/bootstrap
+chown -R www-data:www-data /var/www/html/app
+chown -R www-data:www-data /var/www/html/vendor
+chown -R www-data:www-data /var/www/html/routes
 
 # Ensure config/view.php exists (fail-safe for missing file sync)
 echo "Checking/Creating config/view.php..."

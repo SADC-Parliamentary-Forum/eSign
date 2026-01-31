@@ -46,6 +46,18 @@ services:
       REDIS_HOST: redis
       REDIS_PASSWORD: null
       REDIS_PORT: 6379
+      SANCTUM_STATEFUL_DOMAINS: esign.sadcpf.org
+      SESSION_DOMAIN: esign.sadcpf.org
+      SESSION_SECURE_COOKIE: "true"
+      CORS_ALLOWED_ORIGINS: "https://esign.sadcpf.org"
+      REVERB_APP_ID: "54321"
+      REVERB_APP_KEY: "4c75bbe4bc2986cca241be38054f10a106a2f5f9"
+      REVERB_APP_SECRET: "0a7c3c6eb5a3ccd984d1a7deaa22363040ec542b91162840304efc67f34893da"
+      REVERB_HOST: "localhost"
+      REVERB_PORT: "8080"
+      REVERB_SCHEME: "http"
+      RECAPTCHA_SITE_KEY: "6LcPo1YsAAAAAJQr8pn3DrVofmLuffM4rlMCqdpB"
+      RECAPTCHA_SECRET_KEY: "6LcPo1YsAAAAALVNAfO3I0iTA5Jr_gA6cjwYz_TU"
     depends_on:
       db:
         condition: service_healthy
