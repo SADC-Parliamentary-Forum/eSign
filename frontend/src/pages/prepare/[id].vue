@@ -248,6 +248,12 @@ const typedInitials = ref('')
 const selectedFont = ref('Dancing Script')
 const saveToProfile = ref(true)
 
+// Saved Signatures State
+const savedSignatures = ref([])
+const selectedSavedSignature = ref(null)
+const selectedSavedInitials = ref(null)
+const isLoadingSignatures = ref(false)
+
 const signatureFonts = [
   'Dancing Script',
   'Pacifico',
@@ -261,6 +267,23 @@ let sigCtx = null
 let initCtx = null
 let isSigDrawing = false
 let isInitDrawing = false
+
+async function fetchSavedSignatures() {
+  try {
+    isLoadingSignatures.value = true
+    const res = await $api('/signatures/mine')
+    if (res.signatures) {
+        savedSignatures.value = res.signatures
+    } else {
+        // Fallback if response structure is different (array vs object)
+        savedSignatures.value = Array.isArray(res) ? res : []
+    }
+  } catch (e) {
+    console.error('Failed to fetch saved signatures', e)
+  } finally {
+    isLoadingSignatures.value = false
+  }
+}
 
 function initSigCanvas() {
   if (signatureCanvas.value) {
@@ -879,6 +902,7 @@ function openSelfSignDialog() {
     return
   }
   showSelfSignDialog.value = true
+  fetchSavedSignatures()
 }
 
 async function handleSelfSign() {
@@ -951,6 +975,8 @@ async function handleSelfSign() {
         sigData = uploadedSignature.value
     } else if (signatureMode.value === 'type') {
         sigData = generateTypedImage(typedName.value, selectedFont.value, 540, 120)
+    } else if (signatureMode.value === 'saved') {
+        sigData = selectedSavedSignature.value?.image_data
     } else {
         sigData = signatureCanvas.value.toDataURL('image/png')
     }
@@ -960,6 +986,8 @@ async function handleSelfSign() {
         initData = uploadedInitials.value
     } else if (initialsMode.value === 'type') {
         initData = generateTypedImage(typedInitials.value, selectedFont.value, 540, 80)
+    } else if (initialsMode.value === 'saved') {
+        initData = selectedSavedInitials.value?.image_data
     } else {
         initData = initialsCanvas.value.toDataURL('image/png')
     }
@@ -1580,6 +1608,7 @@ async function handleSelfSign() {
             <v-tab value="draw">Draw</v-tab>
             <v-tab value="type">Type</v-tab>
             <v-tab value="upload">Upload</v-tab>
+            <v-tab value="saved">Saved</v-tab>
           </v-tabs>
 
           <div v-if="signatureMode === 'draw'">
@@ -1625,7 +1654,7 @@ async function handleSelfSign() {
             </v-chip-group>
           </div>
 
-          <div v-else>
+          <div v-else-if="signatureMode === 'upload'">
             <v-file-input
               label="Signature Image"
               variant="outlined"
@@ -1636,6 +1665,28 @@ async function handleSelfSign() {
             />
           </div>
 
+          <div v-else-if="signatureMode === 'saved'">
+             <div v-if="isLoadingSignatures" class="d-flex justify-center pa-4">
+                 <v-progress-circular indeterminate color="primary" size="24" />
+             </div>
+             <div v-else-if="savedSignatures.length > 0" class="signature-grid">
+               <div 
+                 v-for="sig in savedSignatures" 
+                 :key="sig.id"
+                 class="signature-card pa-2 border rounded cursor-pointer"
+                 :class="{ 'border-primary bg-blue-lighten-5': selectedSavedSignature?.id === sig.id }"
+                 @click="selectedSavedSignature = sig"
+               >
+                 <img :src="sig.image_data" class="signature-img" style="max-height: 60px; max-width: 100%; display: block; margin: 0 auto;" />
+                 <div class="text-caption text-center mt-1 text-medium-emphasis">{{ sig.name || 'Signature' }}</div>
+               </div>
+             </div>
+             <div v-else class="text-center pa-4 text-medium-emphasis">
+               <v-icon icon="ri-ink-bottle-line" size="32" class="mb-2" />
+               <div class="text-caption">No saved signatures found. <br>Draw a new one to save it to your profile.</div>
+             </div>
+          </div>
+
           <!-- Initials Section -->
           <div class="mb-4">
             <div class="text-subtitle-2 font-weight-bold mb-2">Initials</div>
@@ -1643,6 +1694,7 @@ async function handleSelfSign() {
               <v-tab value="draw">Draw</v-tab>
               <v-tab value="type">Type</v-tab>
               <v-tab value="upload">Upload</v-tab>
+              <v-tab value="saved">Saved</v-tab>
             </v-tabs>
 
             <div v-if="initialsMode === 'draw'">
@@ -1680,7 +1732,7 @@ async function handleSelfSign() {
               </div>
             </div>
 
-            <div v-else>
+            <div v-else-if="initialsMode === 'upload'">
               <v-file-input
                 label="Initials Image"
                 variant="outlined"
@@ -1690,6 +1742,28 @@ async function handleSelfSign() {
                 @change="handleInitUpload"
               />
             </div>
+
+          <div v-else-if="initialsMode === 'saved'">
+             <div v-if="isLoadingSignatures" class="d-flex justify-center pa-4">
+                 <v-progress-circular indeterminate color="primary" size="24" />
+             </div>
+             <div v-else-if="savedSignatures.length > 0" class="signature-grid">
+               <div 
+                 v-for="sig in savedSignatures" 
+                 :key="sig.id"
+                 class="signature-card pa-2 border rounded cursor-pointer"
+                 :class="{ 'border-primary bg-blue-lighten-5': selectedSavedInitials?.id === sig.id }"
+                 @click="selectedSavedInitials = sig"
+               >
+                 <img :src="sig.image_data" class="signature-img" style="max-height: 60px; max-width: 100%; display: block; margin: 0 auto;" />
+                 <div class="text-caption text-center mt-1 text-medium-emphasis">{{ sig.name || 'Initials' }}</div>
+               </div>
+             </div>
+             <div v-else class="text-center pa-4 text-medium-emphasis">
+               <v-icon icon="ri-ink-bottle-line" size="32" class="mb-2" />
+               <div class="text-caption">No saved initials found. <br>Draw new ones to save to your profile.</div>
+             </div>
+          </div>
           </div>
 
           <v-checkbox
@@ -2169,5 +2243,22 @@ async function handleSelfSign() {
   .pdf-scroll {
     padding: 12px;
   }
+}
+
+.signature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.signature-card {
+  transition: all 0.2s;
+}
+
+.signature-card:hover {
+  border-color: rgb(var(--v-theme-primary)) !important;
+  background-color: rgba(var(--v-theme-primary), 0.04);
 }
 </style>

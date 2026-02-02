@@ -148,8 +148,8 @@ class DocumentController extends Controller
             'file' => [
                 'required_without:template_id',
                 'file',
-                'mimes:pdf,docx,doc',
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword',
+                'mimes:pdf,docx,doc,xlsx,xls,png,jpg,jpeg',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/png,image/jpeg',
                 'max:10240',
             ],
             'template_id' => 'required_without:file|exists:templates,id',

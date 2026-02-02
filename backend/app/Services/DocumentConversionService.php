@@ -30,6 +30,16 @@ class DocumentConversionService
             return $this->convertWordToPdf($filePath, $disk);
         }
 
+        // Excel documents
+        if (in_array($extension, ['xls', 'xlsx'])) {
+            return $this->convertExcelToPdf($filePath, $disk);
+        }
+
+        // Image files
+        if (in_array($extension, ['png', 'jpg', 'jpeg'])) {
+            return $this->convertImageToPdf($filePath, $disk);
+        }
+
         // Unknown format, return as-is
         return ['path' => $filePath, 'converted' => false];
     }
@@ -119,8 +129,26 @@ class DocumentConversionService
         try {
             // Check if PHPWord is available (optional dependency)
             $ioFactoryClass = 'PhpOffice\\PhpWord\\IOFactory';
+            $settingsClass = 'PhpOffice\\PhpWord\\Settings';
+
             if (!class_exists($ioFactoryClass)) {
                 Log::info('PHPWord not installed, skipping fallback conversion');
+                return null;
+            }
+
+            // Configure PDF Renderer
+            // Check for TCPDF (primary) or DomPDF (secondary)
+            $tcpdfPath = base_path('vendor/tecnickcom/tcpdf');
+            $dompdfPath = base_path('vendor/dompdf/dompdf');
+
+            if (file_exists($tcpdfPath)) {
+                $settingsClass::setPdfRendererName($settingsClass::PDF_RENDERER_TCPDF);
+                $settingsClass::setPdfRendererPath($tcpdfPath);
+            } elseif (file_exists($dompdfPath)) {
+                $settingsClass::setPdfRendererName($settingsClass::PDF_RENDERER_DOMPDF);
+                $settingsClass::setPdfRendererPath($dompdfPath);
+            } else {
+                Log::warning('No compatible PDF renderer found for PHPWord (TCPDF or DomPDF required)');
                 return null;
             }
 
@@ -135,13 +163,173 @@ class DocumentConversionService
             $tempPdf = sys_get_temp_dir() . '/' . Str::random(16) . '.pdf';
             $pdfWriter->save($tempPdf);
 
-            $content = file_get_contents($tempPdf);
-            unlink($tempPdf);
+            if (file_exists($tempPdf)) {
+                $content = file_get_contents($tempPdf);
+                unlink($tempPdf);
+                return $content;
+            }
 
-            return $content;
+            return null;
 
         } catch (\Exception $e) {
             Log::warning('PHPWord conversion failed', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+
+    /**
+     * Convert Image to PDF using TCPDF.
+     */
+    protected function convertImageToPdf(string $filePath, string $disk): array
+    {
+        try {
+            $content = Storage::disk($disk)->get($filePath);
+            $tempDir = sys_get_temp_dir() . '/img_conversion_' . Str::random(8);
+            mkdir($tempDir, 0755, true);
+
+            $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+            $tempFile = $tempDir . '/input.' . $extension;
+            file_put_contents($tempFile, $content);
+
+            $pdfFile = $tempDir . '/output.pdf';
+
+            // Create PDF
+            $pdf = new \TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+            $pdf->SetMargins(0, 0, 0);
+            $pdf->SetHeaderMargin(0);
+            $pdf->SetFooterMargin(0);
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->SetAutoPageBreak(FALSE, 0);
+            $pdf->AddPage();
+
+            // Get image dimensions to fit page
+            list($width, $height) = getimagesize($tempFile);
+            $pageWidth = $pdf->getPageWidth();
+            $pageHeight = $pdf->getPageHeight();
+
+            // Simple scaling to fit width
+            $pdf->Image($tempFile, 0, 0, $pageWidth, 0, '', '', '', false, 300, '', false, false, 0);
+
+            $pdf->Output($pdfFile, 'F');
+
+            // Store new PDF
+            $pdfContent = file_get_contents($pdfFile);
+            $newPath = 'documents/' . Str::random(40) . '.pdf';
+            Storage::disk($disk)->put($newPath, $pdfContent);
+            Storage::disk($disk)->delete($filePath);
+
+            $this->cleanup($tempDir);
+
+            Log::info('Image converted to PDF', ['original' => $filePath, 'new' => $newPath]);
+
+            return ['path' => $newPath, 'converted' => true];
+
+        } catch (\Exception $e) {
+            Log::error('Image conversion error', ['error' => $e->getMessage()]);
+            return ['path' => $filePath, 'converted' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Convert Excel to PDF using LibreOffice or PhpSpreadsheet fallback.
+     */
+    protected function convertExcelToPdf(string $filePath, string $disk): array
+    {
+        try {
+            $content = Storage::disk($disk)->get($filePath);
+            $tempDir = sys_get_temp_dir() . '/xls_conversion_' . Str::random(8);
+            mkdir($tempDir, 0755, true);
+
+            $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+            $tempFile = $tempDir . '/input.' . $extension;
+            file_put_contents($tempFile, $content);
+
+            // 1. Try LibreOffice
+            $command = sprintf(
+                'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
+                escapeshellarg($tempDir),
+                escapeshellarg($tempFile)
+            );
+            exec($command, $output, $returnCode);
+
+            $pdfFile = $tempDir . '/input.pdf';
+
+            if ($returnCode !== 0 || !file_exists($pdfFile)) {
+                Log::warning('LibreOffice Excel conversion failed, trying PhpSpreadsheet fallback', [
+                    'output' => implode("\n", $output)
+                ]);
+
+                // 2. Fallback: PhpSpreadsheet
+                $pdfContent = $this->convertWithPhpSpreadsheet($tempFile);
+                if ($pdfContent) {
+                    file_put_contents($pdfFile, $pdfContent);
+                } else {
+                    $this->cleanup($tempDir);
+                    return ['path' => $filePath, 'converted' => false, 'error' => 'Conversion failed'];
+                }
+            }
+
+            // Store PDF
+            $pdfContent = file_get_contents($pdfFile);
+            $newPath = 'documents/' . Str::random(40) . '.pdf';
+            Storage::disk($disk)->put($newPath, $pdfContent);
+            Storage::disk($disk)->delete($filePath);
+
+            $this->cleanup($tempDir);
+
+            return ['path' => $newPath, 'converted' => true];
+
+        } catch (\Exception $e) {
+            Log::error('Excel conversion error', ['error' => $e->getMessage()]);
+            return ['path' => $filePath, 'converted' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Fallback conversion using PhpSpreadsheet.
+     */
+    protected function convertWithPhpSpreadsheet(string $filePath): ?string
+    {
+        try {
+            $class = 'PhpOffice\\PhpSpreadsheet\\IOFactory';
+            $settingsClass = 'PhpOffice\\PhpSpreadsheet\\Settings';
+
+            if (!class_exists($class)) {
+                Log::info('PhpSpreadsheet not installed');
+                return null;
+            }
+
+            // Configure PDF Renderer (DomPDF or TCPDF)
+            $tcpdfPath = base_path('vendor/tecnickcom/tcpdf');
+            $dompdfPath = base_path('vendor/dompdf/dompdf');
+
+            if (class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+                if (class_exists('TCPDF')) {
+                    \PhpOffice\PhpSpreadsheet\Settings::setPdfRendererName(\PhpOffice\PhpSpreadsheet\Settings::PDF_RENDERER_TCPDF);
+                    \PhpOffice\PhpSpreadsheet\Settings::setPdfRenderer($tcpdfPath);
+                } elseif (class_exists('Dompdf\\Dompdf')) {
+                    \PhpOffice\PhpSpreadsheet\Settings::setPdfRendererName(\PhpOffice\PhpSpreadsheet\Settings::PDF_RENDERER_DOMPDF);
+                    \PhpOffice\PhpSpreadsheet\Settings::setPdfRenderer($dompdfPath);
+                }
+            }
+
+            /** @var mixed $spreadsheet */
+            $spreadsheet = $class::load($filePath);
+            $writer = $class::createWriter($spreadsheet, 'Pdf');
+
+            $tempPdf = sys_get_temp_dir() . '/' . Str::random(16) . '.pdf';
+            $writer->save($tempPdf);
+
+            if (file_exists($tempPdf)) {
+                $content = file_get_contents($tempPdf);
+                unlink($tempPdf);
+                return $content;
+            }
+            return null;
+        } catch (\Exception $e) {
+            Log::warning('PhpSpreadsheet conversion failed', ['error' => $e->getMessage()]);
             return null;
         }
     }
