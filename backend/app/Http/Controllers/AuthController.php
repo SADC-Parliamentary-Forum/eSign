@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Str;
 use App\Models\User;
 
 class AuthController extends Controller
@@ -202,6 +204,43 @@ class AuthController extends Controller
             'message' => 'Profile updated successfully',
             'user' => $user->fresh()->load('role'),
         ]);
+    }
+
+    /**
+     * Update user avatar
+     */
+    public function updateAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'max:2048'], // Max 2MB
+        ]);
+
+        $user = $request->user();
+
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+
+            // Delete old avatar if exists and is not a default/external one
+            if ($user->avatar_url && Str::contains($user->avatar_url, 'avatars/')) {
+                $oldPath = str_replace('/storage/', '', parse_url($user->avatar_url, PHP_URL_PATH));
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            $path = $file->store('avatars', 'public');
+            $url = Storage::url($path);
+
+            $user->update(['avatar_url' => $url]);
+
+            // Invalidate cache
+            \Illuminate\Support\Facades\Cache::forget("user.{$user->id}");
+
+            return response()->json([
+                'message' => 'Avatar updated successfully',
+                'avatar_url' => $url,
+            ]);
+        }
+
+        return response()->json(['message' => 'No file uploaded'], 400);
     }
 
     /**

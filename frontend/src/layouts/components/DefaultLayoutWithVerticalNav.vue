@@ -58,6 +58,14 @@ watch([
   else
     verticalNavHeaderActionAnimationName.value = val[0] ? 'rotate-180' : 'rotate-back-180'
 }, { immediate: true })
+
+const toggleNav = (toggleOverlayNav) => {
+  if (configStore.isLessThanOverlayNavBreakpoint) {
+    toggleOverlayNav(true)
+  } else {
+    configStore.isVerticalNavHidden = !configStore.isVerticalNavHidden
+  }
+}
 </script>
 
 <template>
@@ -67,8 +75,8 @@ watch([
       <div class="d-flex h-100 align-center">
         <IconBtn
           id="vertical-nav-toggle-btn"
-          class="ms-n2 d-lg-none"
-          @click="toggleVerticalOverlayNavActive(true)"
+          class="ms-n2"
+          @click="toggleNav(toggleVerticalOverlayNavActive)"
         >
           <VIcon icon="ri-menu-line" />
         </IconBtn>

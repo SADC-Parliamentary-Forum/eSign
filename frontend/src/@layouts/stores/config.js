@@ -21,6 +21,9 @@ export const useLayoutConfigStore = defineStore('layoutConfig', () => {
   // 👉 Vertical Nav Collapsed
   const isVerticalNavCollapsed = cookieRef('isVerticalNavCollapsed', layoutConfig.verticalNav.isVerticalNavCollapsed)
 
+  // 👉 Vertical Nav Hidden (Desktop)
+  const isVerticalNavHidden = ref(false)
+
   // 👉 App Content Width
   const appContentWidth = cookieRef('appContentWidth', layoutConfig.app.contentWidth)
 
@@ -68,20 +71,21 @@ export const useLayoutConfigStore = defineStore('layoutConfig', () => {
   // 👉 Layout Classes
   const _layoutClasses = computed(() => {
     const { y: windowScrollY } = useWindowScroll()
-    
+
     return [
       `layout-nav-type-${appContentLayoutNav.value}`,
       `layout-navbar-${navbarType.value}`,
       `layout-footer-${footerType.value}`,
       {
         'layout-vertical-nav-collapsed': isVerticalNavCollapsed.value
-                    && appContentLayoutNav.value === 'vertical'
-                    && !isLessThanOverlayNavBreakpoint.value,
+          && appContentLayoutNav.value === 'vertical'
+          && !isLessThanOverlayNavBreakpoint.value,
       },
       { [`horizontal-nav-${horizontalNavType.value}`]: appContentLayoutNav.value === 'horizontal' },
       `layout-content-width-${appContentWidth.value}`,
       { 'layout-overlay-nav': isLessThanOverlayNavBreakpoint.value },
       { 'window-scrolled': unref(windowScrollY) },
+      { 'layout-vertical-nav-hidden': isVerticalNavHidden.value && !isLessThanOverlayNavBreakpoint.value },
       route.meta.layoutWrapperClasses ? route.meta.layoutWrapperClasses : null,
     ]
   })
@@ -109,7 +113,7 @@ export const useLayoutConfigStore = defineStore('layoutConfig', () => {
     */
   const isVerticalNavMini = (isVerticalNavHovered = null) => {
     const isVerticalNavHoveredLocal = isVerticalNavHovered || inject(injectionKeyIsVerticalNavHovered) || ref(false)
-    
+
     return computed(() => isVerticalNavCollapsed.value && !isVerticalNavHoveredLocal.value && !isLessThanOverlayNavBreakpoint.value)
   }
 
@@ -119,6 +123,7 @@ export const useLayoutConfigStore = defineStore('layoutConfig', () => {
     navbarType,
     isNavbarBlurEnabled,
     isVerticalNavCollapsed,
+    isVerticalNavHidden,
     horizontalNavType,
     horizontalNavPopoverOffset,
     footerType,

@@ -34,6 +34,7 @@ class User extends Authenticatable implements MustVerifyEmail, \OwenIt\Auditing\
         'failed_login_attempts',
         'locked_until',
         'must_change_password',
+        'avatar_url',
     ];
 
     protected $attributes = [

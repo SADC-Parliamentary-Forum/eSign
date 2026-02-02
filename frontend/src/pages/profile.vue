@@ -424,7 +424,7 @@ watch(() => signatureMethod.value, (val) => {
   <VContainer class="py-6" max-width="1000">
     <!-- Header with Avatar -->
     <div class="profile-header mb-6">
-      <div class="d-flex align-center gap-4">
+      <div class="d-flex align-center gap-4 flex-wrap">
         <VBtn icon="mdi-arrow-left" variant="text" to="/" />
         
         <div class="avatar-section position-relative">

@@ -190,6 +190,21 @@ const verticalNavAttrs = computed(() => {
     padding-inline-start: variables.$layout-vertical-nav-collapsed-width;
   }
 
+  // 👉 Hidden (Desktop/Toggleable)
+  &.layout-vertical-nav-hidden {
+    .layout-vertical-nav {
+      transform: translateX(-#{variables.$layout-vertical-nav-width});
+
+      @include mixins.rtl {
+        transform: translateX(variables.$layout-vertical-nav-width);
+      }
+    }
+
+    .layout-content-wrapper {
+      padding-inline-start: 0 !important;
+    }
+  }
+
   // 👉 Content height fixed
   &.layout-content-height-fixed {
     .layout-content-wrapper {

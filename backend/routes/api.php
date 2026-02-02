@@ -78,6 +78,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
     Route::put('/auth/password', [AuthController::class, 'updatePassword']);
+    Route::post('/auth/avatar', [AuthController::class, 'updateAvatar']);
     Route::post('/auth/mfa/send', [MfaController::class, 'send']);
     Route::post('/auth/mfa/verify', [MfaController::class, 'verify']);
     Route::post('/auth/magic/generate', [MagicLinkController::class, 'generate']);
