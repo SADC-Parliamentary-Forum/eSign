@@ -22,7 +22,7 @@ return [
 
     'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')),
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => ['#^http://localhost(:\d+)?$#', '#^http://127\.0\.0\.1(:\d+)?$#'],
 
     // Security: Explicitly whitelist allowed headers instead of wildcard
     'allowed_headers' => [
@@ -33,6 +33,7 @@ return [
         'X-CSRF-TOKEN',
         'X-Socket-Id',
         'X-XSRF-TOKEN',
+        'x-human-token',
     ],
 
     'exposed_headers' => ['Content-Disposition'],

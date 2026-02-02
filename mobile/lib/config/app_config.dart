@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class AppConfig {
@@ -28,8 +29,16 @@ class AppConfig {
       final configString = await rootBundle.loadString('assets/config.json');
       final json = jsonDecode(configString);
       
+      String baseUrl = json['apiBaseUrl'] ?? '';
+      if (kIsWeb && baseUrl.contains('10.0.2.2')) {
+        baseUrl = 'http://localhost:8000/api';
+      }
+      if (baseUrl.isEmpty) {
+        baseUrl = kIsWeb ? 'http://localhost:8000/api' : 'http://10.0.2.2:8000/api';
+      }
+
       _instance = AppConfig._(
-        apiBaseUrl: json['apiBaseUrl'] ?? 'http://10.0.2.2:8000/api', // default for Android emulator
+        apiBaseUrl: baseUrl,
         enableBiometric: json['features']?['biometricSigning'] ?? true,
         networkTimeoutMs: json['network']?['timeoutMs'] ?? 10000,
       );
@@ -37,7 +46,7 @@ class AppConfig {
       // Fallback if file missing or parse error
       print('Config load failed: $e. Using defaults.');
       _instance = AppConfig._(
-        apiBaseUrl: 'http://10.0.2.2:8000/api',
+        apiBaseUrl: kIsWeb ? 'http://localhost:8000/api' : 'http://10.0.2.2:8000/api',
       );
     }
   }

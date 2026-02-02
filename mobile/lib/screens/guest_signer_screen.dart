@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../services/api_service.dart';

@@ -32,11 +32,13 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
     });
     try {
       final templates = await ApiService.getTemplates();
+      if (!mounted) return;
       setState(() {
         _templates = templates;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _error = true;

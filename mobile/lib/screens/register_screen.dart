@@ -85,7 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Icon(Icons.person_add, size: 64, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 24),
                 const Text(
-                  'Join SADC-eSign',
+                  'Join SADC PF eSign',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),

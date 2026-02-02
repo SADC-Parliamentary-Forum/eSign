@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Image.asset('assets/logo.jpg', height: 100),
               const SizedBox(height: 24),
               const Text(
-                'SADC-eSign',
+                'SADC PF eSign',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),

@@ -239,10 +239,14 @@ class DocumentController extends Controller
         try {
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('minio');
-            $document->pdf_url = $disk->temporaryUrl(
-                $document->file_path,
-                now()->addHours(2)
-            );
+            if ($document->file_path) {
+                $document->pdf_url = $disk->temporaryUrl(
+                    $document->file_path,
+                    now()->addHours(2)
+                );
+            } else {
+                $document->pdf_url = null;
+            }
         } catch (\Exception $e) {
             // Fallback for local storage or misconfigured minio
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
@@ -495,6 +499,10 @@ class DocumentController extends Controller
         try {
             $mimeType = $document->mime_type ?: 'application/pdf';
             $path = $document->file_path;
+
+            if (!$path) {
+                return response()->json(['message' => 'Document is still processing.'], 202);
+            }
 
             return response()->stream(function () use ($path) {
                 $stream = Storage::disk('minio')->readStream($path);

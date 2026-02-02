@@ -12,10 +12,11 @@ import 'screens/profile_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/templates_screen.dart';
 import 'screens/signatures_screen.dart';
-import 'screens/verification_screen.dart';
+import 'services/db_init.dart' if (dart.library.io) 'services/db_init_ffi.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initializeDatabaseFactory();
   await AppConfig.load();
 
   try {
@@ -56,7 +57,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'SADC-eSign',
+      title: 'SADC PF eSign',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A), // Sapphire Blue
@@ -124,7 +125,7 @@ class _MainScreenState extends State<MainScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
+            DrawerHeader(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -148,7 +149,7 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'SADC-eSign',
+                    'SADC PF eSign',
                     style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                 ],
