@@ -232,6 +232,7 @@ class AuthController extends Controller
 
         $user->update([
             'password' => bcrypt($validated['password']),
+            'must_change_password' => false,
         ]);
 
         return response()->json(['message' => 'Password updated successfully']);

@@ -67,11 +67,62 @@ const notificationPrefs = ref({
   push_enabled: false,
 })
 
+// Organization State
+const departments = ref([])
+const orgRoles = ref([])
+
 onMounted(async () => {
-  await loadProfile()
-  await loadSignatures()
-  await loadActivities()
+  await Promise.all([loadProfile(), loadSignatures(), loadActivities(), fetchDepartments(), fetchOrgRoles()])
 })
+
+async function fetchDepartments() {
+  try {
+    const res = await $api('/departments')
+    departments.value = res.data || res || []
+  } catch (e) {
+    console.error('Failed to fetch departments', e)
+  }
+}
+
+async function fetchOrgRoles() {
+  try {
+    const res = await $api('/org-roles')
+    orgRoles.value = res.data || res || []
+  } catch (e) {
+    console.error('Failed to fetch organizational roles', e)
+  }
+}
+
+// Helper to auto-create job title if it doesn't exist
+async function ensureJobTitleExists(title) {
+  if (!title) return
+  
+  // Check if exists (case insensitive)
+  const existing = orgRoles.value.find(r => r.name.toLowerCase() === title.toLowerCase())
+  if (existing) return
+
+  try {
+    // Generate code from title
+    const code = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    
+    // Create new role
+    await $api('/org-roles', {
+      method: 'POST',
+      body: {
+        name: title,
+        code: code,
+        level: 1, // Default level
+        description: 'Auto-created from Profile',
+        is_active: true
+      }
+    })
+    
+    // Refresh roles
+    await fetchOrgRoles()
+  } catch (e) {
+    console.error('Failed to auto-create job title:', e)
+  }
+}
 
 async function loadProfile() {
   loading.value = true
@@ -98,6 +149,8 @@ async function saveProfile() {
   success.value = ''
   
   try {
+    await ensureJobTitleExists(form.value.job_title)
+
     await $api('/auth/profile', {
       method: 'PUT',
       body: form.value,
@@ -491,19 +544,27 @@ watch(() => signatureMethod.value, (val) => {
                     />
                   </VCol>
                   <VCol cols="12" md="6">
-                    <VTextField
+                    <VCombobox
                       v-model="form.job_title"
+                      :items="orgRoles"
+                      item-title="name"
+                      item-value="name"
                       label="Job Title"
                       prepend-inner-icon="mdi-briefcase"
                       variant="outlined"
+                      :return-object="false"
                     />
                   </VCol>
                   <VCol cols="12">
-                    <VTextField
+                    <VCombobox
                       v-model="form.department"
+                      :items="departments"
+                      item-title="name"
+                      item-value="name"
                       label="Department"
                       prepend-inner-icon="mdi-office-building"
                       variant="outlined"
+                      :return-object="false"
                     />
                   </VCol>
                 </VRow>

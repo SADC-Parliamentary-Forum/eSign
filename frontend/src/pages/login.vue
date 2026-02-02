@@ -33,8 +33,12 @@ async function handleLogin() {
     const success = await authStore.login(form.value.email, form.value.password)
     
     if (success) {
-      const returnUrl = route.query.returnUrl || '/'
-      router.push(returnUrl)
+      if (authStore.user?.must_change_password) {
+        router.push('/change-password')
+      } else {
+        const returnUrl = route.query.returnUrl || '/'
+        router.push(returnUrl)
+      }
     }
   } catch (e) {
     error.value = getErrorMessage(e)

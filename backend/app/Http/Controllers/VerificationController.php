@@ -6,6 +6,7 @@ use App\Models\DocumentSigner;
 use App\Models\IdentityVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class VerificationController extends Controller
@@ -41,6 +42,8 @@ class VerificationController extends Controller
 
         if ($user->markEmailAsVerified()) {
             event(new \Illuminate\Auth\Events\Verified($user));
+            // Fix: Clear user cache so 'me' endpoint returns fresh data
+            Cache::forget("user.{$user->id}");
         }
 
         return response()->json(['message' => 'Email verified successfully.']);
