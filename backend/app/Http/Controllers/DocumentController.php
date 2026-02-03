@@ -211,8 +211,17 @@ class DocumentController extends Controller
             return response()->json($document, 201);
 
         } catch (\Exception $e) {
-            \Log::error('Document creation failed: ' . $e->getMessage());
-            $message = app()->isProduction() ? 'An error occurred while creating the document.' : 'Failed to create document: ' . $e->getMessage();
+            \Log::error('Document creation failed: ' . $e->getMessage(), [
+                'user_id' => $request->user()->id,
+                'queue_connection' => config('queue.default'),
+                'exception' => $e
+            ]);
+
+            // Provide more specific error if in sync mode (likely dev/host issue)
+            $isSync = config('queue.default') === 'sync';
+            $message = app()->isProduction() ? 'An error occurred while creating the document.' :
+                ($isSync ? 'Upload failed immediately (Sync Queue). Check DB/MinIO connection: ' . $e->getMessage() : 'Failed to create document: ' . $e->getMessage());
+
             return response()->json(['message' => $message], 500);
         }
     }

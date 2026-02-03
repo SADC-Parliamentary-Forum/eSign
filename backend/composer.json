@@ -20,7 +20,6 @@
         "setasign/fpdf": "^1.8",
         "setasign/fpdi": "^2.6",
         "smalot/pdfparser": "^2.11",
-        "smalot/pdfparser": "^2.11",
         "tecnickcom/tcpdf": "^6.10",
         "phpoffice/phpword": "^1.3",
         "phpoffice/phpspreadsheet": "^1.29"

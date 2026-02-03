@@ -264,6 +264,23 @@ async function saveSettings() {
   }
 }
 
+async function clearCache() {
+  openConfirmDialog(
+    'Clear System Cache',
+    'Are you sure you want to clear all system caches? This might temporarily affect performance.',
+    async () => {
+      try {
+        await $api('/admin/cache/clear', { method: 'POST' })
+        success.value = 'System caches cleared successfully!'
+      } catch (e) {
+        error.value = 'Failed to clear cache: ' + (e.message || 'Unknown error')
+      }
+    }
+  )
+}
+
+
+
 // Filtered users
 const filteredUsers = computed(() => {
   let result = [...users.value]
@@ -1040,6 +1057,24 @@ const orgRoleHeaders = [
                   label="System Locale"
                   variant="outlined"
                 />
+              </VCardText>
+            </VCard>
+          </VCol>
+
+          <VCol cols="12" md="6">
+            <VCard>
+              <VCardTitle>
+                <VIcon icon="mdi-server" class="mr-2" />
+                System Maintenance
+              </VCardTitle>
+              <VCardText>
+                <p class="text-caption text-medium-emphasis mb-4">
+                  Clear system caches (config, views, routes) if you are experiencing issues with updates not appearing.
+                </p>
+                <VBtn color="warning" variant="outlined" block @click="clearCache">
+                  <VIcon icon="mdi-cached" class="mr-2" />
+                  Clear System Cache
+                </VBtn>
               </VCardText>
             </VCard>
           </VCol>

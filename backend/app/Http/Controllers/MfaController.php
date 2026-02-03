@@ -70,8 +70,11 @@ class MfaController extends Controller
         // Clear code
         Cache::forget('mfa:' . $user->id);
 
-        // Revoke the Partial Token
-        $request->user()->currentAccessToken()->delete();
+        // Revoke the Partial Token if it's not a Transient (Session) Token
+        $accessToken = $request->user()->currentAccessToken();
+        if ($accessToken && !($accessToken instanceof \Laravel\Sanctum\TransientToken)) {
+            $accessToken->delete();
+        }
 
         // Issue Full Token
         $token = $user->createToken('auth_token', ['*'])->plainTextToken;

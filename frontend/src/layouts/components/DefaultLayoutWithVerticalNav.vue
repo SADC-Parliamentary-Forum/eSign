@@ -34,7 +34,7 @@ onUnmounted(() => {
 
 // Filter nav items based on role
 const filteredNavItems = computed(() => {
-  const role = authStore.role
+  const role = authStore.role?.toLowerCase()
   if (role === 'admin') return navItems
   
   // Exclude Admin Console for non-admins

@@ -8,6 +8,12 @@ import NotificationMenu from '@/components/common/NotificationMenu.vue'
 const authStore = useAuthStore()
 const router = useRouter()
 
+// Debug: Log user data to check for name/role issues
+watch(() => authStore.user, (val) => {
+  console.log('UserProfile - User Data:', val)
+  console.log('UserProfile - Role:', val?.role)
+}, { immediate: true })
+
 const userProfileList = [
   { type: 'divider' },
   {
@@ -47,7 +53,7 @@ function handleLogout() {
       class="cursor-pointer"
       size="38"
     >
-      <VImg :src="avatar1" />
+      <VImg :src="authStore.user?.avatar_url || avatar1" />
 
       <!-- SECTION Menu -->
       <VMenu
@@ -60,7 +66,7 @@ function handleLogout() {
           <VListItem class="px-4">
             <div class="d-flex gap-x-2 align-center">
               <VAvatar>
-                <VImg :src="avatar1" />
+                <VImg :src="authStore.user?.avatar_url || avatar1" />
               </VAvatar>
 
               <div>
@@ -68,7 +74,7 @@ function handleLogout() {
                   {{ authStore.user?.name || 'User' }}
                 </div>
                 <div class="text-capitalize text-caption text-disabled">
-                  {{ authStore.role || 'Member' }}
+                  {{ authStore.user?.role?.name || authStore.role || 'Member' }}
                 </div>
               </div>
             </div>

@@ -162,9 +162,8 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $userId = $request->user()->id;
-        $user = \Illuminate\Support\Facades\Cache::remember("user.{$userId}", 3600, function () use ($userId) {
-            return User::with('role')->find($userId);
-        });
+
+        $user = User::with('role')->find($userId);
         return response()->json($user);
     }
 

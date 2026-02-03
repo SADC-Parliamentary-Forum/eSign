@@ -4,6 +4,7 @@ import 'package:signature/signature.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_skeleton.dart';
 import '../widgets/error_widget.dart';
+import '../widgets/premium_card.dart';
 
 class SignaturesScreen extends StatefulWidget {
   const SignaturesScreen({super.key});
@@ -108,11 +109,10 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Signatures'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -148,47 +148,52 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
                       final isDefault = signature['is_default'] == true;
                       final signatureData = signature['signature_data'] ?? '';
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: Container(
-                            width: 80,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: signatureData.isNotEmpty
-                                ? Image.memory(
-                                    base64Decode(signatureData.split(',')[1]),
-                                    fit: BoxFit.contain,
-                                  )
-                                : const Icon(Icons.draw),
-                          ),
-                          title: Text(
-                            signature['name'] ?? 'Signature ${index + 1}',
-                            style: TextStyle(
-                              fontWeight: isDefault ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          subtitle: isDefault
-                              ? const Text('Default', style: TextStyle(color: Colors.green))
-                              : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!isDefault)
-                                IconButton(
-                                  icon: const Icon(Icons.star_outline),
-                                  onPressed: () => _setDefault(signature['id'].toString()),
-                                  tooltip: 'Set as default',
-                                ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _deleteSignature(signature['id'].toString()),
+                      return PremiumCard(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 86,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: scheme.surface,
+                                border: Border.all(color: Colors.grey[300]!),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ],
-                          ),
+                              child: signatureData.isNotEmpty
+                                  ? Image.memory(
+                                      base64Decode(signatureData.split(',')[1]),
+                                      fit: BoxFit.contain,
+                                    )
+                                  : const Icon(Icons.draw),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    signature['name'] ?? 'Signature ${index + 1}',
+                                    style: TextStyle(
+                                      fontWeight: isDefault ? FontWeight.w700 : FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  if (isDefault)
+                                    Text('Default', style: TextStyle(color: Colors.green[700], fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                            if (!isDefault)
+                              IconButton(
+                                icon: const Icon(Icons.star_outline),
+                                onPressed: () => _setDefault(signature['id'].toString()),
+                                tooltip: 'Set as default',
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteSignature(signature['id'].toString()),
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -263,11 +268,10 @@ class _CreateSignatureScreenState extends State<CreateSignatureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Signature'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -293,8 +297,8 @@ class _CreateSignatureScreenState extends State<CreateSignatureScreen> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Signature(
                         controller: _controller,
@@ -326,7 +330,7 @@ class _CreateSignatureScreenState extends State<CreateSignatureScreen> {
                   child: FilledButton(
                     onPressed: _isSaving ? null : _saveSignature,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2F855A),
+                      backgroundColor: scheme.primary,
                     ),
                     child: _isSaving
                         ? const SizedBox(

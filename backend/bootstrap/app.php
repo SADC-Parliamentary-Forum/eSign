@@ -38,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/auth/forgot-password',
             'api/auth/reset-password',
             'api/email/*',
+            'api/broadcasting/*',
             'broadcasting/*',
         ]);
     })

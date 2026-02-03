@@ -34,8 +34,8 @@ Broadcast::routes(['middleware' => ['auth:sanctum']]);
 // =============================================================================
 // Public Routes
 // =============================================================================
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:5,1', 'human:login']);
-Route::post('/auth/register', [AuthController::class, 'register'])->middleware(['throttle:5,1', 'human:register']);
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:60,1', 'human:login']);
+Route::post('/auth/register', [AuthController::class, 'register'])->middleware(['throttle:60,1', 'human:register']);
 
 // Password Reset
 Route::post('/auth/forgot-password', [App\Http\Controllers\PasswordResetController::class, 'sendResetLinkEmail'])
@@ -249,5 +249,6 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         // Moved from general protected area
         Route::apiResource('/users', UserController::class);
         Route::get('/audit-logs', [AuditController::class, 'index']);
+        Route::post('/cache/clear', [App\Http\Controllers\AdminController::class, 'clearCache']);
     });
 });
