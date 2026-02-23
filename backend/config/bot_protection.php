@@ -75,8 +75,8 @@ return [
             'required_score' => 0.9,
         ],
         'document_upload' => [
-            'enabled' => true,
-            'required_score' => 0.7,
+            'enabled' => false, // Authenticated uploads only; skip reCAPTCHA to avoid blocking real users (VPN, privacy tools)
+            'required_score' => 0.3,
         ],
     ],
 ];

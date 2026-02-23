@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User Account Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col antialiased selection:bg-primary selection:text-white">
+<!-- Sticky Header -->
+<header class="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between px-4 h-14">
+<button class="flex items-center text-primary hover:text-primary/80 transition-colors p-2 -ml-2 rounded-full active:bg-slate-100 dark:active:bg-slate-800">
+<span class="material-symbols-outlined !text-[24px]">arrow_back_ios_new</span>
+<span class="text-base font-medium ml-1">Back</span>
+</button>
+<h1 class="text-base font-bold text-slate-900 dark:text-white">Settings</h1>
+<button class="text-primary font-medium text-base p-2 -mr-2 hover:opacity-80">Done</button>
+</div>
+</header>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+<!-- Profile Card -->
+<div class="px-4 py-6">
+<div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+<div class="relative shrink-0">
+<img alt="Professional woman in business attire smiling" class="w-16 h-16 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-sm" data-alt="Professional headshot of a woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaMH_fo_LP98PJMb_gll8g0cSmUx1CNT6xKNWIE3YRMS4ubFP1PoEwX8HWbB8BymCyezpssfBs1UmiUcz9FBFOE_OsoSLJCgEPEpBS890M_Sj994UH0fQparjU8ok7cAmcAk2KteFkIk3g31m7tZmW6JKVyyhuUTxxrFyfdZN3C1diNn2B0nM1ZVh1xJHy7xMS7TrL-kvpz_3s2AvI9kQRmwymlgT_J4Vw5Ds1Gyn7CHtJNPoSCQCoYdp1tkrcFo96UWfyc9cfO5wt"/>
+<div class="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+</div>
+<div class="flex flex-col">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white leading-tight">Eleanor Rigby</h2>
+<p class="text-sm font-medium text-primary mb-0.5">Senior Legal Counsel</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">District Attorney Office</p>
+</div>
+</div>
+</div>
+<!-- Section: Account -->
+<div class="mb-2">
+<h3 class="px-5 pb-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Account</h3>
+<div class="bg-white dark:bg-slate-900 mx-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+<!-- Profile Info -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Profile Information</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Name, Email, Role details</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+</button>
+<!-- Signature Styles -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">ink_pen</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Signature Styles</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Manage digital stamps &amp; seals</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Section: Security -->
+<div class="mt-6 mb-2">
+<h3 class="px-5 pb-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Security</h3>
+<div class="bg-white dark:bg-slate-900 mx-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+<!-- 2FA -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">shield_lock</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Security &amp; 2FA</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Password, Biometrics, Recovery</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">ACTIVE</span>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+</div>
+</button>
+<!-- Linked Devices -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">devices</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Linked Devices</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Manage active sessions</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Section: Preferences -->
+<div class="mt-6 mb-2">
+<h3 class="px-5 pb-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Preferences</h3>
+<div class="bg-white dark:bg-slate-900 mx-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+<!-- Notifications -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Notifications</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Email &amp; Push alerts</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+</button>
+<!-- Language -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">language</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Language &amp; Region</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">English (US)</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">chevron_right</span>
+</button>
+<!-- Appearance -->
+<div class="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">dark_mode</span>
+</div>
+<div class="text-left">
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Dark Mode</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Adjust app appearance</p>
+</div>
+</div>
+<!-- Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Logout Section -->
+<div class="mt-8 px-4 flex flex-col gap-6">
+<button class="w-full py-3.5 rounded-xl border border-red-200 bg-white text-red-600 font-semibold text-sm shadow-sm hover:bg-red-50 dark:bg-slate-900 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/10 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+                Log Out
+            </button>
+<div class="text-center pb-8">
+<p class="text-xs text-slate-400 dark:text-slate-600">eSign Pro v2.4.1 (Build 8902)</p>
+<div class="flex justify-center gap-4 mt-2">
+<a class="text-xs text-primary hover:underline" href="#">Privacy Policy</a>
+<span class="text-slate-300 dark:text-slate-700">•</span>
+<a class="text-xs text-primary hover:underline" href="#">Terms of Service</a>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full bg-white dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 pb-safe pt-2 px-4 z-50">
+<div class="flex justify-between items-end pb-3">
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors text-[24px]">home</span>
+<span class="text-[10px] font-medium text-slate-400 group-hover:text-primary transition-colors">Home</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors text-[24px]">folder_open</span>
+<span class="text-[10px] font-medium text-slate-400 group-hover:text-primary transition-colors">Files</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group relative -top-5" href="#">
+<div class="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 transform group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[24px]">edit_document</span>
+</div>
+<span class="text-[10px] font-medium text-primary mt-1">Sign</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors text-[24px]">history</span>
+<span class="text-[10px] font-medium text-slate-400 group-hover:text-primary transition-colors">History</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-primary text-[24px] font-variation-settings-fill">settings</span>
+<span class="text-[10px] font-medium text-primary">Settings</span>
+</a>
+</div>
+</nav>
+<style>
+        .font-variation-settings-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Safe area padding for iPhone home indicator */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+    </style>
+</body></html>

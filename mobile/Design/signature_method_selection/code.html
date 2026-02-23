@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Signature Method Selection</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "primary-content": "#ffffff",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e293b",
+                        "border-light": "#e2e8f0",
+                        "border-dark": "#334155",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"],
+                        "handwriting-1": ["Cedarville Cursive", "cursive"], 
+                        "handwriting-2": ["Dancing Script", "cursive"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Cedarville+Cursive&amp;family=Dancing+Script:wght@400..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        /* Custom scrollbar for cleaner look */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .signature-canvas {
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .dark .signature-canvas {
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center p-0 md:p-4">
+<!-- Main Container / Modal wrapper for Phone View -->
+<div class="relative w-full h-screen md:h-auto md:max-w-md md:rounded-xl md:shadow-2xl flex flex-col bg-surface-light dark:bg-surface-dark overflow-hidden group/design-root">
+<!-- Header -->
+<div class="flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark sticky top-0 z-10">
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center md:text-left text-slate-900 dark:text-white pl-2">Create Your Signature</h2>
+<button class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto">
+<!-- Tab Navigation -->
+<div class="px-4 py-4">
+<div class="flex p-1 rounded-lg bg-slate-100 dark:bg-slate-800">
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="sig-method" type="radio" value="draw"/>
+<div class="flex items-center justify-center py-2 px-3 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 peer-checked:bg-white dark:peer-checked:bg-background-dark peer-checked:text-primary peer-checked:shadow-sm">
+<span class="material-symbols-outlined text-[18px] mr-2">draw</span>
+                            Draw
+                        </div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="sig-method" type="radio" value="type"/>
+<div class="flex items-center justify-center py-2 px-3 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 peer-checked:bg-white dark:peer-checked:bg-background-dark peer-checked:text-primary peer-checked:shadow-sm">
+<span class="material-symbols-outlined text-[18px] mr-2">keyboard</span>
+                            Type
+                        </div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="sig-method" type="radio" value="upload"/>
+<div class="flex items-center justify-center py-2 px-3 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 peer-checked:bg-white dark:peer-checked:bg-background-dark peer-checked:text-primary peer-checked:shadow-sm">
+<span class="material-symbols-outlined text-[18px] mr-2">upload_file</span>
+                            Upload
+                        </div>
+</label>
+</div>
+</div>
+<!-- Content Area: Draw Mode (Active) -->
+<div class="px-4 pb-2">
+<div class="relative w-full h-64 bg-white dark:bg-slate-900 border-2 border-dashed border-primary/30 rounded-xl overflow-hidden signature-canvas flex items-center justify-center group">
+<!-- Instruction Overlay -->
+<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+<span class="material-symbols-outlined text-4xl text-primary mb-2">ink_pen</span>
+<p class="text-sm font-medium text-primary">Sign above the line</p>
+</div>
+<!-- Simulated Signature -->
+<svg class="w-full h-full absolute inset-0 text-primary pointer-events-none" style="filter: drop-shadow(0px 1px 2px rgba(19, 91, 236, 0.2));" viewbox="0 0 400 200">
+<path d="M 80 100 Q 120 40 150 100 T 220 100 T 280 80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></path>
+</svg>
+<!-- Baseline -->
+<div class="absolute bottom-10 left-8 right-8 h-px bg-slate-200 dark:bg-slate-700"></div>
+</div>
+<!-- Canvas Tools -->
+<div class="flex justify-between items-center mt-3">
+<p class="text-xs text-slate-500 dark:text-slate-400">Pressure sensitive</p>
+<div class="flex gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[16px]">undo</span>
+                            Undo
+                        </button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+                            Clear
+                        </button>
+</div>
+</div>
+</div>
+<!-- Legal Disclosure -->
+<div class="p-4 mt-2 bg-slate-50 dark:bg-slate-800/50 border-t border-border-light dark:border-border-dark">
+<label class="flex items-start gap-3 cursor-pointer group">
+<div class="relative flex items-center mt-0.5">
+<input class="peer h-5 w-5 cursor-pointer appearance-none rounded border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 checked:bg-primary checked:border-primary transition-all focus:ring-2 focus:ring-primary/20 focus:outline-none" type="checkbox"/>
+<span class="absolute text-white opacity-0 peer-checked:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</span>
+</div>
+<div class="flex-1">
+<p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                            I agree to be legally bound by this document and the 
+                            <a class="text-primary hover:underline font-medium" href="#">Electronic Record and Signature Disclosure</a>.
+                        </p>
+</div>
+</label>
+</div>
+</div>
+<!-- Sticky Footer Action -->
+<div class="p-4 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark">
+<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+<span>Adopt and Sign</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</body></html>

@@ -30,7 +30,14 @@ class VerifyHuman
             return $next($request);
         }
 
-        // 2. Check if Action is enabled (if action provided)
+        // 2. Skip verification for authenticated users on write actions (e.g. document_upload)
+        //    to avoid blocking legitimate users when reCAPTCHA score is low (VPN, privacy tools, etc.)
+        $skipWhenAuthenticated = ['document_upload'];
+        if ($action && in_array($action, $skipWhenAuthenticated, true) && $request->user()) {
+            return $next($request);
+        }
+
+        // 3. Check if Action is enabled (if action provided)
         $minScore = Config::get('bot_protection.min_score', 0.5);
         if ($action) {
             $actionConfig = Config::get("bot_protection.actions.{$action}");
@@ -42,7 +49,7 @@ class VerifyHuman
             }
         }
 
-        // 3. Retrieve Token
+        // 4. Retrieve Token
         $token = $request->header('X-Human-Token');
 
         if (!$token) {
@@ -54,7 +61,7 @@ class VerifyHuman
             }
         }
 
-        // 4. Verify Token
+        // 5. Verify Token
         $result = $this->botService->verify($token, $action);
 
         if (!$result['success'] || $result['score'] < $minScore) {

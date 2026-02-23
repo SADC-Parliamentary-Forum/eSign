@@ -1,0 +1,163 @@
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Document Field Placement Editor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Emulate iOS safe area */
+        .safe-area-top {
+            padding-top: env(safe-area-inset-top, 20px);
+        }
+        .safe-area-bottom {
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+        .document-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.05);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display h-screen w-full flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+<!-- Header -->
+<header class="flex-none bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 safe-area-top z-10">
+<div class="px-4 py-3 flex items-center justify-between gap-4">
+<button class="flex items-center justify-center p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex-1 min-w-0 text-center">
+<h1 class="text-base font-semibold truncate text-slate-900 dark:text-white">Employment_Contract.pdf</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400">Page 1 of 3</p>
+</div>
+<button class="bg-primary text-white text-sm font-semibold py-2 px-4 rounded-full shadow-sm hover:bg-primary/90 transition-colors shrink-0">
+                Review &amp; Send
+            </button>
+</div>
+</header>
+<!-- Main Canvas Area -->
+<main class="flex-1 relative w-full overflow-hidden bg-background-light dark:bg-background-dark flex flex-col items-center justify-start py-6">
+<!-- Document Container (Scrollable) -->
+<div class="w-full h-full overflow-y-auto overflow-x-hidden no-scrollbar px-4 pb-32 flex flex-col items-center">
+<!-- Document Page -->
+<div class="relative w-full max-w-[90%] md:max-w-lg aspect-[1/1.414] bg-white dark:bg-slate-900 document-shadow rounded-sm p-8 text-[0.6rem] leading-relaxed text-slate-800 dark:text-slate-300 select-none">
+<!-- Watermark/Background Pattern for Document Texture -->
+<!-- Mock Document Content -->
+<div class="mb-4 flex justify-between items-end border-b border-slate-200 dark:border-slate-700 pb-4">
+<div class="font-bold text-lg text-slate-900 dark:text-white">EMPLOYMENT AGREEMENT</div>
+<div class="text-xs text-slate-500">Doc ID: 9942-A</div>
+</div>
+<div class="space-y-3 opacity-80">
+<p><span class="font-bold">1. PARTIES.</span> This Employment Agreement (the "Agreement") is made and entered into this 24th day of October, 2023, by and between TechCorp Solutions Inc. ("Employer") and Sarah J. Mitchell ("Employee").</p>
+<p><span class="font-bold">2. EMPLOYMENT.</span> The Employer employs the Employee, and the Employee accepts employment with the Employer, upon the terms and conditions set forth in this Agreement.</p>
+<p><span class="font-bold">3. TERM.</span> The term of this Agreement shall commence on November 1st, 2023 and shall continue until terminated by either party.</p>
+<p><span class="font-bold">4. COMPENSATION.</span> As compensation for all services to be rendered by the Employee under this Agreement, the Employer shall pay to the Employee an annual base salary of $120,000.</p>
+<div class="my-6 p-4 border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 rounded">
+<p class="italic text-center text-slate-400">Confidentiality Clause Section Placeholder</p>
+</div>
+<p><span class="font-bold">5. GOVERNING LAW.</span> This Agreement shall be governed by and construed in accordance with the laws of the State of California.</p>
+</div>
+<!-- Placed Field: Signature (Active State) -->
+<div class="absolute bottom-24 left-8 right-8 h-16 border-2 border-primary bg-primary/10 dark:bg-primary/20 rounded flex items-center justify-between px-3 cursor-move group animate-pulse">
+<div class="flex items-center gap-2 text-primary dark:text-primary-300 font-semibold">
+<span class="material-symbols-outlined text-xl">ink_pen</span>
+<span>Signature</span>
+</div>
+<!-- Resize Handle -->
+<div class="w-6 h-6 bg-white dark:bg-slate-800 border-2 border-primary rounded-full absolute -right-3 -bottom-3 shadow-sm flex items-center justify-center cursor-se-resize">
+<span class="material-symbols-outlined text-xs text-primary">open_in_full</span>
+</div>
+<!-- Delete Handle -->
+<div class="w-6 h-6 bg-red-500 text-white rounded-full absolute -right-3 -top-3 shadow-sm flex items-center justify-center cursor-pointer hover:bg-red-600">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</div>
+</div>
+<!-- Placed Field: Date (Inactive State) -->
+<div class="absolute bottom-8 left-8 w-32 h-10 border border-slate-300 dark:border-slate-600 bg-slate-100/50 dark:bg-slate-800/50 rounded flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-xs">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span>Date</span>
+</div>
+</div>
+<div class="h-8"></div> <!-- Spacer for scrolling past bottom -->
+</div>
+<!-- Floating Action Button for Undo/Redo (Optional, good for mobile) -->
+<div class="absolute top-4 right-4 flex flex-col gap-2">
+<button class="w-10 h-10 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-primary">
+<span class="material-symbols-outlined text-xl">undo</span>
+</button>
+</div>
+</main>
+<!-- Bottom Toolbar -->
+<div class="flex-none bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] rounded-t-xl z-20 safe-area-bottom">
+<div class="flex flex-col">
+<!-- Handle indicator for bottom sheet look -->
+<div class="w-full flex justify-center pt-3 pb-1">
+<div class="w-12 h-1 bg-slate-200 dark:bg-slate-600 rounded-full"></div>
+</div>
+<div class="px-4 pb-2 pt-1 text-center">
+<p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Drag &amp; Drop Fields</p>
+</div>
+<!-- Draggable Icons Grid -->
+<div class="grid grid-cols-4 gap-2 px-4 pb-6 pt-2">
+<!-- Signature Tool -->
+<div class="flex flex-col items-center gap-1 group cursor-grab active:cursor-grabbing">
+<div class="w-14 h-14 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center shadow-sm group-active:scale-95 group-active:border-primary group-active:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-2xl text-primary">ink_pen</span>
+</div>
+<span class="text-[10px] font-medium text-slate-600 dark:text-slate-300">Signature</span>
+</div>
+<!-- Initials Tool -->
+<div class="flex flex-col items-center gap-1 group cursor-grab active:cursor-grabbing">
+<div class="w-14 h-14 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center shadow-sm group-active:scale-95 group-active:border-primary group-active:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-2xl text-primary">signature</span>
+</div>
+<span class="text-[10px] font-medium text-slate-600 dark:text-slate-300">Initials</span>
+</div>
+<!-- Date Tool -->
+<div class="flex flex-col items-center gap-1 group cursor-grab active:cursor-grabbing">
+<div class="w-14 h-14 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center shadow-sm group-active:scale-95 group-active:border-primary group-active:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-2xl text-primary">calendar_month</span>
+</div>
+<span class="text-[10px] font-medium text-slate-600 dark:text-slate-300">Date</span>
+</div>
+<!-- Text Box Tool -->
+<div class="flex flex-col items-center gap-1 group cursor-grab active:cursor-grabbing">
+<div class="w-14 h-14 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center shadow-sm group-active:scale-95 group-active:border-primary group-active:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-2xl text-primary">text_fields</span>
+</div>
+<span class="text-[10px] font-medium text-slate-600 dark:text-slate-300">Text Box</span>
+</div>
+</div>
+</div>
+</div>
+</body></html>
