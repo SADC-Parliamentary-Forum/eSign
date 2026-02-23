@@ -148,8 +148,10 @@ class DocumentService
         $ext = $file->getClientOriginalExtension();
         $processingPath = 'processing/' . Str::uuid() . '.' . $ext;
 
-        // Store in restricted local disk (e.g. storage/app/processing)
-        // We use 'local' disk which maps to storage/app
+        // Ensure processing directory exists (local disk root is storage/app/private)
+        Storage::disk('local')->makeDirectory('processing');
+
+        // Store in restricted local disk (e.g. storage/app/private/processing)
         Storage::disk('local')->putFileAs('processing', $file, basename($processingPath));
 
         // 2. Create Record with PROCESSING status

@@ -178,7 +178,10 @@ class DocumentController extends Controller
             return response()->json($document, 201);
 
         } catch (\Exception $e) {
-            \Log::error('Document creation failed: ' . $e->getMessage());
+            \Log::error('Document creation failed: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $message = app()->isProduction() ? 'An error occurred while creating the document.' : 'Failed to create document: ' . $e->getMessage();
             return response()->json(['message' => $message], 500);
         }

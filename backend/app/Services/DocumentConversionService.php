@@ -52,13 +52,22 @@ class DocumentConversionService
             $tempFile = $tempDir . '/input.' . $originalExtension;
             file_put_contents($tempFile, $content);
 
-            $command = sprintf(
-                'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
-                escapeshellarg($tempDir),
-                escapeshellarg($tempFile)
-            );
+            // LibreOffice needs a writable HOME (dconf/cache); avoid "Permission denied" in containers
+            $homeDir = $tempDir . '/home';
+            mkdir($homeDir, 0755, true);
+            $previousHome = getenv('HOME');
+            putenv('HOME=' . $homeDir);
 
-            exec($command, $output, $returnCode);
+            try {
+                $command = sprintf(
+                    'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
+                    escapeshellarg($tempDir),
+                    escapeshellarg($tempFile)
+                );
+                exec($command, $output, $returnCode);
+            } finally {
+                putenv($previousHome !== false ? 'HOME=' . $previousHome : 'HOME');
+            }
 
             $pdfFile = $tempDir . '/input.pdf';
 
@@ -152,19 +161,23 @@ class DocumentConversionService
     }
 
     /**
-     * Cleanup temporary directory.
+     * Cleanup temporary directory (recursive; LibreOffice may create subdirs e.g. home/.cache).
      */
     protected function cleanup(string $dir): void
     {
-        if (!is_dir($dir))
+        if (!is_dir($dir)) {
             return;
+        }
 
-        $files = glob($dir . '/*');
-        foreach ($files as $file) {
-            if (is_file($file)) {
-                unlink($file);
+        $items = array_diff(scandir($dir), ['.', '..']);
+        foreach ($items as $item) {
+            $path = $dir . '/' . $item;
+            if (is_dir($path)) {
+                $this->cleanup($path);
+            } else {
+                @unlink($path);
             }
         }
-        rmdir($dir);
+        @rmdir($dir);
     }
 }
