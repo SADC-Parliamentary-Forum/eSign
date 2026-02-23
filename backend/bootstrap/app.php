@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/auth/reset-password',
             'api/email/*',
             'broadcasting/*',
+            'api/broadcasting/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -43,6 +43,25 @@ class SignerController extends Controller
             return response()->json(['message' => 'This document has been declined.'], 410);
         }
 
+        // Generate signed URL for PDF access
+        try {
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = \Illuminate\Support\Facades\Storage::disk('minio');
+            if ($document->file_path) {
+                $pdfUrl = $disk->temporaryUrl(
+                    $document->file_path,
+                    now()->addHours(2)
+                );
+            } else {
+                $pdfUrl = null;
+            }
+        } catch (\Exception $e) {
+            // Fallback for local storage or misconfigured minio
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = \Illuminate\Support\Facades\Storage::disk('minio');
+            $pdfUrl = $disk->url($document->file_path);
+        }
+
         return response()->json([
             'document' => [
                 'id' => $document->id,
@@ -51,6 +70,7 @@ class SignerController extends Controller
                 'file_path' => $document->file_path,
                 'expires_at' => $document->expires_at,
             ],
+            'pdf_url' => $pdfUrl,
             'signer' => [
                 'id' => $signer->id,
                 'name' => $signer->name,

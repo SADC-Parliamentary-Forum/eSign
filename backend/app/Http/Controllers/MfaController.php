@@ -69,8 +69,11 @@ class MfaController extends Controller
         // Clear code
         Cache::forget('mfa:' . $user->id);
 
-        // Revoke the Partial Token
-        $request->user()->currentAccessToken()->delete();
+        // Revoke the Partial Token if it's a real access token
+        $currentToken = $request->user()->currentAccessToken();
+        if ($currentToken && method_exists($currentToken, 'delete')) {
+            $currentToken->delete();
+        }
 
         // Issue Full Token
         $token = $user->createToken('auth_token', ['*'])->plainTextToken;
