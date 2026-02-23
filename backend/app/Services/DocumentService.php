@@ -151,7 +151,6 @@ class DocumentService
         // Store in restricted local disk (e.g. storage/app/processing)
         // We use 'local' disk which maps to storage/app
         Storage::disk('local')->putFileAs('processing', $file, basename($processingPath));
-        $fullLocalPath = Storage::disk('local')->path($processingPath);
 
         // 2. Create Record with PROCESSING status
         $document = Document::create([
@@ -165,8 +164,8 @@ class DocumentService
             'metadata' => $metadata,
         ]);
 
-        // 3. Dispatch Job
-        \App\Jobs\ProcessDocumentUpload::dispatch($document, $fullLocalPath);
+        // 3. Dispatch Job (pass storage-relative path so conversion can read from local disk)
+        \App\Jobs\ProcessDocumentUpload::dispatch($document, $processingPath);
 
         return $document;
     }

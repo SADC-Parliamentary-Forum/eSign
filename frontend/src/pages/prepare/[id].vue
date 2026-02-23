@@ -439,13 +439,33 @@ onMounted(async () => {
   await fetchDocument()
 })
 
+async function waitForDocumentReady(documentId, maxAttempts = 60) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const res = await $api(`/documents/${documentId}`)
+    doc.value = res
+    if (res.status === 'DRAFT') return res
+    if (res.status === 'FAILED') throw new Error('Document conversion failed. Please upload a PDF or try again.')
+    await new Promise(r => setTimeout(r, 2000))
+  }
+  throw new Error('Document is taking too long to process. Please try again later.')
+}
+
 async function fetchDocument() {
   try {
     loading.value = true
-    const res = await $api(`/documents/${route.params.id}`)
+    let res = await $api(`/documents/${route.params.id}`)
     doc.value = res
-    
-    // Fetch PDF with auth token and create blob URL
+
+    if (res.status === 'IN_PROGRESS') {
+      error.value = ''
+      res = await waitForDocumentReady(route.params.id)
+    }
+    if (res.status === 'FAILED') {
+      error.value = 'Document conversion failed. Please upload a PDF or try again.'
+      return
+    }
+
+    // Fetch PDF only when document is ready and is PDF
     await loadPdfBlob(route.params.id)
     
     // Load existing signers if any
@@ -568,16 +588,22 @@ async function loadPdfBlob(documentId) {
         'Accept': 'application/pdf'
       }
     })
-    
+
+    const contentType = response.headers.get('Content-Type') || ''
     if (!response.ok) {
-      throw new Error(`Failed to load PDF: ${response.statusText}`)
+      const errBody = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
+      const msg = errBody.message || `Failed to load PDF: ${response.statusText}`
+      throw new Error(msg)
     }
-    
+
     const blob = await response.blob()
+    if (blob.type && blob.type !== 'application/pdf') {
+      throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
+    }
     pdfSource.value = URL.createObjectURL(blob)
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
-    error.value = 'Failed to load PDF preview: ' + e.message
+    error.value = e.message || 'Failed to load PDF preview.'
   }
 }
 

@@ -8,10 +8,17 @@ use Illuminate\Support\Str;
 
 class DocumentConversionService
 {
+    /** Extensions that LibreOffice can convert to PDF (office + images). */
+    protected const CONVERTIBLE_EXTENSIONS = [
+        'doc', 'docx',           // Word
+        'xls', 'xlsx',           // Excel
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif',  // Images
+    ];
+
     /**
      * Convert a document to PDF if needed.
-     * Supports: doc, docx → pdf
-     * 
+     * Supports: Word (doc, docx), Excel (xls, xlsx), images (jpg, png, gif, etc.) → PDF
+     *
      * @param string $filePath Path in storage
      * @param string $disk Storage disk name
      * @return array ['path' => new path, 'converted' => bool]
@@ -20,27 +27,23 @@ class DocumentConversionService
     {
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
 
-        // Already a PDF
         if ($extension === 'pdf') {
             return ['path' => $filePath, 'converted' => false];
         }
 
-        // Word documents
-        if (in_array($extension, ['doc', 'docx'])) {
-            return $this->convertWordToPdf($filePath, $disk);
+        if (in_array($extension, self::CONVERTIBLE_EXTENSIONS)) {
+            return $this->convertToPdfWithLibreOffice($filePath, $disk, $extension);
         }
 
-        // Unknown format, return as-is
         return ['path' => $filePath, 'converted' => false];
     }
 
     /**
-     * Convert Word document to PDF using LibreOffice.
+     * Convert document or image to PDF using LibreOffice (Word, Excel, images).
      */
-    protected function convertWordToPdf(string $filePath, string $disk): array
+    protected function convertToPdfWithLibreOffice(string $filePath, string $disk, string $extension): array
     {
         try {
-            // Download file from storage to temp
             $content = Storage::disk($disk)->get($filePath);
             $tempDir = sys_get_temp_dir() . '/doc_conversion_' . Str::random(8);
             mkdir($tempDir, 0755, true);
@@ -49,8 +52,6 @@ class DocumentConversionService
             $tempFile = $tempDir . '/input.' . $originalExtension;
             file_put_contents($tempFile, $content);
 
-            // Use LibreOffice for conversion
-            // This requires LibreOffice to be installed in the Docker container
             $command = sprintf(
                 'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
                 escapeshellarg($tempDir),
@@ -62,18 +63,22 @@ class DocumentConversionService
             $pdfFile = $tempDir . '/input.pdf';
 
             if ($returnCode !== 0 || !file_exists($pdfFile)) {
-                // LibreOffice not available or conversion failed
-                // Try alternative: use PHPWord + TCPDF (fallback)
-                Log::warning('LibreOffice conversion failed, trying PHPWord fallback', [
+                Log::warning('LibreOffice conversion failed', [
                     'output' => implode("\n", $output),
-                    'returnCode' => $returnCode
+                    'returnCode' => $returnCode,
+                    'extension' => $extension
                 ]);
 
-                $pdfContent = $this->convertWithPhpWord($tempFile);
-                if ($pdfContent) {
-                    file_put_contents($pdfFile, $pdfContent);
+                // Word only: try PHPWord fallback
+                if (in_array($extension, ['doc', 'docx'])) {
+                    $pdfContent = $this->convertWithPhpWord($tempFile);
+                    if ($pdfContent) {
+                        file_put_contents($pdfFile, $pdfContent);
+                    } else {
+                        $this->cleanup($tempDir);
+                        return ['path' => $filePath, 'converted' => false, 'error' => 'Conversion failed'];
+                    }
                 } else {
-                    // Cleanup and return original
                     $this->cleanup($tempDir);
                     return ['path' => $filePath, 'converted' => false, 'error' => 'Conversion failed'];
                 }
@@ -86,7 +91,7 @@ class DocumentConversionService
             $newPath = 'documents/' . Str::random(40) . '.pdf';
             Storage::disk($disk)->put($newPath, $pdfContent);
 
-            // Delete original Word file
+            // Delete original file (replaced by PDF)
             Storage::disk($disk)->delete($filePath);
 
             // Cleanup temp

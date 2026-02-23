@@ -189,14 +189,22 @@ async function fetchPdfBlob(id) {
                 'Accept': 'application/pdf'
             }
         })
-        
-        if (!response.ok) throw new Error('Failed to fetch PDF')
-        
+
+        const contentType = response.headers.get('Content-Type') || ''
+        if (!response.ok) {
+            const errBody = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
+            const msg = errBody.message || 'Failed to fetch PDF'
+            throw new Error(msg)
+        }
+
         const blob = await response.blob()
+        if (blob.type && blob.type !== 'application/pdf') {
+            throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
+        }
         pdfSource.value = URL.createObjectURL(blob)
     } catch (e) {
         console.error('PDF Load Error', e)
-        showSnackbar('Could not load PDF file: ' + getErrorMessage(e), 'error')
+        showSnackbar(getErrorMessage(e), 'error')
     }
 }
 

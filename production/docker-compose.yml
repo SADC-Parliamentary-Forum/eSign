@@ -21,7 +21,7 @@ services:
   app:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/production/Dockerfile
     container_name: esign_app
     restart: unless-stopped
     env_file: .env.production

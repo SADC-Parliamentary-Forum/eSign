@@ -73,7 +73,7 @@ async function uploadSingleFile(file) {
             @drop.prevent="onDrop"
         >
             <div class="d-flex flex-column align-center justify-center py-12 px-6 bg-surface" @click="fileInput.click()" style="cursor: pointer">
-                <input type="file" ref="fileInput" hidden accept=".pdf,.doc,.docx" @change="onFileChange" />
+                <input type="file" ref="fileInput" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif" @change="onFileChange" />
                 
                 <div class="icon-circle mb-6 pa-6 rounded-circle">
                     <VIcon icon="ri-upload-cloud-2-line" size="48" color="primary" />
@@ -81,7 +81,7 @@ async function uploadSingleFile(file) {
                 
                 <h2 class="text-h5 font-weight-bold mb-2">Upload a Document</h2>
                 <p class="text-body-1 text-medium-emphasis mb-6 text-center" style="max-width: 300px">
-                    Drag and drop your PDF or Word document here, or click to browse
+                    Drag and drop your document here (PDF, Word, Excel, or images), or click to browse
                 </p>
                 
                 <VBtn color="primary" size="large" rounded="pill" variant="flat" class="px-8" @click.stop="fileInput.click()">

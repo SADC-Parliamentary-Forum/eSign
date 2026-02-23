@@ -131,8 +131,8 @@ class DocumentController extends Controller
             'file' => [
                 'required_without:template_id',
                 'file',
-                'mimes:pdf,docx,doc',
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword',
+                'mimes:pdf,docx,doc,xls,xlsx,jpg,jpeg,png,gif,webp,bmp,tiff,tif',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff',
                 'max:10240',
             ],
             'template_id' => 'required_without:file|exists:templates,id',
@@ -446,10 +446,25 @@ class DocumentController extends Controller
             abort(403, 'Unauthorized access to this document.');
         }
 
-        try {
-            $mimeType = $document->mime_type ?: 'application/pdf';
-            $path = $document->file_path;
+        if ($document->status === 'IN_PROGRESS') {
+            return response()->json(['message' => 'Document is still being processed. Please wait.'], 409);
+        }
 
+        if ($document->status === 'FAILED') {
+            return response()->json(['message' => 'Document conversion failed. Please try uploading a PDF or another file.'], 422);
+        }
+
+        $path = $document->file_path;
+        if (!$path || !Storage::disk('minio')->exists($path)) {
+            return response()->json(['message' => 'Document file is not available.'], 404);
+        }
+
+        $mimeType = $document->mime_type ?: 'application/pdf';
+        if ($mimeType !== 'application/pdf') {
+            return response()->json(['message' => 'This document could not be converted to PDF. Please upload a PDF file or try again.'], 415);
+        }
+
+        try {
             return response()->stream(function () use ($path) {
                 $stream = Storage::disk('minio')->readStream($path);
                 fpassthru($stream);
