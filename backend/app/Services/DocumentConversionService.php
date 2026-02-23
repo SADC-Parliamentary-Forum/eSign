@@ -60,10 +60,11 @@ class DocumentConversionService
             file_put_contents($tempFile, $content);
 
             // Use LibreOffice for conversion
-            // This requires LibreOffice to be installed in the Docker container
+            // Safe Mode and Custom UserInstallation are critical for Docker (www-data user)
             $command = sprintf(
-                'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
+                'libreoffice --headless --convert-to pdf --outdir %s -env:UserInstallation=file://%s %s 2>&1',
                 escapeshellarg($tempDir),
+                escapeshellarg($tempDir . '/soffice_config'),
                 escapeshellarg($tempFile)
             );
 
@@ -104,7 +105,8 @@ class DocumentConversionService
 
             Log::info('Document converted to PDF', [
                 'original' => $filePath,
-                'new' => $newPath
+                'new' => $newPath,
+                'size' => strlen($pdfContent)
             ]);
 
             return ['path' => $newPath, 'converted' => true];
@@ -248,8 +250,9 @@ class DocumentConversionService
 
             // 1. Try LibreOffice
             $command = sprintf(
-                'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
+                'libreoffice --headless --convert-to pdf --outdir %s -env:UserInstallation=file://%s %s 2>&1',
                 escapeshellarg($tempDir),
+                escapeshellarg($tempDir . '/soffice_config'),
                 escapeshellarg($tempFile)
             );
             exec($command, $output, $returnCode);

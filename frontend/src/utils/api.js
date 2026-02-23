@@ -49,7 +49,7 @@ export const $api = ofetch.create({
       else if (url.includes('/auth/register')) action = 'register'
       else if (url.includes('/auth/forgot-password')) action = 'forgot_password'
       else if (url.includes('/documents/bulk-sign')) action = 'bulk_sign'
-      else if (url.match(/\/documents\/\d+\/sign$/)) action = 'sign_document'
+      else if (url.match(/\/documents\/[^/]+\/sign$/)) action = 'sign_document'
       else if (url.endsWith('/documents') && options.method === 'POST') action = 'document_upload'
 
       if (action) {

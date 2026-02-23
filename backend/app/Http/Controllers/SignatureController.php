@@ -148,30 +148,49 @@ class SignatureController extends Controller
 
     private function updateSignerStatus(Document $document, $user)
     {
-        // Find signer record (check by email or user_id)
-        $signer = $document->signers()->where('email', $user->email)->first();
-        if (!$signer && $user->id) {
-            $signer = $document->signers()->where('user_id', $user->id)->first();
-        }
-
-        if (!$signer)
-            return;
-
-        // Check if all REQUIRED fields for this signer are signed
-        $pendingRequired = $document->fields()
-            ->where(function ($q) use ($user, $signer) {
-                $q->where('signer_email', $user->email)
-                    ->orWhere('document_signer_id', $signer->id); // match signer record id if linked
+        // Find ALL signer records for this user (e.g. if added multiple times in sequence)
+        $signers = $document->signers()
+            ->where(function ($q) use ($user) {
+                $q->where('email', $user->email);
+                if ($user->id) {
+                    $q->orWhere('user_id', $user->id);
+                }
             })
-            ->where('required', true)
-            ->whereNull('signed_at')
-            ->exists();
+            ->get();
 
-        if (!$pendingRequired) {
-            $signer->update([
-                'status' => 'signed',
-                'signed_at' => now(),
-            ]);
+        foreach ($signers as $signer) {
+            // Skip if already signed
+            if ($signer->status === 'signed')
+                continue;
+
+            // Check if all REQUIRED fields for THIS SPECIFIC signer are signed
+            // We must match fields strictly to this signer record ID if possible
+            $pendingRequired = $document->fields()
+                ->where(function ($q) use ($signer) {
+                    // Strictly match document_signer_id
+                    $q->where('document_signer_id', $signer->id);
+
+                    // Fallback for legacy fields without document_signer_id (match email AND signing order)
+                    // Ensuring we don't count fields destined for another "instance" of the user
+                    $q->orWhere(function ($sq) use ($signer) {
+                        $sq->whereNull('document_signer_id')
+                            ->where('signer_email', $signer->email);
+                        // Ideally we would check signing_order of the field, but fields don't have order directly.
+                        // They rely on the signer link. 
+                        // If document_signer_id is missing, it's ambiguous. 
+                        // But we assume clean data with document_signer_id.
+                    });
+                })
+                ->where('required', true)
+                ->whereNull('signed_at')
+                ->exists();
+
+            if (!$pendingRequired) {
+                $signer->update([
+                    'status' => 'signed',
+                    'signed_at' => now(),
+                ]);
+            }
         }
     }
 

@@ -527,9 +527,24 @@ async function downloadEvidence() {
 // --- Actions ---
 
 async function finishSigning() {
-  const missing = myFields.value.filter(f => f.required && !fieldValues.value[f.id])
+  // Helper to check if field is active for current turn
+  const isFieldActive = (field) => {
+      if (!document.value.sequential_signing) return true
+      
+      const signer = signers.value.find(s => s.id === field.document_signer_id)
+      if (signer) {
+          return signer.signing_order === document.value.current_signing_order
+      }
+      // Fallback by email match if ID not found
+      const signerByEmail = signers.value.find(s => s.email === field.signer_email && s.signing_order === document.value.current_signing_order)
+      return !!signerByEmail
+  }
+
+  // Check required fields ONLY for the current active step
+  const missing = myFields.value.filter(f => isFieldActive(f) && f.required && !fieldValues.value[f.id])
+  
   if (missing.length > 0) {
-    showSnackbar(`Please fill in all required fields (${missing.length} remaining).`, 'error')
+    showSnackbar(`Please fill in all required fields for this step (${missing.length} remaining).`, 'error')
     return
   }
 
@@ -539,13 +554,27 @@ async function finishSigning() {
   }
 
   try {
+    // Only send fields relevant to the current step
+    const payloadFields = Object.keys(fieldValues.value)
+        .map(id => {
+            const field = fields.value.find(f => f.id === id)
+            if (!field || !isFieldActive(field)) return null
+            return {
+                field_id: id,
+                value: fieldValues.value[id].value
+            }
+        })
+        .filter(item => item !== null)
+
+    if (payloadFields.length === 0) {
+        showSnackbar('No fields to submit for this step.', 'warning')
+        return
+    }
+
     await $api(`/documents/${document.value.id}/sign`, {
       method: 'POST',
       body: {
-        fields: Object.keys(fieldValues.value).map(id => ({
-          field_id: id,
-          value: fieldValues.value[id].value
-        }))
+        fields: payloadFields
       }
     })
     showSnackbar('Document signed successfully!', 'success')
@@ -1020,6 +1049,21 @@ function deleteSelectedField() {
                     </div>
                  </div>
               </div>
+           </div>
+
+           <!-- Bottom Action Button -->
+           <div v-if="canSign" class="mt-8 mb-4">
+               <v-btn 
+                  color="primary" 
+                  size="large" 
+                  width="250" 
+                  prepend-icon="mdi-fountain-pen-tip"
+                  elevation="4"
+                  class="font-weight-bold"
+                  @click="finishSigning"
+               >
+                  Finish Signing
+               </v-btn>
            </div>
         </div>
       </div>

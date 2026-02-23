@@ -615,11 +615,35 @@ function handleDocumentLoad(pdf) {
   pageCount.value = pdf.numPages
 }
 
+function handleLoadError(e) {
+    console.error('PDF Load Error:', e)
+    error.value = 'Failed to render PDF document. Please check if the file is valid.'
+    loading.value = false
+}
+
 // Signer management
 const editingSignerId = ref(null)
 
+// Email validation helper
+function validateEmail(email) {
+  return String(email)
+    .toLowerCase()
+    .match(
+      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+    )
+}
+
 function addSigner() {
-  if (!newSignerName.value || !newSignerEmail.value) return
+  error.value = ''
+  if (!newSignerName.value || !newSignerEmail.value) {
+      error.value = 'Please fill in both name and email.'
+      return
+  }
+
+  if (!validateEmail(newSignerEmail.value)) {
+      error.value = 'Please enter a valid email address.'
+      return
+  }
 
   if (editingSignerId.value) {
     // Update existing
@@ -771,6 +795,18 @@ function openSubmitDialog() {
 async function submitDocument() {
   saving.value = true
   error.value = ''
+
+  // Validate additional emails
+  if (additionalEmails.value) {
+      const emails = additionalEmails.value.split(',').map(e => e.trim())
+      for (const email of emails) {
+          if (!validateEmail(email)) {
+              error.value = `Invalid email in CC list: ${email}`
+              saving.value = false
+              return
+          }
+      }
+  }
   
   try {
     // 1. Save or update signers
@@ -1202,6 +1238,7 @@ async function handleSelfSign() {
               v-if="pageCount === 0"
               :source="pdfSource"
               @loaded="handleDocumentLoad"
+              @loading-failed="handleLoadError"
             />
           </div>
 

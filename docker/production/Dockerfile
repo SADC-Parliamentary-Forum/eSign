@@ -31,6 +31,10 @@ RUN apt-get update && apt-get install -y \
     unzip \
     supervisor \
     ghostscript \
+    libreoffice \
+    default-jre-headless \
+    fonts-liberation \
+    fonts-dejavu \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions

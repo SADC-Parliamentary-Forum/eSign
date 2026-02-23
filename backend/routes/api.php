@@ -25,7 +25,11 @@ Route::prefix('health')->group(function () {
 });
 
 // Broadcasting auth route for private channels
-Broadcast::routes(['middleware' => ['auth:sanctum']]);
+// Broadcasting auth route for private channels
+// Explicitly using the controller to ensure correct middleware stack and avoid conflicts
+Route::post('/broadcasting/auth', function (Request $request) {
+    return Broadcast::auth($request);
+})->middleware('auth:sanctum');
 
 // ...
 
