@@ -47,10 +47,10 @@ async function handleCreate() {
 
 function handleFileChange(e) {
   const f = e.target?.files?.[0]
-  if (f && f.type === 'application/pdf') {
+  if (f) {
     file.value = f
     if (!name.value) {
-      name.value = f.name.replace('.pdf', '')
+      name.value = f.name.replace(/\.[^/.]+$/, '')
     }
   }
 }
@@ -88,8 +88,8 @@ function handleFileChange(e) {
         />
 
         <VFileInput
-          label="Upload PDF"
-          accept=".pdf"
+          label="Upload Template File"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
           variant="outlined"
           prepend-icon=""
           prepend-inner-icon="mdi-file-pdf-box"

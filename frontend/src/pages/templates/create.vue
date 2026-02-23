@@ -619,8 +619,8 @@ onUnmounted(() => {
               />
               <VFileInput
                 :model-value="templateForm.file ? [templateForm.file] : []"
-                label="Upload PDF Template"
-                accept="application/pdf"
+                label="Upload Template File"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
                 variant="outlined"
                 prepend-icon=""
                 prepend-inner-icon="mdi-file-pdf-box"

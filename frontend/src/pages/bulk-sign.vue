@@ -159,10 +159,10 @@ const isAllDone = computed(() => fileQueue.value.length > 0 && completedCount.va
                                 @drop.prevent="onDrop"
                                 @click="fileInput.click()"
                             >
-                                <input type="file" ref="fileInput" multiple hidden accept=".pdf,.doc,.docx" @change="onFileChange" />
+                                <input type="file" ref="fileInput" multiple hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" @change="onFileChange" />
                                 <VIcon icon="ri-stack-line" size="64" color="primary" class="mb-4" />
                                 <h3 class="text-h6 font-weight-regular mb-1">Drop multiple files here</h3>
-                                <p class="text-body-2 text-medium-emphasis">PDF, DOCX supported</p>
+                                <p class="text-body-2 text-medium-emphasis">PDF, DOCX, DOC, XLSX, XLS, PNG, JPG supported</p>
                             </div>
                             
                             <div v-if="fileQueue.length > 0">
