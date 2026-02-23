@@ -31,7 +31,8 @@ class AppServiceProvider extends ServiceProvider
                 [
                     'id' => $notifiable->getKey(),
                     'hash' => $emailHash,
-                ]
+                ],
+                false
             );
 
             // Parse the generated signed URL to extract signature and expires

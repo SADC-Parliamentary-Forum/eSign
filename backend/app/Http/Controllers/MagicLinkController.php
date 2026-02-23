@@ -40,12 +40,16 @@ class MagicLinkController extends Controller
             ]
         );
 
-        // Generate signed URL valid for 60 minutes
-        $url = URL::temporarySignedRoute(
+        // Generate relatively signed URL valid for 60 minutes
+        $relativeUrl = URL::temporarySignedRoute(
             'login.magic',
             now()->addMinutes(60),
-            ['id' => $user->id]
+            ['id' => $user->id],
+            false
         );
+
+        // Return full absolute URL for the admin to copy
+        $url = url($relativeUrl);
 
         // Audit: Log magic link generation
         $this->auditService->log($request->user(), 'magic_link_generated', 'user', $user->id, [

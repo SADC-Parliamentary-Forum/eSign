@@ -53,7 +53,7 @@ Route::post('/auth/reset-password', [App\Http\Controllers\PasswordResetControlle
 // Magic Link Login
 Route::get('/auth/magic/login/{id}', [MagicLinkController::class, 'login'])
     ->name('login.magic')
-    ->middleware(['signed', 'throttle:5,1']);
+    ->middleware(['signed:relative', 'throttle:5,1']);
 
 // =============================================================================
 // Guest Signer Routes (token-based access, no auth required)
@@ -67,7 +67,7 @@ Route::prefix('sign/{token}')->middleware('throttle:30,1')->group(function () {
 
 // Verification (Public Signed Route)
 Route::get('/verification/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
-    ->middleware(['signed', 'throttle:6,1'])
+    ->middleware(['signed:relative', 'throttle:6,1'])
     ->name('verification.verify');
 
 // =============================================================================
