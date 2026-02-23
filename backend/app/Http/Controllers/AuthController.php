@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -119,7 +120,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $currentToken = $request->user()->currentAccessToken();
-        if ($currentToken && method_exists($currentToken, 'delete')) {
+        if ($currentToken instanceof PersonalAccessToken) {
             $currentToken->delete();
         }
 

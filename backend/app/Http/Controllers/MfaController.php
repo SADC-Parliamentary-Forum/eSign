@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use App\Mail\MfaCodeMail;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class MfaController extends Controller
 {
@@ -69,9 +70,9 @@ class MfaController extends Controller
         // Clear code
         Cache::forget('mfa:' . $user->id);
 
-        // Revoke the Partial Token if it's a real access token
+        // Revoke the Partial Token if it's a database-backed token (not TransientToken/SPA)
         $currentToken = $request->user()->currentAccessToken();
-        if ($currentToken && method_exists($currentToken, 'delete')) {
+        if ($currentToken instanceof PersonalAccessToken) {
             $currentToken->delete();
         }
 
