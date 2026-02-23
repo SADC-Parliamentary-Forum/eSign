@@ -111,7 +111,7 @@ class _VerificationOTPScreenState extends State<VerificationOTPScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('OTP Verification'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
@@ -121,7 +121,7 @@ class _VerificationOTPScreenState extends State<VerificationOTPScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              const Icon(Icons.security, size: 64, color: Color(0xFF2D3748)),
+              Image.asset('assets/logo.jpg', height: 80),
               const SizedBox(height: 24),
               const Text(
                 'Enter OTP',

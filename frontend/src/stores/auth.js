@@ -4,16 +4,25 @@ import { $api } from '@/utils/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token'))
-  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
+  const tempMfaToken = ref(null) // Temporary token for MFA verification
+  const storedUser = localStorage.getItem('user')
+  const user = ref(storedUser && storedUser !== 'undefined' ? JSON.parse(storedUser) : null)
 
   const isAuthenticated = computed(() => !!user.value)
   const role = computed(() => user.value?.role?.name)
 
   function setAuth(newToken, newUser) {
+    if (tempMfaToken.value) tempMfaToken.value = null // Clear temp token on success
     token.value = newToken
     user.value = newUser
-    localStorage.setItem('token', newToken)
-    localStorage.setItem('user', JSON.stringify(newUser))
+
+    if (newToken) {
+      localStorage.setItem('token', newToken)
+    }
+
+    if (newUser) {
+      localStorage.setItem('user', JSON.stringify(newUser))
+    }
   }
 
   function clearAuth() {
@@ -40,11 +49,20 @@ export const useAuthStore = defineStore('auth', () => {
         body: { email, password },
       })
 
+      console.log('Login Response:', data)
+
+      if (!data.access_token && !data.token) {
+        throw new Error('Login failed: No access token received from server.')
+      }
+
       // Update State
       // Update State using the centralized helper
-      setAuth(data.access_token, data.user)
+      // Only set full auth if we have the user object (i.e. not MFA required)
+      if (data.user) {
+        setAuth(data.access_token || data.token, data.user)
+      }
 
-      return true
+      return data
     } catch (error) {
       console.error(error)
       throw error // Re-throw to handle UI feedback
@@ -69,6 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUser() {
     try {
       const userData = await $api('/auth/me')
+      console.log('authStore.fetchUser RAW:', userData)
 
       // Update user state
       user.value = userData
@@ -109,5 +128,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, user, isAuthenticated, role, login, register, clearAuth, fetchUser, forgotPassword, resetPassword }
+  return { token, tempMfaToken, user, isAuthenticated, role, login, register, clearAuth, fetchUser, forgotPassword, resetPassword, setAuth }
 })

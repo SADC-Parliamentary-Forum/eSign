@@ -113,7 +113,7 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Upload Document'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(

@@ -1,37 +1,44 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:mobile/config/app_config.dart';
 import 'services/api_service.dart';
-import 'services/database_helper.dart';
-import 'screens/signing_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/forgot_password_screen.dart';
-import 'screens/reset_password_screen.dart';
+import 'services/notification_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/document_detail_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/templates_screen.dart';
 import 'screens/signatures_screen.dart';
-import 'screens/guest_signer_screen.dart';
-import 'screens/verification_screen.dart';
-import 'screens/workflows_screen.dart';
-import 'screens/upload_document_screen.dart';
-import 'screens/verification_otp_screen.dart';
-import 'screens/document_activity_screen.dart';
-import 'widgets/search_bar.dart';
-import 'widgets/loading_skeleton.dart';
-import 'widgets/error_widget.dart';
-import 'widgets/offline_indicator.dart';
-import 'widgets/bulk_select_app_bar.dart';
-import 'widgets/filter_bottom_sheet.dart';
+import 'services/db_init.dart' if (dart.library.io) 'services/db_init_ffi.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initializeDatabaseFactory();
   await AppConfig.load();
-  runApp(const MyApp());
+
+  try {
+    if (!kIsWeb) {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(NotificationService.firebaseMessagingBackgroundHandler);
+    }
+    await NotificationService().initialize();
+  } catch (e) {
+    print('Initialization failed: $e');
+  }
+
+  // Check if user has existing valid session
+  final isAuthenticated = await ApiService.isAuthenticated();
+
+  runApp(MyApp(isAuthenticated: isAuthenticated));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final bool isAuthenticated;
+
+  const MyApp({super.key, this.isAuthenticated = false});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -39,182 +46,90 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
-  // late AppLinks _appLinks; // Uncomment when package is available
 
   @override
   void initState() {
     super.initState();
-    _initDeepLinks();
-  }
-
-  Future<void> _initDeepLinks() async {
-    try {
-      // Uncomment when app_links package is available
-      // import 'package:app_links/app_links.dart';
-      // _appLinks = AppLinks();
-      //
-      // Check initial link
-      // final appLink = await _appLinks.getInitialLink();
-      // if (appLink != null) _handleLink(appLink);
-      //
-      // Subscribe to link changes
-      // _appLinks.uriLinkStream.listen((uri) {
-      //   _handleLink(uri);
-      // });
-    } catch (e) {
-      print('Deep links initialization error: $e');
-    }
-  }
-  
-  void _handleLink(Uri uri) {
-    // Check if it's a verification link
-    // Path: /auth/verify-email
-    if (uri.path.contains('/auth/verify-email')) {
-      _navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => VerificationScreen(uri: uri),
-        ),
-      );
-    }
+    // Deep link initialization can be restored here when needed
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'SADC-eSign',
+      title: 'SADC PF eSign',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D3748)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0F172A),
+          primary: const Color(0xFF0F172A),
+          secondary: const Color(0xFF38BDF8),
+          surface: const Color(0xFFF8FAFC),
+          background: const Color(0xFFF1F5F9),
+          error: const Color(0xFFEF4444),
+        ),
         useMaterial3: true,
-      ),
-      home: const LoginScreen(),
-    );
-  }
-}
-
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  Future<void> _login() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final result = await ApiService.login(
-        _emailController.text,
-        _passwordController.text,
-      );
-
-      setState(() => _isLoading = false);
-
-      if (result != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      } else {
-        setState(() => _errorMessage = 'Invalid credentials or connection error');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.security, size: 64, color: Color(0xFF2D3748)),
-              const SizedBox(height: 24),
-              const Text(
-                'SADC-eSign',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
-                ),
-              ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _isLoading ? null : _login,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: const Color(0xFF3182CE),
-                ),
-                child: _isLoading 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Sign In'),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                  );
-                },
-                child: const Text('Forgot Password?'),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                  );
-                },
-                child: const Text('Create Account'),
-              ),
-            ],
+        scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+        textTheme: GoogleFonts.manropeTextTheme(
+          Theme.of(context).textTheme,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Color(0xFF0F172A),
+          elevation: 0,
+          centerTitle: false,
+          surfaceTintColor: Colors.transparent,
+        ),
+        cardTheme: CardTheme(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          color: Colors.white,
+          shadowColor: Colors.black26,
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          height: 72,
+          backgroundColor: Colors.white,
+          indicatorColor: Color(0xFFE0F2FE),
+          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        chipTheme: ChipThemeData(
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+          side: BorderSide.none,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0F172A),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           ),
         ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF0F172A),
+            side: const BorderSide(color: Color(0xFFCBD5E1)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: const Color(0xFF0F172A),
+          contentTextStyle: const TextStyle(color: Colors.white),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          behavior: SnackBarBehavior.floating,
+        ),
       ),
+      // Start on MainScreen if already authenticated, otherwise LoginScreen
+      home: widget.isAuthenticated ? const MainScreen() : const LoginScreen(),
     );
   }
 }
@@ -234,749 +149,70 @@ class _MainScreenState extends State<MainScreen> {
     const TemplatesScreen(),
     const SignaturesScreen(),
     const NotificationsScreen(),
+    const ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.description), label: 'Templates'),
-          NavigationDestination(icon: Icon(Icons.draw), label: 'Signatures'),
-          NavigationDestination(icon: Icon(Icons.notifications), label: 'Notifications'),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF2D3748)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.security, size: 48, color: Colors.white),
-                  SizedBox(height: 8),
-                  Text(
-                    'SADC-eSign',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Profile'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                await ApiService.logout();
-                if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                }
-              },
-            ),
-          ],
+      extendBody: true,
+      body: SafeArea(
+        top: false,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: KeyedSubtree(
+            key: ValueKey<int>(_currentIndex),
+            child: _screens[_currentIndex],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  List<dynamic> _documents = [];
-  List<dynamic> _filteredDocuments = [];
-  bool _loading = true;
-  bool _error = false;
-  String? _errorMessage;
-  final TextEditingController _searchController = TextEditingController();
-  bool _bulkSelectMode = false;
-  final Set<String> _selectedIds = {};
-  String? _filterStatus;
-  String? _filterDepartment;
-  SortOption? _sortOption;
-  List<String> _departments = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(_filterDocuments);
-    _fetchData();
-    _loadDepartments();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadDepartments() async {
-    try {
-      final depts = await ApiService.getDepartments();
-      setState(() {
-        _departments = depts.map((d) => d['name'] as String? ?? '').where((n) => n.isNotEmpty).toList();
-      });
-    } catch (e) {
-      // Ignore error, departments are optional
-    }
-  }
-
-  void _applyFilters(String? status, String? department, SortOption? sort) {
-    setState(() {
-      _filterStatus = status;
-      _filterDepartment = department;
-      _sortOption = sort;
-    });
-    _filterDocuments();
-  }
-
-  void _filterDocuments() {
-    var filtered = List<dynamic>.from(_documents);
-    
-    // Apply search
-    final query = _searchController.text.toLowerCase();
-    if (query.isNotEmpty) {
-      filtered = filtered.where((doc) {
-        final title = (doc['title'] ?? '').toString().toLowerCase();
-        final department = (doc['department'] ?? '').toString().toLowerCase();
-        final status = (doc['status'] ?? '').toString().toLowerCase();
-        return title.contains(query) ||
-            department.contains(query) ||
-            status.contains(query);
-      }).toList();
-    }
-
-    // Apply status filter
-    if (_filterStatus != null) {
-      filtered = filtered.where((doc) => doc['status'] == _filterStatus).toList();
-    }
-
-    // Apply department filter
-    if (_filterDepartment != null) {
-      filtered = filtered.where((doc) => doc['department'] == _filterDepartment).toList();
-    }
-
-    // Apply sorting
-    if (_sortOption != null) {
-      switch (_sortOption) {
-        case SortOption.newest:
-          filtered.sort((a, b) {
-            final aDate = a['created_at'] ?? '';
-            final bDate = b['created_at'] ?? '';
-            return bDate.compareTo(aDate);
-          });
-          break;
-        case SortOption.oldest:
-          filtered.sort((a, b) {
-            final aDate = a['created_at'] ?? '';
-            final bDate = b['created_at'] ?? '';
-            return aDate.compareTo(bDate);
-          });
-          break;
-        case SortOption.titleAsc:
-          filtered.sort((a, b) {
-            final aTitle = (a['title'] ?? '').toString();
-            final bTitle = (b['title'] ?? '').toString();
-            return aTitle.compareTo(bTitle);
-          });
-          break;
-        case SortOption.titleDesc:
-          filtered.sort((a, b) {
-            final aTitle = (a['title'] ?? '').toString();
-            final bTitle = (b['title'] ?? '').toString();
-            return bTitle.compareTo(aTitle);
-          });
-          break;
-        case SortOption.status:
-          filtered.sort((a, b) {
-            final aStatus = (a['status'] ?? '').toString();
-            final bStatus = (b['status'] ?? '').toString();
-            return aStatus.compareTo(bStatus);
-          });
-          break;
-      }
-    }
-
-    setState(() {
-      _filteredDocuments = filtered;
-    });
-  }
-
-  Future<void> _fetchData() async {
-    setState(() {
-      _loading = true;
-      _error = false;
-      _errorMessage = null;
-    });
-
-    try {
-      final docs = await ApiService.getDocuments();
-      if (docs.isNotEmpty) {
-        await DatabaseHelper.instance.cacheDocuments(docs);
-      }
-      setState(() {
-        _documents = docs;
-        _loading = false;
-      });
-      _filterDocuments();
-    } catch (e) {
-      print('Network Error: $e');
-      
-      // Try to load from cache
-      try {
-        final cachedDocs = await DatabaseHelper.instance.getCachedDocuments();
-        setState(() {
-          _documents = cachedDocs;
-          _loading = false;
-        });
-        _filterDocuments();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Offline Mode: Showing cached data'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      } catch (cacheError) {
-        setState(() {
-          _loading = false;
-          _error = true;
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
-        });
-      }
-    }
-  }
-
-  void _toggleBulkSelect() {
-    setState(() {
-      _bulkSelectMode = !_bulkSelectMode;
-      if (!_bulkSelectMode) {
-        _selectedIds.clear();
-      }
-    });
-  }
-
-  void _toggleSelection(String id) {
-    setState(() {
-      if (_selectedIds.contains(id)) {
-        _selectedIds.remove(id);
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  Future<void> _bulkDelete() async {
-    if (_selectedIds.isEmpty) return;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Documents'),
-        content: Text('Are you sure you want to delete ${_selectedIds.length} document(s)?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      try {
-        await ApiService.bulkDeleteDocuments(_selectedIds.toList());
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Documents deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _toggleBulkSelect();
-          _fetchData();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete: $e')),
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pendingCount = _documents.where((d) => d['status'] == 'pending' || d['status'] == 'draft').length;
-    final signedCount = _documents.where((d) => d['status'] == 'signed').length;
-    final totalCount = _documents.length;
-
-    return Scaffold(
-      appBar: _bulkSelectMode
-          ? BulkSelectAppBar(
-              selectedCount: _selectedIds.length,
-              onCancel: _toggleBulkSelect,
-              onDelete: _bulkDelete,
-            )
-          : AppBar(
-              title: const Text('Dashboard'),
-              backgroundColor: const Color(0xFF2D3748),
-              foregroundColor: Colors.white,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (_) => FilterBottomSheet(
-                        selectedStatus: _filterStatus,
-                        selectedDepartment: _filterDepartment,
-                        sortOption: _sortOption,
-                        departments: _departments,
-                        onApply: _applyFilters,
-                      ),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.select_all),
-                  onPressed: _toggleBulkSelect,
-                ),
-                IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh)),
-              ],
-            ),
-      body: Column(
-        children: [
-          const OfflineIndicator(),
-          Expanded(
-            child: _loading
-                ? const ListSkeleton(itemCount: 5)
-                : _error
-                    ? ErrorRetryWidget(
-                        message: _errorMessage ?? 'Failed to load documents',
-                        onRetry: _fetchData,
-                      )
-                    : RefreshIndicator(
-            onRefresh: _fetchData,
-            child: ListView(
-              padding: const EdgeInsets.only(top: 8),
-              children: [
-                SearchBarWidget(
-                  controller: _searchController,
-                  hintText: 'Search documents...',
-                  onChanged: (_) => _filterDocuments(),
-                  onClear: () => _filterDocuments(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                // Stats Cards
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Total',
-                        value: '$totalCount',
-                        color: Colors.blue,
-                        icon: Icons.description,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Pending',
-                        value: '$pendingCount',
-                        color: Colors.orange,
-                        icon: Icons.pending,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Signed',
-                        value: '$signedCount',
-                        color: Colors.green,
-                        icon: Icons.check_circle,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                // Quick Actions
-                const Text(
-                  'Quick Actions',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.upload,
-                        label: 'Upload',
-                        color: Colors.blue,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const UploadDocumentScreen()),
-                          ).then((result) {
-                            if (result == true) {
-                              _fetchData();
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.work,
-                        label: 'Workflows',
-                        color: Colors.purple,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const WorkflowsScreen()),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.draw,
-                        label: 'Signatures',
-                        color: Colors.orange,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SignaturesScreen()),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Recent Documents',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        // Show all documents
-                      },
-                      child: const Text('View All'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (_filteredDocuments.isEmpty)
-                  EmptyStateWidget(
-                    icon: _searchController.text.isNotEmpty || _filterStatus != null
-                        ? Icons.search_off
-                        : Icons.inbox,
-                    title: _searchController.text.isNotEmpty || _filterStatus != null
-                        ? 'No documents match your filters'
-                        : 'No documents found',
-                    subtitle: _searchController.text.isEmpty && _filterStatus == null
-                        ? 'Upload your first document to get started'
-                        : 'Try adjusting your search or filters',
-                    action: _searchController.text.isNotEmpty || _filterStatus != null
-                        ? OutlinedButton(
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _filterStatus = null;
-                                _filterDepartment = null;
-                                _sortOption = null;
-                              });
-                              _filterDocuments();
-                            },
-                            child: const Text('Clear Filters'),
-                          )
-                        : null,
-                  )
-                else
-                  ..._filteredDocuments.map((doc) => _DocumentCard(
-                        doc: doc,
-                        isSelected: _bulkSelectMode && _selectedIds.contains(doc['id'].toString()),
-                        onTap: _bulkSelectMode
-                            ? () => _toggleSelection(doc['id'].toString())
-                            : null,
-                      )),
-                    ],
-                  ),
-              ],
-            ),
-                    ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, color: color, size: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DocumentCard extends StatelessWidget {
-  final dynamic doc;
-  final bool isSelected;
-  final VoidCallback? onTap;
-
-  const _DocumentCard({
-    required this.doc,
-    this.isSelected = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final status = doc['status'] ?? 'unknown';
-    Color statusColor = Colors.grey;
-    if (status == 'pending') statusColor = Colors.orange;
-    if (status == 'signed') statusColor = Colors.green;
-    if (status == 'rejected') statusColor = Colors.red;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: InkWell(
-          onTap: onTap ??
-              () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DocumentDetailScreen(documentId: doc['id'].toString()),
-                  ),
-                );
-                if (result == true) {
-                  // Refresh handled by parent
-                }
-              },
-        borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                if (isSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: Colors.blue[700],
-                      size: 24,
-                    ),
-                  ),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: isSelected
-                        ? Border.all(color: Colors.blue[700]!, width: 2)
-                        : null,
-                  ),
-                  child: Icon(Icons.description, color: statusColor),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) => setState(() => _currentIndex = index),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'Home',
                 ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doc['title'] ?? 'Untitled',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.folder, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          doc['department'] ?? 'General',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            status.toUpperCase(),
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                NavigationDestination(
+                  icon: Icon(Icons.description_outlined),
+                  selectedIcon: Icon(Icons.description),
+                  label: 'Templates',
                 ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey[400]),
-            ],
+                NavigationDestination(
+                  icon: Icon(Icons.draw_outlined),
+                  selectedIcon: Icon(Icons.draw),
+                  label: 'Sign',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.notifications_none),
+                  selectedIcon: Icon(Icons.notifications),
+                  label: 'Inbox',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
+            ),
           ),
         ),
       ),

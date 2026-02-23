@@ -1,0 +1,10 @@
+{
+  "apiBaseUrl": "http://10.0.2.2:8000/api",
+  "features": {
+    "biometricSigning": true,
+    "offlineMode": true
+  },
+  "network": {
+    "timeoutMs": 30000
+  }
+}

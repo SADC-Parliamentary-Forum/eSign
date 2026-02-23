@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_skeleton.dart';
 import '../widgets/error_widget.dart';
+import '../widgets/premium_card.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -14,6 +15,8 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<dynamic> _notifications = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -22,7 +25,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final notifications = await ApiService.getNotifications();
       setState(() {
@@ -30,12 +37,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load notifications: $e')),
-        );
-      }
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -81,11 +87,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
-        backgroundColor: const Color(0xFF2D3748),
-        foregroundColor: Colors.white,
         actions: [
           if (_notifications.any((n) => n['read_at'] == null))
             IconButton(
@@ -126,7 +131,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         key: Key(notification['id'].toString()),
                         direction: DismissDirection.endToStart,
                         background: Container(
-                          color: Colors.red,
+                          color: scheme.error,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20),
                           child: const Icon(Icons.delete, color: Colors.white),
@@ -140,47 +145,66 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               _markAsRead(notification['id'].toString());
                             }
                           },
-                          child: Container(
-                            color: isRead ? Colors.white : Colors.blue[50],
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: color.withOpacity(0.1),
-                                child: Icon(_getNotificationIcon(type), color: color),
-                              ),
-                              title: Text(
-                                notification['title'] ?? 'Notification',
-                                style: TextStyle(
-                                  fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 4),
-                                  Text(notification['message'] ?? ''),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    notification['created_at'] != null
-                                        ? DateFormat('MMM dd, yyyy HH:mm').format(
-                                            DateTime.parse(notification['created_at']))
-                                        : '',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
+                          child: PremiumCard(
+                            color: isRead ? Colors.white : scheme.secondary.withOpacity(0.06),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                ],
-                              ),
-                              trailing: isRead
-                                  ? null
-                                  : Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.blue,
-                                        shape: BoxShape.circle,
+                                  child: Icon(_getNotificationIcon(type), color: color),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              notification['title'] ?? 'Notification',
+                                              style: TextStyle(
+                                                fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          if (!isRead)
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: scheme.secondary,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        notification['message'] ?? '',
+                                        style: TextStyle(color: Colors.grey[700]),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        notification['created_at'] != null
+                                            ? DateFormat('MMM dd, yyyy HH:mm').format(
+                                                DateTime.parse(notification['created_at']))
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

@@ -28,6 +28,8 @@ const router = createRouter({
 // Authentication guard
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
+  const userStr = localStorage.getItem('user')
+  const user = userStr && userStr !== 'undefined' ? JSON.parse(userStr) : null
   const isPublic = to.meta?.public
 
   if (!isPublic && !token) {
@@ -36,6 +38,9 @@ router.beforeEach((to, from, next) => {
   } else if (isPublic && token && to.path === '/login') {
     // Redirect to home if already logged in and trying to access login
     next('/')
+  } else if (token && user?.must_change_password && to.path !== '/change-password' && to.path !== '/logout') {
+    // Force password change if required
+    next('/change-password')
   } else {
     next()
   }

@@ -69,7 +69,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Reset Password'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
@@ -81,7 +81,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
-                const Icon(Icons.lock, size: 64, color: Color(0xFF2D3748)),
+                Icon(Icons.lock, size: 64, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 24),
                 const Text(
                   'Set New Password',

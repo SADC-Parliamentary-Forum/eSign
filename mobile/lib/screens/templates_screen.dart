@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'template_detail_screen.dart';
 import '../widgets/loading_skeleton.dart';
 import '../widgets/error_widget.dart';
+import '../widgets/premium_card.dart';
 
 class TemplatesScreen extends StatefulWidget {
   const TemplatesScreen({super.key});
@@ -14,6 +15,8 @@ class TemplatesScreen extends StatefulWidget {
 class _TemplatesScreenState extends State<TemplatesScreen> {
   List<dynamic> _templates = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
   String _selectedCategory = 'All';
 
   @override
@@ -23,20 +26,25 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
   }
 
   Future<void> _loadTemplates() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final templates = await ApiService.getTemplates();
+      if (!mounted) return;
       setState(() {
         _templates = templates;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load templates: $e')),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -47,11 +55,10 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Templates'),
-        backgroundColor: const Color(0xFF2D3748),
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -114,52 +121,67 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
                           itemCount: _filteredTemplates.length,
                           itemBuilder: (context, index) {
                             final template = _filteredTemplates[index];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.blue[100],
-                                  child: const Icon(Icons.description, color: Colors.blue),
-                                ),
-                                title: Text(
-                                  template['name'] ?? 'Untitled Template',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Text(template['description'] ?? ''),
-                                    const SizedBox(height: 4),
-                                    if (template['category'] != null)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue[50],
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          template['category'],
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.blue[700],
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => TemplateDetailScreen(
-                                        templateId: template['id'].toString(),
-                                      ),
+                            return PremiumCard(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TemplateDetailScreen(
+                                      templateId: template['id'].toString(),
                                     ),
-                                  );
-                                },
+                                  ),
+                                );
+                              },
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: scheme.secondary.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(Icons.description, color: scheme.secondary),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          template['name'] ?? 'Untitled Template',
+                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          template['description'] ?? '',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(color: Colors.grey[600]),
+                                        ),
+                                        if (template['category'] != null) ...[
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: scheme.primary.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(999),
+                                            ),
+                                            child: Text(
+                                              template['category'],
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: scheme.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(Icons.chevron_right, color: Colors.grey[400]),
+                                ],
                               ),
                             );
                           },
@@ -185,12 +207,13 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return FilterChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onTap(),
-      selectedColor: Colors.blue[100],
-      checkmarkColor: Colors.blue[700],
+      selectedColor: scheme.secondary.withOpacity(0.15),
+      checkmarkColor: scheme.primary,
     );
   }
 }

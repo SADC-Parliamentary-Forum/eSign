@@ -14,7 +14,7 @@ export const { themeConfig, layoutConfig } = defineThemeConfig({
 
     // SADC Logo
     logo: h('img', { src: '/sadc-logo.jpg', alt: 'SADC Parliamentary Forum', style: 'height: 36px; width: auto;' }),
-    contentWidth: ContentWidth.Boxed,
+    contentWidth: ContentWidth.Fluid,
     contentLayoutNav: AppContentLayoutNav.Vertical,
     overlayNavFromBreakpoint: breakpointsVuetifyV3.lg - 1, // 1 for matching with vuetify breakpoint. Docs: https://next.vuetifyjs.com/en/features/display-and-platform/
     i18n: {
@@ -38,7 +38,7 @@ export const { themeConfig, layoutConfig } = defineThemeConfig({
         },
       ],
     },
-    theme: 'system',
+    theme: 'light',
     skin: Skins.Default,
     iconRenderer: VIcon,
   },

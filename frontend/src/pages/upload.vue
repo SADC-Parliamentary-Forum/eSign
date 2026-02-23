@@ -73,7 +73,7 @@ async function uploadSingleFile(file) {
             @drop.prevent="onDrop"
         >
             <div class="d-flex flex-column align-center justify-center py-12 px-6 bg-surface" @click="fileInput.click()" style="cursor: pointer">
-                <input type="file" ref="fileInput" hidden accept=".pdf,.doc,.docx" @change="onFileChange" />
+                <input type="file" ref="fileInput" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" @change="onFileChange" />
                 
                 <div class="icon-circle mb-6 pa-6 rounded-circle">
                     <VIcon icon="ri-upload-cloud-2-line" size="48" color="primary" />
@@ -136,7 +136,7 @@ async function uploadSingleFile(file) {
             <VDivider />
             
             <div class="pa-3 text-center text-caption text-medium-emphasis">
-                Supported formats: PDF, DOCX, DOC • Max size: 25MB
+                Supported formats: PDF, DOCX, DOC, XLSX, XLS, PNG, JPG • Max size: 25MB
             </div>
 
             <VOverlay

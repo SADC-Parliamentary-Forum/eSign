@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Notifications\NewUserCreatedNotification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -24,7 +26,6 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8',
             'role_id' => 'nullable|exists:roles,id',
             'mfa_enabled' => 'boolean',
             'status' => 'nullable|in:ACTIVE,INACTIVE,INVITED',
@@ -32,16 +33,22 @@ class UserController extends Controller
             'job_title' => 'nullable|string|max:255',
         ]);
 
+        $generatedPassword = Str::random(12);
+
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($generatedPassword),
             'role_id' => $validated['role_id'] ?? null,
             'mfa_enabled' => $validated['mfa_enabled'] ?? false,
             'status' => $validated['status'] ?? 'ACTIVE',
             'department' => $validated['department'] ?? null,
             'job_title' => $validated['job_title'] ?? null,
+            'must_change_password' => true,
         ]);
+
+        // Send Welcome Email
+        $user->notify(new NewUserCreatedNotification($generatedPassword));
 
         return response()->json($user->load('role'), 201);
     }

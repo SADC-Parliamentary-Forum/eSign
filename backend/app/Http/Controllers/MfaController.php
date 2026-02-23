@@ -32,8 +32,8 @@ class MfaController extends Controller
         // $code = Str::random(6); // Numeric or scanning logic later. For now alphanumeric is fine.
         $code = random_int(100000, 999999); // Cryptographically secure integer
 
-        // Store in Redis for 5 minutes
-        Cache::put('mfa:' . $user->id, $code, 300);
+        // Store hashed code in Redis for 5 minutes (security: don't store plain OTP)
+        Cache::put('mfa:' . $user->id, hash('sha256', (string) $code), 300);
 
         // Send Email
         Mail::to($user->email)->queue(new MfaCodeMail($code));
@@ -60,17 +60,21 @@ class MfaController extends Controller
             // Let's allow it if they are fully auth'd too, but primarily for mfa:verify.
         }
 
-        $cachedCode = Cache::get('mfa:' . $user->id);
+        $cachedHash = Cache::get('mfa:' . $user->id);
+        $inputHash = hash('sha256', (string) $request->code);
 
-        if (!$cachedCode || $cachedCode != $request->code) {
+        if (!$cachedHash || !hash_equals($cachedHash, $inputHash)) {
             return response()->json(['message' => 'Invalid or expired code'], 401);
         }
 
         // Clear code
         Cache::forget('mfa:' . $user->id);
 
-        // Revoke the Partial Token
-        $request->user()->currentAccessToken()->delete();
+        // Revoke the Partial Token if it's not a Transient (Session) Token
+        $accessToken = $request->user()->currentAccessToken();
+        if ($accessToken && !($accessToken instanceof \Laravel\Sanctum\TransientToken)) {
+            $accessToken->delete();
+        }
 
         // Issue Full Token
         $token = $user->createToken('auth_token', ['*'])->plainTextToken;

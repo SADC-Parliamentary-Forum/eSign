@@ -39,7 +39,16 @@ class SecurityValidationTest extends TestCase
             'password.reset',
             'sanctum/csrf-cookie',
             '_ignition*',
-            'api/documentation'
+            'api/documentation',
+            // Health check endpoints (intentionally public for container orchestration)
+            'api/health',
+            'api/health/*',
+            // Laravel default health check
+            'up',
+            // Broadcasting auth (returns 200 but requires token)
+            'broadcasting/auth',
+            // Home page / SPA entry point
+            '/',
         ];
 
         $vulnerableRoutes = [];

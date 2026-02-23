@@ -77,7 +77,7 @@ class _WorkflowDetailScreenState extends State<WorkflowDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Workflow Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -88,7 +88,7 @@ class _WorkflowDetailScreenState extends State<WorkflowDetailScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Workflow Details'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: Text('Workflow not found')),
@@ -98,7 +98,7 @@ class _WorkflowDetailScreenState extends State<WorkflowDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Workflow Details'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(

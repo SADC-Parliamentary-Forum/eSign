@@ -24,7 +24,7 @@ class BulkSelectAppBar extends StatelessWidget implements PreferredSizeWidget {
         onPressed: onCancel,
       ),
       title: Text('$selectedCount selected'),
-      backgroundColor: const Color(0xFF2D3748),
+      backgroundColor: Theme.of(context).colorScheme.primary,
       foregroundColor: Colors.white,
       actions: [
         if (onDownload != null)

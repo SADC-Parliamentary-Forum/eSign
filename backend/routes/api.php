@@ -17,21 +17,19 @@ use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\DocumentFieldController;
 use App\Http\Controllers\NotificationController;
 
-// Health check endpoint
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'healthy',
-        'timestamp' => now()->toISOString(),
-        'services' => [
-            'database' => DB::connection()->getPdo() ? 'up' : 'down',
-            'cache' => Cache::has('health_check') || Cache::put('health_check', true, 10) ? 'up' : 'down',
-            // 'storage' => Storage::disk('s3')->exists('health_check.txt') ? 'up' : 'down', // Uncomment when S3 is configured
-        ],
-    ]);
+// Health check endpoints for container orchestration and monitoring
+Route::prefix('health')->group(function () {
+    Route::get('/', [App\Http\Controllers\HealthController::class, 'health']);
+    Route::get('/live', [App\Http\Controllers\HealthController::class, 'liveness']);
+    Route::get('/ready', [App\Http\Controllers\HealthController::class, 'readiness']);
 });
 
 // Broadcasting auth route for private channels
-Broadcast::routes(['middleware' => ['auth:sanctum']]);
+// Broadcasting auth route for private channels
+// Explicitly using the controller to ensure correct middleware stack and avoid conflicts
+Route::post('/broadcasting/auth', function (Request $request) {
+    return Broadcast::auth($request);
+})->middleware('auth:sanctum');
 
 // ...
 
@@ -40,8 +38,8 @@ Broadcast::routes(['middleware' => ['auth:sanctum']]);
 // =============================================================================
 // Public Routes
 // =============================================================================
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:5,1', 'human:login']);
-Route::post('/auth/register', [AuthController::class, 'register'])->middleware(['throttle:5,1', 'human:register']);
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:60,1', 'human:login']);
+Route::post('/auth/register', [AuthController::class, 'register'])->middleware(['throttle:60,1', 'human:register']);
 
 // Password Reset
 Route::post('/auth/forgot-password', [App\Http\Controllers\PasswordResetController::class, 'sendResetLinkEmail'])
@@ -55,7 +53,7 @@ Route::post('/auth/reset-password', [App\Http\Controllers\PasswordResetControlle
 // Magic Link Login
 Route::get('/auth/magic/login/{id}', [MagicLinkController::class, 'login'])
     ->name('login.magic')
-    ->middleware(['signed', 'throttle:5,1']);
+    ->middleware(['signed:relative', 'throttle:5,1']);
 
 // =============================================================================
 // Guest Signer Routes (token-based access, no auth required)
@@ -69,7 +67,7 @@ Route::prefix('sign/{token}')->middleware('throttle:30,1')->group(function () {
 
 // Verification (Public Signed Route)
 Route::get('/verification/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
-    ->middleware(['signed', 'throttle:6,1'])
+    ->middleware(['signed:relative', 'throttle:6,1'])
     ->name('verification.verify');
 
 // =============================================================================
@@ -84,6 +82,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
     Route::put('/auth/password', [AuthController::class, 'updatePassword']);
+    Route::post('/auth/avatar', [AuthController::class, 'updateAvatar']);
     Route::post('/auth/mfa/send', [MfaController::class, 'send']);
     Route::post('/auth/mfa/verify', [MfaController::class, 'verify']);
     Route::post('/auth/magic/generate', [MagicLinkController::class, 'generate']);
@@ -190,6 +189,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('documents/{id}/status', [DocumentController::class, 'status']);
     Route::get('documents/{id}/evidence', [DocumentController::class, 'downloadEvidence']);
     Route::get('documents/{id}/pdf', [DocumentController::class, 'streamPdf']);
+    Route::get('documents/{id}/verify', [DocumentController::class, 'verifyIntegrity']);
 
     // -------------------------------------------------------------------------
     // Signing (for authenticated users viewing their assigned documents)
@@ -253,5 +253,6 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         // Moved from general protected area
         Route::apiResource('/users', UserController::class);
         Route::get('/audit-logs', [AuditController::class, 'index']);
+        Route::post('/cache/clear', [App\Http\Controllers\AdminController::class, 'clearCache']);
     });
 });

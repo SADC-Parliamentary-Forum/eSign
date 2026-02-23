@@ -13,14 +13,34 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Trust all proxies (standard for Docker/Reverse Proxy setups)
+        $middleware->trustProxies(at: '*');
+
         $middleware->statefulApi();
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'human' => \App\Http\Middleware\VerifyHuman::class,
         ]);
-        // Ensure CORS is handled for API routes
+
+        // Global middleware for Correlation ID (Web & API)
+        $middleware->append(\App\Http\Middleware\CorrelationId::class);
+
+        // API middleware: CORS handling and correlation ID for observability
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\CorrelationId::class,
+        ]);
+
+        // Exclude Login from CSRF (Use Token Auth instead of Session for Login)
+        $middleware->validateCsrfTokens(except: [
+            'api/auth/login',
+            'api/auth/register',
+            'api/auth/forgot-password',
+            'api/auth/reset-password',
+            'api/email/*',
+            'api/broadcasting/auth',
+            'api/broadcasting/*',
+            'broadcasting/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

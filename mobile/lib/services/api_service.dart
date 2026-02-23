@@ -5,9 +5,54 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
+/// Custom exception class for API errors with user-friendly messages.
+class ApiException implements Exception {
+  final String message;
+  final String? technicalDetails;
+  final int? statusCode;
+
+  ApiException(this.message, {this.technicalDetails, this.statusCode});
+
+  @override
+  String toString() => message;
+
+  /// Get user-friendly error message based on HTTP status code.
+  static String getUserFriendlyMessage(int statusCode, String? serverMessage) {
+    switch (statusCode) {
+      case 400:
+        return serverMessage ?? 'Invalid request. Please check your input and try again.';
+      case 401:
+        return 'Your session has expired. Please log in again.';
+      case 403:
+        return serverMessage ?? 'You don\'t have permission to perform this action.';
+      case 404:
+        return 'The requested item could not be found.';
+      case 409:
+        return serverMessage ?? 'This action conflicts with an existing item.';
+      case 422:
+        return serverMessage ?? 'Please check your input and try again.';
+      case 429:
+        return serverMessage ?? 'Too many requests. Please wait a moment and try again.';
+      case 500:
+      case 502:
+      case 503:
+        return 'We\'re experiencing technical difficulties. Please try again later.';
+      default:
+        if (statusCode >= 400 && statusCode < 500) {
+          return serverMessage ?? 'Something went wrong. Please try again.';
+        }
+        return 'Unable to connect to the server. Please check your internet connection.';
+    }
+  }
+}
+
 class ApiService {
   static String get baseUrl => AppConfig.instance.apiBaseUrl;
-  
+
+  /// Get network timeout duration from config.
+  static Duration get _timeout =>
+      Duration(milliseconds: AppConfig.instance.networkTimeoutMs);
+
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
@@ -37,10 +82,29 @@ class ApiService {
       // Unauthorized - clear token
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
-      throw Exception('Unauthorized. Please login again.');
+      throw ApiException(
+        'Your session has expired. Please log in again.',
+        statusCode: 401,
+      );
     } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Request failed with status ${response.statusCode}');
+      String? serverMessage;
+      try {
+        final error = jsonDecode(response.body);
+        serverMessage = error['message'] as String?;
+      } catch (_) {
+        // Response body is not valid JSON
+      }
+
+      final userMessage = ApiException.getUserFriendlyMessage(
+        response.statusCode,
+        serverMessage,
+      );
+
+      throw ApiException(
+        userMessage,
+        technicalDetails: serverMessage,
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -53,7 +117,9 @@ class ApiService {
         Uri.parse('$baseUrl/auth/login'),
         headers: await _getHeaders(includeAuth: false),
         body: jsonEncode({'email': email, 'password': password}),
-      );
+      ).timeout(_timeout, onTimeout: () {
+        throw ApiException('Connection timed out. Please check your network and try again.');
+      });
 
       final data = await _handleResponse(response);
       if (data != null && data['access_token'] != null) {
@@ -64,9 +130,12 @@ class ApiService {
         }
       }
       return data;
-    } catch (e) {
-      print('Login Error: $e');
+    } on ApiException {
       rethrow;
+    } on SocketException {
+      throw ApiException('Unable to connect. Please check your internet connection.');
+    } catch (e) {
+      throw ApiException('An unexpected error occurred. Please try again.');
     }
   }
 
@@ -76,11 +145,16 @@ class ApiService {
         Uri.parse('$baseUrl/auth/register'),
         headers: await _getHeaders(includeAuth: false),
         body: jsonEncode(data),
-      );
+      ).timeout(_timeout, onTimeout: () {
+        throw ApiException('Connection timed out. Please check your network and try again.');
+      });
       return await _handleResponse(response);
-    } catch (e) {
-      print('Register Error: $e');
+    } on ApiException {
       rethrow;
+    } on SocketException {
+      throw ApiException('Unable to connect. Please check your internet connection.');
+    } catch (e) {
+      throw ApiException('An unexpected error occurred. Please try again.');
     }
   }
 
@@ -91,7 +165,7 @@ class ApiService {
         headers: await _getHeaders(),
       );
     } catch (e) {
-      print('Logout Error: $e');
+      // Silently handle logout errors - we're clearing local state anyway
     } finally {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
@@ -99,12 +173,43 @@ class ApiService {
     }
   }
 
+  /// Check if user has a valid stored session.
+  /// Returns true if token exists and is still valid with the server.
+  static Future<bool> isAuthenticated() async {
+    final token = await getToken();
+    if (token == null) return false;
+
+    try {
+      // Verify token is still valid by calling /auth/me
+      await getCurrentUser();
+      return true;
+    } catch (e) {
+      // Token invalid or expired - clear it
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('user');
+      return false;
+    }
+  }
+
+  /// Get cached user data without making API call.
+  static Future<Map<String, dynamic>?> getCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('user');
+    if (userJson != null) {
+      return jsonDecode(userJson) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/auth/me'),
         headers: await _getHeaders(),
-      );
+      ).timeout(_timeout, onTimeout: () {
+        throw ApiException('Connection timed out. Please check your network and try again.');
+      });
       final data = await _handleResponse(response);
       if (data != null) {
         final prefs = await SharedPreferences.getInstance();
@@ -112,7 +217,6 @@ class ApiService {
       }
       return data;
     } catch (e) {
-      print('Get User Error: $e');
       rethrow;
     }
   }

@@ -17,7 +17,26 @@ export const $api = ofetch.create({
     // Inject Authorization Token
     const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
     if (accessToken) {
-      options.headers.set('Authorization', `Bearer ${accessToken}`)
+      if (options.headers instanceof Headers) {
+        options.headers.set('Authorization', `Bearer ${accessToken}`)
+      } else {
+        options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` }
+      }
+    }
+
+    // Manual CSRF Handling for ofetch (Required for Laravel Sanctum)
+    const getCookie = (name) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+    }
+    const xsrfToken = getCookie('XSRF-TOKEN')
+    if (xsrfToken) {
+      if (options.headers instanceof Headers) {
+        options.headers.set('X-XSRF-TOKEN', xsrfToken)
+      } else {
+        options.headers = { ...options.headers, 'X-XSRF-TOKEN': xsrfToken }
+      }
     }
 
     // Bot Protection
@@ -30,7 +49,7 @@ export const $api = ofetch.create({
       else if (url.includes('/auth/register')) action = 'register'
       else if (url.includes('/auth/forgot-password')) action = 'forgot_password'
       else if (url.includes('/documents/bulk-sign')) action = 'bulk_sign'
-      else if (url.match(/\/documents\/\d+\/sign$/)) action = 'sign_document'
+      else if (url.match(/\/documents\/[^/]+\/sign$/)) action = 'sign_document'
       else if (url.endsWith('/documents') && options.method === 'POST') action = 'document_upload'
 
       if (action) {

@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Services\DocumentService;
 use App\Services\SigningWorkflowService;
 use App\Services\DocumentConversionService;
+use App\Services\FileSecurityService;
+use App\Services\AuditService;
 use App\Models\Document;
 use App\Models\Template;
 // Removed SignatureField
@@ -19,15 +21,21 @@ class DocumentController extends Controller
     protected DocumentService $documentService;
     protected SigningWorkflowService $workflowService;
     protected DocumentConversionService $conversionService;
+    protected FileSecurityService $fileSecurityService;
+    protected AuditService $auditService;
 
     public function __construct(
         DocumentService $documentService,
         SigningWorkflowService $workflowService,
-        DocumentConversionService $conversionService
+        DocumentConversionService $conversionService,
+        FileSecurityService $fileSecurityService,
+        AuditService $auditService
     ) {
         $this->documentService = $documentService;
         $this->workflowService = $workflowService;
         $this->conversionService = $conversionService;
+        $this->fileSecurityService = $fileSecurityService;
+        $this->auditService = $auditService;
     }
 
     /**
@@ -56,11 +64,20 @@ class DocumentController extends Controller
             $query->where('folder_id', $request->folder_id);
         }
 
-        $sortBy = $request->input('sort', 'updated_at');
-        $sortOrder = $request->input('order', 'desc');
+        // Security: Whitelist allowed sort columns to prevent SQL injection
+        $allowedColumns = ['updated_at', 'created_at', 'title', 'status', 'sent_at', 'completed_at'];
+        $allowedOrders = ['asc', 'desc'];
+
+        $sortBy = in_array($request->input('sort'), $allowedColumns)
+            ? $request->input('sort')
+            : 'updated_at';
+        $sortOrder = in_array(strtolower($request->input('order')), $allowedOrders)
+            ? strtolower($request->input('order'))
+            : 'desc';
         $query->orderBy($sortBy, $sortOrder);
 
-        $limit = $request->input('limit', 10);
+        // Security: Cap pagination limit to prevent DoS
+        $limit = min((int) $request->input('limit', 10), 100);
 
         // Generate a unique cache key based on query parameters
         $cacheKey = 'documents.list.' . $user->id . '.' . md5(json_encode($request->all()));
@@ -131,8 +148,8 @@ class DocumentController extends Controller
             'file' => [
                 'required_without:template_id',
                 'file',
-                'mimes:pdf,docx,doc',
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword',
+                'mimes:pdf,docx,doc,xlsx,xls,png,jpg,jpeg',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/png,image/jpeg',
                 'max:10240',
             ],
             'template_id' => 'required_without:file|exists:templates,id',
@@ -151,6 +168,14 @@ class DocumentController extends Controller
                     'signature_level' => $validated['signature_level'] ?? null,
                 ]);
             } elseif ($request->hasFile('file')) {
+                // Security: Validate file signature (magic bytes) and scan for threats
+                $securityCheck = $this->fileSecurityService->validateUpload($request->file('file'));
+                if (!$securityCheck['valid']) {
+                    return response()->json([
+                        'message' => $securityCheck['error'] ?? 'File validation failed for security reasons.'
+                    ], 422);
+                }
+
                 // Async Upload
                 $document = $this->documentService->upload($request->file('file'), $user, [
                     'title' => $validated['title'],
@@ -161,9 +186,9 @@ class DocumentController extends Controller
             }
 
             // Handle Self-Sign Signer creation
-            // Note: If async, document might be PROCESSING, but we can still add signer logic to DB.
+            // Note: Self-sign documents start as DRAFT until user finalizes and signs
             if ($validated['is_self_sign'] ?? false) {
-                $document->update(['is_self_sign' => true]);
+                $document->update(['is_self_sign' => true, 'status' => 'DRAFT']);
 
                 \App\Models\DocumentSigner::create([
                     'document_id' => $document->id,
@@ -175,11 +200,28 @@ class DocumentController extends Controller
                 ]);
             }
 
+            // Audit: Log document creation/upload
+            $this->auditService->log($user, 'document_created', 'document', $document->id, [
+                'title' => $document->title,
+                'source' => $request->template_id ? 'template' : 'upload',
+                'template_id' => $request->template_id ?? null,
+                'is_self_sign' => $validated['is_self_sign'] ?? false,
+            ]);
+
             return response()->json($document, 201);
 
         } catch (\Exception $e) {
-            \Log::error('Document creation failed: ' . $e->getMessage());
-            $message = app()->isProduction() ? 'An error occurred while creating the document.' : 'Failed to create document: ' . $e->getMessage();
+            \Log::error('Document creation failed: ' . $e->getMessage(), [
+                'user_id' => $request->user()->id,
+                'queue_connection' => config('queue.default'),
+                'exception' => $e
+            ]);
+
+            // Provide more specific error if in sync mode (likely dev/host issue)
+            $isSync = config('queue.default') === 'sync';
+            $message = app()->isProduction() ? 'An error occurred while creating the document.' :
+                ($isSync ? 'Upload failed immediately (Sync Queue). Check DB/MinIO connection: ' . $e->getMessage() : 'Failed to create document: ' . $e->getMessage());
+
             return response()->json(['message' => $message], 500);
         }
     }
@@ -206,10 +248,14 @@ class DocumentController extends Controller
         try {
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('minio');
-            $document->pdf_url = $disk->temporaryUrl(
-                $document->file_path,
-                now()->addHours(2)
-            );
+            if ($document->file_path) {
+                $document->pdf_url = $disk->temporaryUrl(
+                    $document->file_path,
+                    now()->addHours(2)
+                );
+            } else {
+                $document->pdf_url = null;
+            }
         } catch (\Exception $e) {
             // Fallback for local storage or misconfigured minio
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
@@ -349,6 +395,14 @@ class DocumentController extends Controller
                 $this->workflowService->notifyCurrentSigners($document);
             });
 
+            // Audit: Log document sent for signing
+            $this->auditService->log($request->user(), 'document_sent', 'document', $document->id, [
+                'title' => $document->title,
+                'signer_count' => $document->signers->count(),
+                'sequential' => $validated['sequential'] ?? false,
+                'expires_at' => $document->expires_at?->toIso8601String(),
+            ]);
+
             return response()->json([
                 'message' => 'Document sent for signing.',
                 'document' => $document->fresh(['signers']),
@@ -368,6 +422,11 @@ class DocumentController extends Controller
     {
         $document = Document::with(['signers', 'signatures'])
             ->findOrFail($id);
+
+        // Security: Authorization check to prevent IDOR
+        if (auth()->user()->cannot('view', $document)) {
+            abort(403, 'Unauthorized access to this document.');
+        }
 
         return response()->json([
             'document_id' => $document->id,
@@ -450,6 +509,10 @@ class DocumentController extends Controller
             $mimeType = $document->mime_type ?: 'application/pdf';
             $path = $document->file_path;
 
+            if (!$path) {
+                return response()->json(['message' => 'Document is still processing.'], 202);
+            }
+
             return response()->stream(function () use ($path) {
                 $stream = Storage::disk('minio')->readStream($path);
                 fpassthru($stream);
@@ -466,6 +529,30 @@ class DocumentController extends Controller
             return response()->json(['message' => $message], 500);
         }
     }
+
+    /**
+     * Verify document integrity by checking file hash.
+     * Security: Allows users to verify document has not been tampered with.
+     */
+    public function verifyIntegrity(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+
+        // Authorization check
+        if ($request->user()->cannot('view', $document)) {
+            abort(403, 'Unauthorized access to this document.');
+        }
+
+        $result = $this->documentService->verifyDocumentIntegrity($document);
+
+        return response()->json([
+            'document_id' => $document->id,
+            'title' => $document->title,
+            'status' => $document->status,
+            'integrity' => $result,
+        ]);
+    }
+
     /**
      * Delete a document.
      */
@@ -477,13 +564,28 @@ class DocumentController extends Controller
             abort(403, 'Unauthorized');
         }
 
+        // Security: Prevent deletion of signed/completed documents to preserve legal evidence
+        if (in_array($document->status, ['COMPLETED', 'SIGNED', 'IN_PROGRESS'])) {
+            abort(403, 'Signed or in-progress documents cannot be deleted. Use void functionality instead to preserve audit trail.');
+        }
+
         try {
+            // Capture details before deletion for audit
+            $documentTitle = $document->title;
+            $documentStatus = $document->status;
+
             // Delete file from storage
             if ($document->file_path && Storage::disk('minio')->exists($document->file_path)) {
                 Storage::disk('minio')->delete($document->file_path);
             }
 
             $document->delete();
+
+            // Audit: Log document deletion
+            $this->auditService->log($request->user(), 'document_deleted', 'document', $id, [
+                'title' => $documentTitle,
+                'status_at_deletion' => $documentStatus,
+            ]);
 
             return response()->json(['message' => 'Document deleted successfully']);
         } catch (\Exception $e) {
@@ -508,6 +610,11 @@ class DocumentController extends Controller
         foreach ($ids as $id) {
             $document = Document::find($id);
             if ($document && $request->user()->can('delete', $document)) {
+                // Security: Skip signed/in-progress documents to preserve legal evidence
+                if (in_array($document->status, ['COMPLETED', 'SIGNED', 'IN_PROGRESS'])) {
+                    $errors++;
+                    continue;
+                }
                 try {
                     if ($document->file_path && Storage::disk('minio')->exists($document->file_path)) {
                         Storage::disk('minio')->delete($document->file_path);

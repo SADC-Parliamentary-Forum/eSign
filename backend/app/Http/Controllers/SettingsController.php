@@ -9,9 +9,15 @@ class SettingsController extends Controller
 {
     /**
      * Get all system settings.
+     * Security: Requires authentication
      */
-    public function index()
+    public function index(Request $request)
     {
+        // Security: Only authenticated users can view settings
+        if (!$request->user()) {
+            abort(401, 'Unauthenticated');
+        }
+
         $settings = Cache::get('system_settings', $this->getDefaults());
 
         return response()->json($settings);
@@ -19,9 +25,15 @@ class SettingsController extends Controller
 
     /**
      * Update system settings.
+     * Security: Requires admin role
      */
     public function update(Request $request)
     {
+        // Security: Only admins can modify system settings
+        if (!$request->user() || !$request->user()->hasPermission('admin')) {
+            abort(403, 'Unauthorized. Admin access required.');
+        }
+
         $validated = $request->validate([
             'app_name' => 'nullable|string|max:255',
             'require_mfa' => 'nullable|boolean',

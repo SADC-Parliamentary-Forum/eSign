@@ -57,8 +57,9 @@ class CertificateService
      */
     protected function generateKeyPair(): array
     {
+        // Security: Use RSA-4096 for stronger long-term security
         $config = [
-            'private_key_bits' => 2048,
+            'private_key_bits' => 4096,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ];
 

@@ -30,11 +30,22 @@ async function handleLogin() {
   error.value = ''
   
   try {
-    const success = await authStore.login(form.value.email, form.value.password)
+    const response = await authStore.login(form.value.email, form.value.password)
     
-    if (success) {
-      const returnUrl = route.query.returnUrl || '/'
-      router.push(returnUrl)
+    // Check for MFA Requirement
+    if (response?.status === 'mfa_required') {
+      authStore.tempMfaToken = response.access_token
+      router.push('/auth/mfa-login')
+      return
+    }
+
+    if (response) {
+      if (authStore.user?.must_change_password) {
+        router.push('/change-password')
+      } else {
+        const returnUrl = route.query.returnUrl || '/'
+        router.push(returnUrl)
+      }
     }
   } catch (e) {
     error.value = getErrorMessage(e)

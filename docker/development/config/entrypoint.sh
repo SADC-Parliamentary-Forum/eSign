@@ -2,9 +2,9 @@
 set -e
 
 # 1. Install/Update Backend Dependencies
-echo "Installing Backend Dependencies..."
-cd /var/www/html/backend
-composer install --no-interaction --optimize-autoloader
+# echo "Installing Backend Dependencies..."
+# cd /var/www/html/backend
+# composer install --no-interaction --optimize-autoloader
 
 # 2. Run Migrations
 # 2. Wait for Database
@@ -15,7 +15,7 @@ done
 
 # 3. Run Migrations
 echo "Running Migrations..."
-php artisan migrate --force
+# php artisan migrate --force
 
 # 3. Install/Update Frontend Dependencies
 echo "Installing Frontend Dependencies..."

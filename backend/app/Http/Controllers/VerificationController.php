@@ -6,6 +6,7 @@ use App\Models\DocumentSigner;
 use App\Models\IdentityVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class VerificationController extends Controller
@@ -30,7 +31,8 @@ class VerificationController extends Controller
             return response()->json(['message' => 'Invalid user.'], 400);
         }
 
-        if (!hash_equals((string) $request->route('hash'), sha1($user->getEmailForVerification()))) {
+        // Security: Use SHA-256 instead of SHA-1 for email hash verification
+        if (!hash_equals((string) $request->route('hash'), hash('sha256', $user->getEmailForVerification()))) {
             return response()->json(['message' => 'Invalid hash.'], 400);
         }
 
@@ -40,6 +42,8 @@ class VerificationController extends Controller
 
         if ($user->markEmailAsVerified()) {
             event(new \Illuminate\Auth\Events\Verified($user));
+            // Fix: Clear user cache so 'me' endpoint returns fresh data
+            Cache::forget("user.{$user->id}");
         }
 
         return response()->json(['message' => 'Email verified successfully.']);
@@ -67,27 +71,25 @@ class VerificationController extends Controller
         // Assuming this endpoint is called from the signing page which has the `token`.
         // TODO: Validate token if needed, or rely on the route middleware if it was protected.
 
-        // Generate OTP
-        $otp = (string) rand(100000, 999999);
+        // Generate OTP using cryptographically secure random
+        $otp = (string) random_int(100000, 999999);
 
-        // Create Verification Record
+        // Create Verification Record with hashed OTP (security: never store plain OTP)
         $verification = IdentityVerification::create([
             'document_signer_id' => $signer->id,
             'verification_type' => 'OTP',
-            'verification_code' => $otp, // Hash this in production!
+            'verification_code' => hash('sha256', $otp),
             'status' => 'PENDING',
             'ip_address' => $request->ip(),
             'expires_at' => now()->addMinutes(15),
         ]);
 
-        // Mock Email Sending (Log it for MVP / Demo)
-        // In production: Mail::to($signer->email)->send(new OtpMail($otp));
-        \Log::info("OTP for Signer {$signer->email}: {$otp}");
+        // Send OTP via email
+        \Illuminate\Support\Facades\Mail::to($signer->email)->queue(new \App\Mail\OtpMail($otp));
 
         return response()->json([
             'message' => 'OTP sent to email.',
             'verification_id' => $verification->id,
-            'debug_otp' => $otp // REMOVE IN PRODUCTION
         ]);
     }
 
@@ -118,7 +120,8 @@ class VerificationController extends Controller
             return response()->json(['message' => 'Too many failed attempts.'], 400);
         }
 
-        if ($request->code !== $verification->verification_code) {
+        // Compare hashed OTP (security: use timing-safe comparison)
+        if (!hash_equals($verification->verification_code, hash('sha256', $request->code))) {
             $verification->increment('attempts');
             return response()->json(['message' => 'Invalid code.'], 400);
         }

@@ -264,6 +264,23 @@ async function saveSettings() {
   }
 }
 
+async function clearCache() {
+  openConfirmDialog(
+    'Clear System Cache',
+    'Are you sure you want to clear all system caches? This might temporarily affect performance.',
+    async () => {
+      try {
+        await $api('/admin/cache/clear', { method: 'POST' })
+        success.value = 'System caches cleared successfully!'
+      } catch (e) {
+        error.value = 'Failed to clear cache: ' + (e.message || 'Unknown error')
+      }
+    }
+  )
+}
+
+
+
 // Filtered users
 const filteredUsers = computed(() => {
   let result = [...users.value]
@@ -301,6 +318,38 @@ function openCreateDialog() {
   showCreateUserDialog.value = true
 }
 
+// Helper to auto-create job title if it doesn't exist
+async function ensureJobTitleExists(title) {
+  if (!title) return
+  
+  // Check if exists (case insensitive)
+  const existing = orgRoles.value.find(r => r.name.toLowerCase() === title.toLowerCase())
+  if (existing) return
+
+  try {
+    // Generate code from title (e.g. "Senior Manager" -> "senior-manager")
+    const code = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    
+    // Create new role
+    await $api('/org-roles', {
+      method: 'POST',
+      body: {
+        name: title,
+        code: code,
+        level: 1, // Default level
+        description: 'Auto-created from User Management',
+        is_active: true
+      }
+    })
+    
+    // Refresh roles
+    await fetchOrgRoles()
+  } catch (e) {
+    console.error('Failed to auto-create job title:', e)
+    // We don't block user creation if this fails, but it's good to know
+  }
+}
+
 async function createUser() {
   if (!userForm.value.name || !userForm.value.email || !userForm.value.password) {
     error.value = 'Name, email, and password are required'
@@ -311,6 +360,8 @@ async function createUser() {
   error.value = ''
   
   try {
+    await ensureJobTitleExists(userForm.value.job_title)
+
     await $api('/admin/users', {
       method: 'POST',
       body: userForm.value,
@@ -358,6 +409,8 @@ async function updateUser() {
       delete payload.password // Don't send empty password
     }
     
+    await ensureJobTitleExists(payload.job_title)
+
     await $api(`/admin/users/${selectedUser.value.id}`, {
       method: 'PUT',
       body: payload,
@@ -1008,6 +1061,24 @@ const orgRoleHeaders = [
             </VCard>
           </VCol>
 
+          <VCol cols="12" md="6">
+            <VCard>
+              <VCardTitle>
+                <VIcon icon="mdi-server" class="mr-2" />
+                System Maintenance
+              </VCardTitle>
+              <VCardText>
+                <p class="text-caption text-medium-emphasis mb-4">
+                  Clear system caches (config, views, routes) if you are experiencing issues with updates not appearing.
+                </p>
+                <VBtn color="warning" variant="outlined" block @click="clearCache">
+                  <VIcon icon="mdi-cached" class="mr-2" />
+                  Clear System Cache
+                </VBtn>
+              </VCardText>
+            </VCard>
+          </VCol>
+
           <VCol cols="12">
             <VBtn color="primary" size="large" :loading="settingsSaving" @click="saveSettings">
               <VIcon icon="mdi-content-save" class="mr-2" />
@@ -1030,16 +1101,6 @@ const orgRoleHeaders = [
               <VTextField v-model="userForm.email" label="Email" type="email" variant="outlined" required />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField
-                v-model="userForm.password"
-                label="Password"
-                type="password"
-                variant="outlined"
-                required
-                hint="Minimum 8 characters"
-              />
-            </VCol>
-            <VCol cols="12" md="6">
               <VSelect
                 v-model="userForm.role_id"
                 :items="roles"
@@ -1050,25 +1111,41 @@ const orgRoleHeaders = [
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VSelect 
+              <VCombobox
                 v-model="userForm.department"
                 :items="departments"
                 item-title="name"
                 item-value="name"
-                label="Department" 
-                variant="outlined" 
+                label="Department"
+                prepend-inner-icon="mdi-office-building"
+                variant="outlined"
+                :return-object="false"
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.job_title" label="Job Title" variant="outlined" />
+              <VCombobox
+                v-model="userForm.job_title"
+                :items="orgRoles"
+                item-title="name"
+                item-value="name"
+                label="Job Title"
+                prepend-inner-icon="mdi-briefcase"
+                variant="outlined"
+                :return-object="false"
+              />
             </VCol>
-            <VCol cols="12">
+            <VCol cols="12" md="6">
               <VSelect
                 v-model="userForm.status"
                 :items="['ACTIVE', 'INACTIVE', 'INVITED']"
                 label="Status"
                 variant="outlined"
               />
+            </VCol>
+            <VCol cols="12">
+               <VAlert type="info" variant="tonal" density="compact" class="mb-0">
+                 A temporary password will be sent to the user's email address.
+               </VAlert>
             </VCol>
           </VRow>
         </VCardText>

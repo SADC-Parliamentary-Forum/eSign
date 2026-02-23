@@ -17,9 +17,18 @@ const { global } = useTheme()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
-onMounted(() => {
+onMounted(async () => {
+  // Reset navigation state to ensure menu is visible
+  configStore.isVerticalNavCollapsed = false
+  configStore.isVerticalNavHidden = false
+
+  // Refresh user data to ensure roles/permissions are up to date
+  if (authStore.isAuthenticated) {
+    await authStore.fetchUser()
+  }
+
   // Only fetch admin settings if user is logged in and is an Admin
-  if (authStore.isAuthenticated && authStore.role === 'Admin') {
+  if (authStore.isAuthenticated && (authStore.role === 'admin' || authStore.role === 'Admin')) {
     appStore.fetchSettings()
   }
 })

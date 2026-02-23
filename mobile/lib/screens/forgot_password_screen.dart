@@ -54,7 +54,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Reset Password'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
@@ -69,7 +69,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Icon(
                   _emailSent ? Icons.check_circle : Icons.lock_reset,
                   size: 64,
-                  color: _emailSent ? Colors.green : const Color(0xFF2D3748),
+                  color: _emailSent ? Colors.green : Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(height: 24),
                 Text(

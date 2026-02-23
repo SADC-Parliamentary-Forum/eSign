@@ -55,7 +55,7 @@ class TemplateController extends Controller
             'amount_required' => 'nullable|boolean',
             'is_bulk_enabled' => 'nullable|boolean',
             'is_field_locked' => 'nullable|boolean',
-            'file' => 'required|file|mimes:pdf|max:20480',
+            'file' => 'required|file|mimes:pdf,docx,doc,xlsx,xls,png,jpg,jpeg|max:20480',
             'is_public' => 'nullable|boolean',
             'required_signature_level' => 'nullable|in:SIMPLE,ADVANCED,QUALIFIED',
         ]);
@@ -64,7 +64,14 @@ class TemplateController extends Controller
             // Upload template file
             $file = $request->file('file');
             $path = $file->store('templates', 'minio');
-            $hash = hash_file('sha256', $file->getPathname());
+
+            // Convert to PDF if necessary
+            $conversionService = app(\App\Services\DocumentConversionService::class);
+            $conversionResult = $conversionService->convertToPdfIfNeeded($path, 'minio');
+            $finalPath = $conversionResult['path'];
+
+            $fileContent = \Illuminate\Support\Facades\Storage::disk('minio')->get($finalPath);
+            $hash = hash('sha256', $fileContent);
 
             $template = Template::create([
                 'user_id' => $request->user()->id,
@@ -75,7 +82,7 @@ class TemplateController extends Controller
                 'amount_required' => $validated['amount_required'] ?? false,
                 'is_bulk_enabled' => $validated['is_bulk_enabled'] ?? false,
                 'is_field_locked' => $validated['is_field_locked'] ?? false,
-                'file_path' => $path,
+                'file_path' => $finalPath,
                 'file_hash' => $hash,
                 'is_public' => $validated['is_public'] ?? false,
                 'required_signature_level' => $validated['required_signature_level'] ?? 'SIMPLE',

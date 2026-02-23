@@ -70,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Create Account'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
@@ -82,10 +82,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
-                const Icon(Icons.person_add, size: 64, color: Color(0xFF2D3748)),
+                Icon(Icons.person_add, size: 64, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 24),
                 const Text(
-                  'Join SADC-eSign',
+                  'Join SADC PF eSign',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),

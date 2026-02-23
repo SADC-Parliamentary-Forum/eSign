@@ -37,11 +37,15 @@ class DocumentWorkflowTest extends TestCase
     public function test_self_sign_flow_auto_creates_signer()
     {
         Storage::fake('minio');
+        \Illuminate\Support\Facades\Queue::fake();
+
         $user = User::factory()->create();
         $this->createDefaultSignature($user);
         $this->createDefaultInitials($user);
 
-        $file = UploadedFile::fake()->create('contract.pdf', 100);
+        // Create a fake PDF with proper magic bytes (%PDF-1.4 header)
+        $pdfContent = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF";
+        $file = UploadedFile::fake()->createWithContent('contract.pdf', $pdfContent);
 
         // 1. Create Document with is_self_sign = true
         $response = $this->actingAs($user)->postJson('/api/documents', [
@@ -51,7 +55,19 @@ class DocumentWorkflowTest extends TestCase
         ]);
 
         $response->assertStatus(201);
-        $document = Document::find($response->json('id'));
+        $documentId = $response->json('id');
+        $this->assertNotNull($documentId, 'Document ID should be returned');
+
+        $document = Document::find($documentId);
+        $this->assertNotNull($document, 'Document should exist in database');
+
+        // Since Queue is faked, manually set up the file that would have been processed
+        $filePath = 'documents/' . $document->id . '/contract.pdf';
+        Storage::disk('minio')->put($filePath, $pdfContent);
+        $document->update([
+            'file_path' => $filePath,
+            'file_hash' => hash('sha256', $pdfContent),
+        ]);
 
         // Verify signer was auto-created
         $this->assertDatabaseHas('document_signers', [

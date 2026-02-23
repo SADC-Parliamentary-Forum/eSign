@@ -148,30 +148,49 @@ class SignatureController extends Controller
 
     private function updateSignerStatus(Document $document, $user)
     {
-        // Find signer record (check by email or user_id)
-        $signer = $document->signers()->where('email', $user->email)->first();
-        if (!$signer && $user->id) {
-            $signer = $document->signers()->where('user_id', $user->id)->first();
-        }
-
-        if (!$signer)
-            return;
-
-        // Check if all REQUIRED fields for this signer are signed
-        $pendingRequired = $document->fields()
-            ->where(function ($q) use ($user, $signer) {
-                $q->where('signer_email', $user->email)
-                    ->orWhere('document_signer_id', $signer->id); // match signer record id if linked
+        // Find ALL signer records for this user (e.g. if added multiple times in sequence)
+        $signers = $document->signers()
+            ->where(function ($q) use ($user) {
+                $q->where('email', $user->email);
+                if ($user->id) {
+                    $q->orWhere('user_id', $user->id);
+                }
             })
-            ->where('required', true)
-            ->whereNull('signed_at')
-            ->exists();
+            ->get();
 
-        if (!$pendingRequired) {
-            $signer->update([
-                'status' => 'signed',
-                'signed_at' => now(),
-            ]);
+        foreach ($signers as $signer) {
+            // Skip if already signed
+            if ($signer->status === 'signed')
+                continue;
+
+            // Check if all REQUIRED fields for THIS SPECIFIC signer are signed
+            // We must match fields strictly to this signer record ID if possible
+            $pendingRequired = $document->fields()
+                ->where(function ($q) use ($signer) {
+                    // Strictly match document_signer_id
+                    $q->where('document_signer_id', $signer->id);
+
+                    // Fallback for legacy fields without document_signer_id (match email AND signing order)
+                    // Ensuring we don't count fields destined for another "instance" of the user
+                    $q->orWhere(function ($sq) use ($signer) {
+                        $sq->whereNull('document_signer_id')
+                            ->where('signer_email', $signer->email);
+                        // Ideally we would check signing_order of the field, but fields don't have order directly.
+                        // They rely on the signer link. 
+                        // If document_signer_id is missing, it's ambiguous. 
+                        // But we assume clean data with document_signer_id.
+                    });
+                })
+                ->where('required', true)
+                ->whereNull('signed_at')
+                ->exists();
+
+            if (!$pendingRequired) {
+                $signer->update([
+                    'status' => 'signed',
+                    'signed_at' => now(),
+                ]);
+            }
         }
     }
 
@@ -224,9 +243,48 @@ class SignatureController extends Controller
 
     public function reject(Request $request, $documentId)
     {
-        $document = Document::findOrFail($documentId);
-        // Log rejection...
-        $document->update(['status' => 'VOIDED']);
-        return response()->json(['message' => 'Document rejected']);
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        $document = Document::with('signers')->findOrFail($documentId);
+        $user = $request->user();
+
+        // Authorization: Only signers can reject
+        $signer = $document->signers
+            ->where('email', $user->email)
+            ->whereIn('status', ['pending', 'notified', 'viewed'])
+            ->first();
+
+        if (!$signer) {
+            return response()->json([
+                'message' => 'You are not authorized to reject this document.'
+            ], 403);
+        }
+
+        // Update signer status
+        $signer->update([
+            'status' => 'declined',
+            'declined_at' => now(),
+            'decline_reason' => $validated['reason'] ?? null,
+        ]);
+
+        // Update document status
+        $document->update([
+            'status' => 'DECLINED',
+            'declined_at' => now(),
+        ]);
+
+        // Audit: Log document rejection
+        $this->auditService->log($user, 'document_rejected', 'document', $document->id, [
+            'title' => $document->title,
+            'signer_email' => $user->email,
+            'reason' => $validated['reason'] ?? 'No reason provided',
+        ]);
+
+        return response()->json([
+            'message' => 'Document rejected successfully.',
+            'document' => $document->fresh(),
+        ]);
     }
 }

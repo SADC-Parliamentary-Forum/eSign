@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  # Grafana - Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: esign_grafana_staging
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # - ../observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=StagingOnly
+      - ENVIRONMENT=staging
+    depends_on:
+      - loki
+      - prometheus
+      - tempo
+    networks:
+      - esign-staging-network
+
+  # Loki - Logs
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: esign_loki_staging
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ../observability/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    networks:
+      - esign-staging-network
+
+  # Prometheus - Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: esign_prometheus_staging
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../observability/prometheus.yaml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - esign-staging-network
+
+  # Tempo - Traces
+  tempo:
+    image: grafana/tempo:latest
+    container_name: esign_tempo_staging
+    ports:
+      - "3200:3200"
+      - "4317:4317" # OTLP gRPC
+    volumes:
+      - ../observability/tempo.yaml:/etc/tempo.yaml
+    command: -config.file=/etc/tempo.yaml
+    networks:
+      - esign-staging-network
+
+  # Alertmanager - Alerts
+  alertmanager:
+    image: prom/alertmanager
+    container_name: esign_alertmanager_staging
+    ports:
+      - "9093:9093"
+    volumes:
+      - ../observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    networks:
+      - esign-staging-network
+
+networks:
+  esign-staging-network:
+    driver: bridge
+
+volumes:
+  grafana_data:
+  loki_data:
+  prometheus_data:

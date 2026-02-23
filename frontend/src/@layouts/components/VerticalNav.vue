@@ -63,6 +63,14 @@ const handleNavScroll = evt => {
 }
 
 const hideTitleAndIcon = configStore.isVerticalNavMini(isHovered)
+
+const handleNavClose = () => {
+  if (configStore.isLessThanOverlayNavBreakpoint) {
+    props.toggleIsOverlayNavActive(false)
+  } else {
+    configStore.isVerticalNavHidden = true
+  }
+}
 </script>
 
 <template>
@@ -119,9 +127,8 @@ const hideTitleAndIcon = configStore.isVerticalNavMini(isHovered)
           />
           <Component
             :is="layoutConfig.app.iconRenderer || 'div'"
-            class="d-lg-none"
             v-bind="layoutConfig.icons.close"
-            @click="toggleIsOverlayNavActive(false)"
+            @click="handleNavClose"
           />
         </div>
       </slot>
