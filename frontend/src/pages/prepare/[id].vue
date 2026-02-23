@@ -458,14 +458,36 @@ const progressSteps = computed(() => [
   { label: 'Submit', done: false, icon: 'ri-send-plane-line' },
 ])
 
+let pollTimeout = null
+
 onMounted(async () => {
   await fetchDocument()
+})
+
+onUnmounted(() => {
+  if (pollTimeout) clearTimeout(pollTimeout)
+  if (pdfSource.value && pdfSource.value.startsWith('blob:')) {
+    URL.revokeObjectURL(pdfSource.value)
+  }
 })
 
 async function fetchDocument() {
   try {
     loading.value = true
     const res = await $api(`/documents/${route.params.id}`)
+    
+    // If document is still processing, poll it. Don't fetch the PDF yet.
+    if (res.status === 'IN_PROGRESS' || res.status === 'PROCESSING') {
+        pollTimeout = setTimeout(fetchDocument, 2000)
+        return
+    }
+
+    if (res.status === 'FAILED') {
+        error.value = 'Document processing failed. Please try uploading again.'
+        loading.value = false
+        return
+    }
+    
     doc.value = res
     
     // Fetch PDF with auth token and create blob URL
@@ -592,6 +614,12 @@ async function loadPdfBlob(documentId) {
       }
     })
     
+    // 202 means still processing
+    if (response.status === 202) {
+        pollTimeout = setTimeout(() => fetchDocument(), 2000)
+        return
+    }
+
     if (!response.ok) {
       throw new Error(`Failed to load PDF: ${response.statusText}`)
     }
@@ -604,12 +632,7 @@ async function loadPdfBlob(documentId) {
   }
 }
 
-// Cleanup blob URL on unmount
-onUnmounted(() => {
-  if (pdfSource.value && pdfSource.value.startsWith('blob:')) {
-    URL.revokeObjectURL(pdfSource.value)
-  }
-})
+// Cleanup blob URL on unmount merged above
 
 function handleDocumentLoad(pdf) {
   pageCount.value = pdf.numPages
