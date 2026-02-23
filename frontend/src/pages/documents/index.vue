@@ -231,19 +231,25 @@ function bulkDelete() {
 async function performBulkDelete() {
   confirmDialog.value.show = false
   bulkDeleteLoading.value = true
+  const selectedCount = selected.value.length
   try {
-    await $api('/documents/bulk-delete', {
+    const res = await $api('/documents/bulk-delete', {
       method: 'POST',
       body: { ids: selected.value },
     })
     
-    // Reload to refresh state
     await loadDocuments()
     selected.value = []
-    showSnackbar('Documents deleted successfully')
+    const deleted = res?.deleted_count ?? 0
+    if (deleted > 0) {
+      showSnackbar(res?.message || `${deleted} document(s) deleted`)
+    } else if (selectedCount > 0) {
+      showSnackbar(res?.message || 'No documents were deleted. You can only delete documents you own.', 'warning')
+    }
   } catch (e) {
     console.error('Bulk delete failed:', e)
-    showSnackbar('Failed to delete documents: ' + (e.message || 'Unknown error'), 'error')
+    const msg = e?.data?.message || e.message || 'Unknown error'
+    showSnackbar('Failed to delete documents: ' + msg, 'error')
   } finally {
     bulkDeleteLoading.value = false
   }

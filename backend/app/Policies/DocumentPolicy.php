@@ -54,6 +54,10 @@ class DocumentPolicy
      */
     public function delete(User $user, Document $document): bool
     {
+        $user->loadMissing('role');
+        if ($user->role && $user->role->name === 'admin') {
+            return true;
+        }
         return $user->id === $document->user_id;
     }
 

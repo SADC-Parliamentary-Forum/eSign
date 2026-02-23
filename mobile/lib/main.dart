@@ -1,22 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/config/app_config.dart';
+import 'package:mobile/theme/app_design.dart';
 import 'services/api_service.dart';
 import 'services/database_helper.dart';
-import 'screens/signing_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
-import 'screens/reset_password_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/document_detail_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/templates_screen.dart';
 import 'screens/signatures_screen.dart';
-import 'screens/guest_signer_screen.dart';
-import 'screens/verification_screen.dart';
-import 'screens/workflows_screen.dart';
 import 'screens/upload_document_screen.dart';
-import 'screens/verification_otp_screen.dart';
-import 'screens/document_activity_screen.dart';
+import 'screens/settings_screen.dart';
 import 'widgets/search_bar.dart';
 import 'widgets/loading_skeleton.dart';
 import 'widgets/error_widget.dart';
@@ -65,28 +60,15 @@ class _MyAppState extends State<MyApp> {
       print('Deep links initialization error: $e');
     }
   }
-  
-  void _handleLink(Uri uri) {
-    // Check if it's a verification link
-    // Path: /auth/verify-email
-    if (uri.path.contains('/auth/verify-email')) {
-      _navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => VerificationScreen(uri: uri),
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'SADC-eSign',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D3748)),
-        useMaterial3: true,
-      ),
+      title: AppDesign.appName,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.light,
       home: const LoginScreen(),
     );
   }
@@ -136,8 +118,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = AppDesign.primary;
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: isDark ? AppDesign.backgroundDark : AppDesign.backgroundLight,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -145,11 +129,17 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.security, size: 64, color: Color(0xFF2D3748)),
+              Icon(Icons.verified_user, size: 64, color: primary),
               const SizedBox(height: 24),
-              const Text(
-                'SADC-eSign',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              Text(
+                AppDesign.appName,
+                style: AppDesign.displayBold.copyWith(fontSize: 28),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                AppDesign.appTagline,
+                style: AppDesign.bodySmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -185,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _isLoading ? null : _login,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.all(16),
-                  backgroundColor: const Color(0xFF3182CE),
+                  backgroundColor: AppDesign.primary,
                 ),
                 child: _isLoading 
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -229,41 +219,55 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
+  List<Widget> _buildScreens() => [
     const DashboardScreen(),
     const TemplatesScreen(),
     const SignaturesScreen(),
-    const NotificationsScreen(),
+    SettingsScreen(
+      onLogout: () {
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      },
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: _buildScreens()[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.description), label: 'Templates'),
-          NavigationDestination(icon: Icon(Icons.draw), label: 'Signatures'),
-          NavigationDestination(icon: Icon(Icons.notifications), label: 'Notifications'),
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+          NavigationDestination(icon: Icon(Icons.folder_outlined), label: 'Documents'),
+          NavigationDestination(icon: Icon(Icons.people_outline), label: 'Contacts'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color(0xFF2D3748)),
+            DrawerHeader(
+              decoration: const BoxDecoration(color: AppDesign.primary),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.security, size: 48, color: Colors.white),
-                  SizedBox(height: 8),
+                  const Icon(Icons.verified_user, size: 48, color: Colors.white),
+                  const SizedBox(height: 8),
                   Text(
-                    'SADC-eSign',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    AppDesign.appName,
+                    style: AppDesign.titleBold.copyWith(color: Colors.white, fontSize: 22),
+                  ),
+                  Text(
+                    AppDesign.appTagline,
+                    style: AppDesign.bodySmall.copyWith(color: Colors.white70),
                   ),
                 ],
               ),
@@ -383,7 +387,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // Apply sorting
     if (_sortOption != null) {
-      switch (_sortOption) {
+      switch (_sortOption!) {
         case SortOption.newest:
           filtered.sort((a, b) {
             final aDate = a['created_at'] ?? '';
@@ -539,9 +543,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pendingCount = _documents.where((d) => d['status'] == 'pending' || d['status'] == 'draft').length;
-    final signedCount = _documents.where((d) => d['status'] == 'signed').length;
-    final totalCount = _documents.length;
+    final statusMap = _documents.fold<Map<String, int>>(
+      {'PENDING': 0, 'COMPLETED': 0, 'DRAFT': 0, 'IN_PROGRESS': 0, 'FAILED': 0, 'VOIDED': 0, 'DECLINED': 0},
+      (m, d) {
+        final s = ((d['status'] ?? '') as String).toUpperCase();
+        if (m.containsKey(s)) m[s] = m[s]! + 1;
+        else m['PENDING'] = (m['PENDING'] ?? 0) + 1;
+        return m;
+      },
+    );
+    final pendingCount = (statusMap['PENDING'] ?? 0) + (statusMap['IN_PROGRESS'] ?? 0);
+    final completedCount = statusMap['COMPLETED'] ?? 0;
+    final draftsCount = statusMap['DRAFT'] ?? 0;
+    final declinedCount = (statusMap['DECLINED'] ?? 0) + (statusMap['VOIDED'] ?? 0);
 
     return Scaffold(
       appBar: _bulkSelectMode
@@ -551,10 +565,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onDelete: _bulkDelete,
             )
           : AppBar(
-              title: const Text('Dashboard'),
-              backgroundColor: const Color(0xFF2D3748),
-              foregroundColor: Colors.white,
+              titleSpacing: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppDesign.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(Icons.verified_user, color: AppDesign.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(AppDesign.appName, style: AppDesign.titleBold),
+                      Text(AppDesign.appTagline, style: AppDesign.caption.copyWith(fontSize: 10)),
+                    ],
+                  ),
+                ],
+              ),
               actions: [
+                IconButton(
+                  icon: const Badge(
+                    child: Icon(Icons.notifications_outlined),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const CircleAvatar(radius: 18, child: Icon(Icons.person)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.filter_list),
                   onPressed: () {
@@ -600,98 +657,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onClear: () => _filterDocuments(),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: AppDesign.spacingMd),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                // Stats Cards
-                Row(
+                // Welcome per Design
+                Text(
+                  'Welcome back',
+                  style: AppDesign.displayBold.copyWith(fontSize: 22),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Here is the latest update on your documents.',
+                  style: AppDesign.bodySmall,
+                ),
+                const SizedBox(height: AppDesign.spacingLg),
+                // Stats grid per Design/sender_dashboard_overview_1 (2x2: Pending, Completed, Drafts, Declined)
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: AppDesign.spacingMd,
+                  crossAxisSpacing: AppDesign.spacingMd,
+                  childAspectRatio: 1.1,
                   children: [
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Total',
-                        value: '$totalCount',
-                        color: Colors.blue,
-                        icon: Icons.description,
-                      ),
+                    _StatCard(
+                      title: 'Pending',
+                      value: '$pendingCount',
+                      color: AppDesign.statusPending,
+                      icon: Icons.pending_actions,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Pending',
-                        value: '$pendingCount',
-                        color: Colors.orange,
-                        icon: Icons.pending,
-                      ),
+                    _StatCard(
+                      title: 'Completed',
+                      value: '$completedCount',
+                      color: AppDesign.statusCompleted,
+                      icon: Icons.check_circle,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Signed',
-                        value: '$signedCount',
-                        color: Colors.green,
-                        icon: Icons.check_circle,
-                      ),
+                    _StatCard(
+                      title: 'Drafts',
+                      value: '$draftsCount',
+                      color: AppDesign.statusDraft,
+                      icon: Icons.edit_document,
+                    ),
+                    _StatCard(
+                      title: 'Declined',
+                      value: '$declinedCount',
+                      color: AppDesign.statusDeclined,
+                      icon: Icons.cancel,
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                // Quick Actions
-                const Text(
-                  'Quick Actions',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                const SizedBox(height: AppDesign.spacingLg),
+                // Primary CTA per Design: "Upload New Document"
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const UploadDocumentScreen()),
+                      ).then((result) {
+                        if (result == true) _fetchData();
+                      });
+                    },
+                    icon: const Icon(Icons.add, size: 22),
+                    label: const Text('Upload New Document'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppDesign.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppDesign.radiusLg),
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.upload,
-                        label: 'Upload',
-                        color: Colors.blue,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const UploadDocumentScreen()),
-                          ).then((result) {
-                            if (result == true) {
-                              _fetchData();
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.work,
-                        label: 'Workflows',
-                        color: Colors.purple,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const WorkflowsScreen()),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.draw,
-                        label: 'Signatures',
-                        color: Colors.orange,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SignaturesScreen()),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppDesign.spacingLg),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -744,9 +784,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       )),
                     ],
                   ),
+                ),
               ],
             ),
-                    ),
+          ),
           ),
         ],
       ),
@@ -769,98 +810,55 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppDesign.surfaceDark : AppDesign.surfaceLight;
+    final borderColor = isDark ? Colors.grey.shade800 : Colors.grey.shade200;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: surface,
+        borderRadius: BorderRadius.circular(AppDesign.radiusLg),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: color.withOpacity(0.2)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Opacity(
+              opacity: 0.15,
+              child: Icon(icon, color: color, size: 48),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+              Text(
+                title,
+                style: AppDesign.bodySmall.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: AppDesign.displayBold.copyWith(
+                  fontSize: 28,
+                  color: color,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
-          ),
         ],
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }

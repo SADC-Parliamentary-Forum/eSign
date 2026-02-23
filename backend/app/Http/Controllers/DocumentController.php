@@ -533,6 +533,7 @@ class DocumentController extends Controller
                     $document->delete();
                     $count++;
                 } catch (\Exception $e) {
+                    \Log::warning('Bulk delete: failed to delete document ' . $id, ['error' => $e->getMessage()]);
                     $errors++;
                 }
             } else {
@@ -540,8 +541,14 @@ class DocumentController extends Controller
             }
         }
 
+        $message = $count > 0
+            ? "Deleted {$count} document(s)."
+            : ($errors > 0
+                ? 'No documents were deleted. You can only delete documents you own.'
+                : 'No documents to delete.');
+
         return response()->json([
-            'message' => "Deleted {$count} documents.",
+            'message' => $message,
             'deleted_count' => $count,
             'errors' => $errors
         ]);
