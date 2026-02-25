@@ -27,7 +27,7 @@ services:
     container_name: esign_app
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f -s http://127.0.0.1:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f -s http://127.0.0.1:3000/up || exit 1"]
       interval: 10s
       timeout: 5s
       start_period: 90s
