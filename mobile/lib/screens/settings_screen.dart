@@ -17,7 +17,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppDesign.surfaceDark : AppDesign.surfaceLight;
-    final borderColor = isDark ? Colors.grey.shade800 : Colors.grey.shade200;
+    final borderColor = isDark ? AppDesign.borderDark : AppDesign.borderLight;
 
     return Scaffold(
       appBar: AppBar(
@@ -27,7 +27,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppDesign.spacingMd),
         children: [
-          _sectionLabel('Account'),
+          _sectionLabel(context, 'Account'),
           _settingsCard(
             context,
             surface: surface,
@@ -54,7 +54,7 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppDesign.spacingLg),
-          _sectionLabel('Security & Compliance'),
+          _sectionLabel(context, 'Security & Compliance'),
           _settingsCard(
             context,
             surface: surface,
@@ -80,13 +80,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _sectionLabel(String label) {
+  Widget _sectionLabel(BuildContext context, String label) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Text(
         label.toUpperCase(),
         style: AppDesign.labelUppercase.copyWith(
-          color: AppDesign.textSecondaryLight,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -127,7 +127,7 @@ class SettingsScreen extends StatelessWidget {
         child: Icon(icon, size: 20, color: AppDesign.primary),
       ),
       title: Text(label, style: AppDesign.bodyMedium.copyWith(color: fg)),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+      trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
       onTap: onTap,
     );
   }

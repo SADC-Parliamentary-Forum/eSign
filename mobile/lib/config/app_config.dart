@@ -1,44 +1,47 @@
-import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+
+import 'app_config_loader_io.dart' if (dart.library.html) 'app_config_loader_web.dart' as config_loader;
 
 class AppConfig {
   static AppConfig? _instance;
-  
+
   final String apiBaseUrl;
   final bool enableBiometric;
   final int networkTimeoutMs;
-  
+
   AppConfig._({
     required this.apiBaseUrl,
     this.enableBiometric = true,
     this.networkTimeoutMs = 10000,
   });
-  
+
   static AppConfig get instance {
     if (_instance == null) {
       throw Exception('AppConfig not initialized. Call AppConfig.load() first.');
     }
     return _instance!;
   }
-  
+
+  static const String productionApiBaseUrl = 'https://esign.sadcpf.org/api';
+
+  static String get _defaultApiBaseUrl =>
+      kIsWeb ? productionApiBaseUrl : productionApiBaseUrl;
+
   static Future<void> load() async {
-    // In a real scenario, you might load this from a specific file based on environment
-    // For now, we'll try to load from config.json if it exists, otherwise fallback to defaults
     try {
-      final configString = await rootBundle.loadString('assets/config.json');
-      final json = jsonDecode(configString);
-      
+      final json = await config_loader.loadConfigJson();
       _instance = AppConfig._(
-        apiBaseUrl: json['apiBaseUrl'] ?? 'http://10.0.2.2:8000/api', // default for Android emulator
-        enableBiometric: json['features']?['biometricSigning'] ?? true,
-        networkTimeoutMs: json['network']?['timeoutMs'] ?? 10000,
+        apiBaseUrl: json['apiBaseUrl']?.toString() ?? _defaultApiBaseUrl,
+        enableBiometric: json['features']?['biometricSigning'] == true,
+        networkTimeoutMs: (json['network']?['timeoutMs'] is int)
+            ? (json['network']!['timeoutMs'] as int)
+            : 10000,
       );
     } catch (e) {
-      // Fallback if file missing or parse error
-      print('Config load failed: $e. Using defaults.');
-      _instance = AppConfig._(
-        apiBaseUrl: 'http://10.0.2.2:8000/api',
-      );
+      if (kDebugMode) {
+        print('Config load failed: $e. Using defaults.');
+      }
+      _instance = AppConfig._(apiBaseUrl: _defaultApiBaseUrl);
     }
   }
 }

@@ -23,6 +23,9 @@ abstract class AppDesign {
   static const Color textSecondaryLight = Color(0xFF4C669A);
   static const Color textSecondaryDark = Color(0xFF94A3B8);
 
+  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color borderDark = Color(0xFF2D3748);
+
   // Status / semantic
   static const Color statusPending = primary;
   static const Color statusCompleted = Color(0xFF16A34A); // green-600

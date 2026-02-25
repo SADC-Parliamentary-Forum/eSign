@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import '../theme/app_design.dart';
 
 class OfflineIndicator extends StatefulWidget {
   const OfflineIndicator({super.key});
@@ -49,7 +50,7 @@ class _OfflineIndicatorState extends State<OfflineIndicator> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: Colors.orange[700],
+      color: AppDesign.statusPending,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

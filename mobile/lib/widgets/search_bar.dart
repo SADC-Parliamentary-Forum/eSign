@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_design.dart';
 
 class SearchBarWidget extends StatefulWidget {
   final String? hintText;
@@ -41,11 +42,12 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: surface,
+        borderRadius: BorderRadius.circular(AppDesign.radiusLg),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -69,11 +71,11 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                 )
               : null,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppDesign.radiusLg),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: surface,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         onChanged: widget.onChanged,

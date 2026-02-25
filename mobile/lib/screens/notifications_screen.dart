@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../theme/app_design.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_skeleton.dart';
 import '../widgets/error_widget.dart';
@@ -14,6 +15,8 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<dynamic> _notifications = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -22,15 +25,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final notifications = await ApiService.getNotifications();
       setState(() {
         _notifications = notifications;
         _isLoading = false;
+        _error = false;
+        _errorMessage = null;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString();
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load notifications: $e')),
@@ -67,15 +80,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Color _getNotificationColor(String? type) {
     switch (type?.toLowerCase()) {
       case 'document_signed':
-        return Colors.green;
+        return AppDesign.statusCompleted;
       case 'document_pending':
-        return Colors.orange;
+        return AppDesign.statusPending;
       case 'document_rejected':
-        return Colors.red;
+        return AppDesign.statusDeclined;
       case 'new_document':
-        return Colors.blue;
+        return AppDesign.primary;
       default:
-        return Colors.grey;
+        return AppDesign.statusDraft;
     }
   }
 
@@ -84,8 +97,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
-        backgroundColor: const Color(0xFF2D3748),
-        foregroundColor: Colors.white,
         actions: [
           if (_notifications.any((n) => n['read_at'] == null))
             IconButton(
@@ -126,7 +137,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         key: Key(notification['id'].toString()),
                         direction: DismissDirection.endToStart,
                         background: Container(
-                          color: Colors.red,
+                          color: AppDesign.statusDeclined,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20),
                           child: const Icon(Icons.delete, color: Colors.white),
@@ -141,7 +152,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             }
                           },
                           child: Container(
-                            color: isRead ? Colors.white : Colors.blue[50],
+                            color: isRead
+                                ? Theme.of(context).colorScheme.surface
+                                : AppDesign.primary.withValues(alpha: 0.08),
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: color.withOpacity(0.1),
@@ -166,7 +179,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         : '',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -177,7 +190,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       width: 8,
                                       height: 8,
                                       decoration: const BoxDecoration(
-                                        color: Colors.blue,
+                                        color: AppDesign.primary,
                                         shape: BoxShape.circle,
                                       ),
                                     ),

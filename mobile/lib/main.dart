@@ -123,12 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppDesign.backgroundDark : AppDesign.backgroundLight,
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               Icon(Icons.verified_user, size: 64, color: primary),
               const SizedBox(height: 24),
               Text(
@@ -166,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.only(top: 16),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppDesign.statusDeclined),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -204,6 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -285,8 +288,8 @@ class _MainScreenState extends State<MainScreen> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              leading: Icon(Icons.logout, color: AppDesign.statusDeclined),
+              title: Text('Logout', style: TextStyle(color: AppDesign.statusDeclined)),
               onTap: () async {
                 await ApiService.logout();
                 if (mounted) {
@@ -463,7 +466,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Offline Mode: Showing cached data'),
-              backgroundColor: Colors.orange,
+              backgroundColor: AppDesign.statusPending,
             ),
           );
         }
@@ -511,7 +514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppDesign.statusDeclined),
             child: const Text('Delete'),
           ),
         ],
@@ -525,7 +528,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Documents deleted successfully'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppDesign.statusCompleted,
             ),
           );
           _toggleBulkSelect();
@@ -812,7 +815,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppDesign.surfaceDark : AppDesign.surfaceLight;
-    final borderColor = isDark ? Colors.grey.shade800 : Colors.grey.shade200;
+    final borderColor = isDark ? AppDesign.borderDark : AppDesign.borderLight;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -878,10 +881,11 @@ class _DocumentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = doc['status'] ?? 'unknown';
-    Color statusColor = Colors.grey;
-    if (status == 'pending') statusColor = Colors.orange;
-    if (status == 'signed') statusColor = Colors.green;
-    if (status == 'rejected') statusColor = Colors.red;
+    final statusStr = (status as String?)?.toUpperCase() ?? '';
+    Color statusColor = AppDesign.statusDraft;
+    if (statusStr == 'PENDING' || statusStr == 'IN_PROGRESS') statusColor = AppDesign.statusPending;
+    if (statusStr == 'COMPLETED' || statusStr == 'SIGNED') statusColor = AppDesign.statusCompleted;
+    if (statusStr == 'DECLINED' || statusStr == 'REJECTED' || statusStr == 'FAILED') statusColor = AppDesign.statusDeclined;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -910,7 +914,7 @@ class _DocumentCard extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 12),
                     child: Icon(
                       Icons.check_circle,
-                      color: Colors.blue[700],
+                      color: AppDesign.primary,
                       size: 24,
                     ),
                   ),
@@ -921,7 +925,7 @@ class _DocumentCard extends StatelessWidget {
                     color: statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: isSelected
-                        ? Border.all(color: Colors.blue[700]!, width: 2)
+                        ? Border.all(color: AppDesign.primary, width: 2)
                         : null,
                   ),
                   child: Icon(Icons.description, color: statusColor),
@@ -943,12 +947,12 @@ class _DocumentCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.folder, size: 14, color: Colors.grey[600]),
+                        Icon(Icons.folder, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         const SizedBox(width: 4),
                         Text(
                           doc['department'] ?? 'General',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -960,7 +964,7 @@ class _DocumentCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            status.toUpperCase(),
+                            (status ?? '').toString().toUpperCase(),
                             style: TextStyle(
                               color: statusColor,
                               fontSize: 10,
@@ -973,7 +977,7 @@ class _DocumentCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey[400]),
+              Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ],
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_design.dart';
 
 class BulkSelectAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int selectedCount;
@@ -24,8 +25,6 @@ class BulkSelectAppBar extends StatelessWidget implements PreferredSizeWidget {
         onPressed: onCancel,
       ),
       title: Text('$selectedCount selected'),
-      backgroundColor: const Color(0xFF2D3748),
-      foregroundColor: Colors.white,
       actions: [
         if (onDownload != null)
           IconButton(
@@ -41,10 +40,9 @@ class BulkSelectAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         if (onDelete != null)
           IconButton(
-            icon: const Icon(Icons.delete),
+            icon: Icon(Icons.delete, color: AppDesign.statusDeclined),
             onPressed: selectedCount > 0 ? onDelete : null,
             tooltip: 'Delete',
-            color: Colors.red[300],
           ),
       ],
     );

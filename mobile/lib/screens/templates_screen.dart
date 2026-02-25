@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_design.dart';
 import '../services/api_service.dart';
 import 'template_detail_screen.dart';
 import '../widgets/loading_skeleton.dart';
@@ -14,6 +15,8 @@ class TemplatesScreen extends StatefulWidget {
 class _TemplatesScreenState extends State<TemplatesScreen> {
   List<dynamic> _templates = [];
   bool _isLoading = true;
+  bool _error = false;
+  String? _errorMessage;
   String _selectedCategory = 'All';
 
   @override
@@ -23,15 +26,25 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
   }
 
   Future<void> _loadTemplates() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = false;
+      _errorMessage = null;
+    });
     try {
       final templates = await ApiService.getTemplates();
       setState(() {
         _templates = templates;
         _isLoading = false;
+        _error = false;
+        _errorMessage = null;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _error = true;
+        _errorMessage = e.toString();
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load templates: $e')),
@@ -50,8 +63,6 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Templates'),
-        backgroundColor: const Color(0xFF2D3748),
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -118,8 +129,8 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: Colors.blue[100],
-                                  child: const Icon(Icons.description, color: Colors.blue),
+                                  backgroundColor: AppDesign.primary.withValues(alpha: 0.15),
+                                  child: const Icon(Icons.description, color: AppDesign.primary),
                                 ),
                                 title: Text(
                                   template['name'] ?? 'Untitled Template',
@@ -135,14 +146,14 @@ class _TemplatesScreenState extends State<TemplatesScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.blue[50],
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: AppDesign.primary.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(AppDesign.radiusSm),
                                         ),
                                         child: Text(
                                           template['category'],
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.blue[700],
+                                            color: AppDesign.primary,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -189,8 +200,8 @@ class _CategoryChip extends StatelessWidget {
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onTap(),
-      selectedColor: Colors.blue[100],
-      checkmarkColor: Colors.blue[700],
+      selectedColor: AppDesign.primary.withValues(alpha: 0.15),
+      checkmarkColor: AppDesign.primary,
     );
   }
 }

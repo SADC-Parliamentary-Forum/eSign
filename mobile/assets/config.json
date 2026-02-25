@@ -1,0 +1,9 @@
+{
+  "apiBaseUrl": "https://esign.sadcpf.org/api",
+  "features": {
+    "biometricSigning": true
+  },
+  "network": {
+    "timeoutMs": 10000
+  }
+}
