@@ -67,7 +67,7 @@ class MinIOServiceProvider extends ServiceProvider
                 'Bucket' => $bucketName,
             ]);
             
-            Log::info("MinIO bucket '{$bucketName}' already exists");
+            Log::debug("MinIO bucket '{$bucketName}' already exists");
             return;
         } catch (AwsException $e) {
             // If bucket doesn't exist (404), create it
