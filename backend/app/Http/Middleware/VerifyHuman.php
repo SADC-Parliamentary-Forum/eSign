@@ -53,12 +53,15 @@ class VerifyHuman
         $token = $request->header('X-Human-Token');
 
         if (!$token) {
-            if (Config::get('bot_protection.enforcement.block_on_failure')) {
+            $blockWhenMissing = Config::get('bot_protection.enforcement.block_when_token_missing', true);
+            if ($blockWhenMissing && Config::get('bot_protection.enforcement.block_on_failure')) {
                 return response()->json([
                     'message' => 'Bot protection token missing.',
                     'code' => 'BOT_TOKEN_MISSING'
                 ], 403);
             }
+            // Token missing but not blocking (e.g. mobile app): skip verification
+            return $next($request);
         }
 
         // 5. Verify Token

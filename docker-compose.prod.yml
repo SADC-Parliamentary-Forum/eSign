@@ -13,7 +13,8 @@ services:
       - public_data:/var/www/html/public:ro
       - storage_data:/var/www/html/storage/app/public:ro
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     networks:
       - esign-prod-network
 
@@ -25,6 +26,13 @@ services:
     image: esign-app-prod:latest
     container_name: esign_app
     restart: unless-stopped
+    healthcheck:
+      # $$ escapes to $ so Compose does not treat $p/$q as variables
+      test: ["CMD-SHELL", "php -r \"$$p=@fsockopen('127.0.0.1',9000);$$q=@fsockopen('127.0.0.1',8080);exit(($$p&&$$q)?0:1);\""]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
     working_dir: /var/www/html
     volumes:
       - public_data:/var/www/html/public

@@ -31,8 +31,10 @@ async function handleLogin() {
   
   try {
     const success = await authStore.login(form.value.email, form.value.password)
-    
+
     if (success) {
+      // Load full user + role before redirect so name/role are correct immediately
+      await authStore.fetchUser()
       const returnUrl = route.query.returnUrl || '/'
       router.push(returnUrl)
     }

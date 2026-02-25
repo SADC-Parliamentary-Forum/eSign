@@ -63,3 +63,18 @@ Then open `http://localhost:9001` in your browser.
 
 - **Logs**: `docker-compose logs -f app`
 - **Update**: `git pull && docker-compose build && docker-compose up -d`
+
+### Intermittent 502 / Connection refused
+
+If Nginx reports `Connection refused` to `fastcgi://...:9000` or `http://...:8080`, the app container (PHP-FPM or Reverb) is down or restarting. If you see 502 on login (e.g. from Flutter web on localhost), ensure the app is healthy and config is cached; 502 can occur briefly during deploys.
+
+1. **Restart the app:** `docker compose restart app`
+2. **Check logs:** `docker compose logs -f app` for PHP errors or OOM.
+3. **Ensure restart policy:** In `docker-compose.yml`, the `app` service should have `restart: unless-stopped` so it recovers after a crash.
+
+### Why did the app container restart?
+
+502s often occur **during the startup window** (entrypoint running before Supervisor starts). To see why the container restarted:
+
+- **Events:** `docker events --filter type=container --filter container=esign_app` (or `docker compose events`) — look for `die`/`oom` vs. `restart`/`create`.
+- **Logs before restart:** `docker compose logs app --since 30m` — check the last lines **before** the entrypoint output (e.g. "Syncing public assets...") for OOM, PHP fatals, or Reverb/worker exits.

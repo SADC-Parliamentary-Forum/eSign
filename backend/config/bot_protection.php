@@ -43,10 +43,16 @@ return [
     |--------------------------------------------------------------------------
     | Enforcement Settings
     |--------------------------------------------------------------------------
+    |
+    | block_when_token_missing: When true (default), requests without X-Human-Token
+    | get 403. Set to false to allow login/register from mobile app or when
+    | reCAPTCHA fails to load (e.g. BOT_PROTECTION_BLOCK_WHEN_TOKEN_MISSING=false).
+    |
     */
     'enforcement' => [
         'block_on_failure' => true,
         'log_attempts' => true,
+        'block_when_token_missing' => env('BOT_PROTECTION_BLOCK_WHEN_TOKEN_MISSING', true),
     ],
 
     /*

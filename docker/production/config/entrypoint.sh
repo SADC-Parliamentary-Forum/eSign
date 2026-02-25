@@ -39,15 +39,15 @@ return [
 EOF
 fi
 
-# Debug: Verify files exist
-echo "Debug: Listing config directory..."
-ls -la /var/www/html/config
-
-echo "Debug: Listing views directory..."
-ls -la /var/www/html/resources/views
-
-echo "Debug: Content of config/view.php:"
-cat /var/www/html/config/view.php
+# Debug: Verify files exist (only when DEBUG_ENTRYPOINT=1 for troubleshooting)
+if [ "${DEBUG_ENTRYPOINT:-0}" = "1" ]; then
+  echo "Debug: Listing config directory..."
+  ls -la /var/www/html/config
+  echo "Debug: Listing views directory..."
+  ls -la /var/www/html/resources/views
+  echo "Debug: Content of config/view.php:"
+  cat /var/www/html/config/view.php
+fi
 
 echo "Caching configuration..."
 php artisan config:clear

@@ -15,11 +15,13 @@ const authStore = useAuthStore()
 // Remove below composable usage if you are not using horizontal nav layout in your app
 switchToVerticalNavOnLtOverlayNavBreakpoint()
 
-// Ensure user data is fresh on mount (handles verification updates)
-onMounted(() => {
+// Wait for user + role to load when authenticated so UI never shows "User" / "Member" briefly
+const userReady = ref(false)
+onMounted(async () => {
   if (authStore.isAuthenticated) {
-    authStore.fetchUser()
+    await authStore.fetchUser()
   }
+  userReady.value = true
 })
 
 const { layoutAttrs, injectSkinClasses } = useSkins()
@@ -72,7 +74,19 @@ const resendVerification = async () => {
 </script>
 
 <template>
+  <!-- Brief loading until user + role are loaded (avoids showing "User" / "Member") -->
+  <VOverlay
+    v-if="authStore.isAuthenticated && !userReady"
+    :model-value="true"
+    persistent
+    class="align-center justify-center"
+  >
+    <VProgressCircular indeterminate color="primary" size="48" />
+    <p class="text-body-2 mt-2 text-medium-emphasis">Loading your account...</p>
+  </VOverlay>
+
   <Component
+    v-else
     v-bind="layoutAttrs"
     :is="configStore.appContentLayoutNav === AppContentLayoutNav.Vertical ? DefaultLayoutWithVerticalNav : DefaultLayoutWithHorizontalNav"
   >

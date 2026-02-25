@@ -8,7 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(storedUser && storedUser !== 'undefined' ? JSON.parse(storedUser) : null)
 
   const isAuthenticated = computed(() => !!user.value)
-  const role = computed(() => user.value?.role?.name)
+  const role = computed(() => user.value?.role?.name ?? user.value?.role?.display_name)
+  const userLoading = ref(false)
 
   function setAuth(newToken, newUser) {
     token.value = newToken
@@ -60,6 +61,10 @@ export const useAuthStore = defineStore('auth', () => {
       return true
     } catch (error) {
       console.error(error)
+      const status = error?.status || error?.response?.status
+      if (status >= 500 && status < 600) {
+        throw new Error('Server is temporarily unavailable (error ' + status + '). Please try again in a few minutes.')
+      }
       throw error // Re-throw to handle UI feedback
     }
   }
@@ -80,19 +85,26 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchUser() {
+    userLoading.value = true
     try {
       const userData = await $api('/auth/me')
 
-      // Update user state
+      // Update user state (ensure we have full user + role for UI)
       user.value = userData
       localStorage.setItem('user', JSON.stringify(userData))
 
       return userData
     } catch (error) {
       console.error('Failed to fetch user:', error)
+      const status = error?.status || error?.response?.status
+      if (status >= 500 && status < 600) {
+        throw new Error('Server is temporarily unavailable. Please try again later.')
+      }
       if (error.status === 401) {
         clearAuth()
       }
+    } finally {
+      userLoading.value = false
     }
   }
 
@@ -122,5 +134,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, user, isAuthenticated, role, login, register, clearAuth, fetchUser, forgotPassword, resetPassword }
+  return { token, user, isAuthenticated, role, userLoading, login, register, clearAuth, fetchUser, forgotPassword, resetPassword }
 })
