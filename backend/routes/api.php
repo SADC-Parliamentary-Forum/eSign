@@ -3,6 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\MagicLinkController;
@@ -17,15 +19,27 @@ use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\DocumentFieldController;
 use App\Http\Controllers\NotificationController;
 
-// Health check endpoint
+// Health check endpoint (must return 200 for container healthcheck; catch so 500 is never returned)
 Route::get('/health', function () {
+    $db = 'down';
+    $cache = 'down';
+    try {
+        $db = DB::connection()->getPdo() ? 'up' : 'down';
+    } catch (\Throwable $e) {
+        // Leave as 'down'
+    }
+    try {
+        $cache = Cache::has('health_check') || Cache::put('health_check', true, 10) ? 'up' : 'down';
+    } catch (\Throwable $e) {
+        // Leave as 'down'
+    }
+    $status = ($db === 'up' && $cache === 'up') ? 'healthy' : 'degraded';
     return response()->json([
-        'status' => 'healthy',
+        'status' => $status,
         'timestamp' => now()->toISOString(),
         'services' => [
-            'database' => DB::connection()->getPdo() ? 'up' : 'down',
-            'cache' => Cache::has('health_check') || Cache::put('health_check', true, 10) ? 'up' : 'down',
-            // 'storage' => Storage::disk('s3')->exists('health_check.txt') ? 'up' : 'down', // Uncomment when S3 is configured
+            'database' => $db,
+            'cache' => $cache,
         ],
     ]);
 });

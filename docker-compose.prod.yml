@@ -27,11 +27,10 @@ services:
     container_name: esign_app
     restart: unless-stopped
     healthcheck:
-      # $$ escapes to $ so Compose does not treat $p/$q as variables
-      test: ["CMD-SHELL", "php -r \"$$p=@fsockopen('127.0.0.1',9000);$$q=@fsockopen('127.0.0.1',8080);exit(($$p&&$$q)?0:1);\""]
+      test: ["CMD-SHELL", "curl -f -s http://127.0.0.1:3000/api/health || exit 1"]
       interval: 10s
       timeout: 5s
-      start_period: 60s
+      start_period: 90s
       retries: 3
     working_dir: /var/www/html
     volumes:
