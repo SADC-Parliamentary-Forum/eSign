@@ -114,9 +114,20 @@ const settingsLoading = ref(false)
 const settingsSaving = ref(false)
 
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const router = useRouter()
 
 onMounted(async () => {
+  // Defense-in-depth: redirect non-admins (backend also returns 403 for /admin/*)
+  const role = String(authStore.role ?? '').toLowerCase()
+  if (role !== 'admin') {
+    router.replace('/')
+    return
+  }
   loading.value = true
   await Promise.all([fetchUsers(), fetchRoles(), fetchAudit(), fetchStats(), fetchDepartments(), fetchOrgRoles()])
   loading.value = false

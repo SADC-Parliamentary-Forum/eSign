@@ -33,12 +33,35 @@ router.beforeEach((to, from, next) => {
   if (!isPublic && !token) {
     // Redirect to login if not authenticated and route is not public
     next('/login')
-  } else if (isPublic && token && to.path === '/login') {
-    // Redirect to home if already logged in and trying to access login
-    next('/')
-  } else {
-    next()
+    return
   }
+  if (isPublic && token && to.path === '/login') {
+    next('/')
+    return
+  }
+
+  // Admin routes: only allow if user has admin role (backend enforces; this avoids flashing admin UI)
+  const adminPath = to.path === '/admin' || to.name === 'admin'
+  if (adminPath && token) {
+    try {
+      const userStr = localStorage.getItem('user')
+      if (!userStr || userStr === 'undefined') {
+        next('/')
+        return
+      }
+      const user = JSON.parse(userStr)
+      const role = (user?.role?.name ?? user?.role?.display_name ?? '').toString().toLowerCase()
+      if (role !== 'admin') {
+        next('/')
+        return
+      }
+    } catch {
+      next('/')
+      return
+    }
+  }
+
+  next()
 })
 
 export { router }

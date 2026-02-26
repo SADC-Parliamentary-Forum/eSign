@@ -3,7 +3,7 @@ import { useConfigStore } from '@core/stores/config'
 import { AppContentLayoutNav } from '@layouts/enums'
 import { switchToVerticalNavOnLtOverlayNavBreakpoint } from '@layouts/utils'
 import { useAuthStore } from '@/stores/auth'
-import { ref, defineAsyncComponent, watch } from 'vue'
+import { ref, computed, defineAsyncComponent, watch } from 'vue'
 
 const DefaultLayoutWithHorizontalNav = defineAsyncComponent(() => import('./components/DefaultLayoutWithHorizontalNav.vue'))
 const DefaultLayoutWithVerticalNav = defineAsyncComponent(() => import('./components/DefaultLayoutWithVerticalNav.vue'))
@@ -15,10 +15,12 @@ const authStore = useAuthStore()
 // Remove below composable usage if you are not using horizontal nav layout in your app
 switchToVerticalNavOnLtOverlayNavBreakpoint()
 
-// Wait for user + role to load when authenticated so UI never shows "User" / "Member" briefly
+// When we have a token, always load user+role so name/role and admin privileges are correct
+// (Router allows access based on token; without this, refresh or stale state shows null user/role)
 const userReady = ref(false)
+const hasToken = computed(() => !!authStore.token)
 onMounted(async () => {
-  if (authStore.isAuthenticated) {
+  if (hasToken.value) {
     await authStore.fetchUser()
   }
   userReady.value = true
@@ -74,9 +76,9 @@ const resendVerification = async () => {
 </script>
 
 <template>
-  <!-- Brief loading until user + role are loaded (avoids showing "User" / "Member") -->
+  <!-- Brief loading until user + role are loaded when we have a token -->
   <VOverlay
-    v-if="authStore.isAuthenticated && !userReady"
+    v-if="hasToken && !userReady"
     :model-value="true"
     persistent
     class="align-center justify-center"

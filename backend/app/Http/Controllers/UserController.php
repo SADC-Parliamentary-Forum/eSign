@@ -55,11 +55,13 @@ class UserController extends Controller
     }
 
     /**
-     * Update user (Role, MFA)
+     * Update user (Role, MFA).
+     * Only admins can reach this (admin middleware). Defense-in-depth: prevent self-role change.
      */
     public function update(Request $request, string $id)
     {
         $user = User::findOrFail($id);
+        $currentUser = $request->user();
 
         $validated = $request->validate([
             'name' => 'string|max:255',
@@ -71,6 +73,11 @@ class UserController extends Controller
             'department' => 'nullable|string|max:255',
             'job_title' => 'nullable|string|max:255',
         ]);
+
+        // Security: prevent any user (including an admin) from changing their own role (no self-elevation or self-demotion)
+        if ($currentUser->id === $user->id && array_key_exists('role_id', $validated) && (string) $validated['role_id'] !== (string) $user->role_id) {
+            return response()->json(['message' => 'You cannot change your own role.'], 403);
+        }
 
         // Handle password separately
         if (!empty($validated['password'])) {

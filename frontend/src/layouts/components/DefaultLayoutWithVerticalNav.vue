@@ -32,18 +32,11 @@ onUnmounted(() => {
   disconnect()
 })
 
-// Filter nav items based on role
+// Filter nav items based on role (backend enforces; this hides Admin for non-admins)
+const isAdmin = computed(() => String(authStore.role ?? '').toLowerCase() === 'admin')
 const filteredNavItems = computed(() => {
-  const role = authStore.role
-  if (role === 'admin') return navItems
-  
-  // Exclude Admin Console for non-admins
-  return navItems.filter(item => {
-    // Check if the item is 'Admin Console' or has 'admin' in title/path
-    if (item.title === 'Admin Console') return false
-    
-    return true
-  })
+  if (isAdmin.value) return navItems
+  return navItems.filter(item => item.title !== 'Admin Console')
 })
 
 // ℹ️ Provide animation name for vertical nav collapse icon.

@@ -18,8 +18,8 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 
 onMounted(() => {
-  // Only fetch admin settings if user is logged in and is an Admin
-  if (authStore.isAuthenticated && authStore.role === 'Admin') {
+  // Only fetch admin settings if user is logged in and is an admin (case-insensitive)
+  if (authStore.isAuthenticated && String(authStore.role ?? '').toLowerCase() === 'admin') {
     appStore.fetchSettings()
   }
 })
