@@ -247,8 +247,8 @@ class _MainScreenState extends State<MainScreen> {
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.folder_outlined), label: 'Documents'),
-          NavigationDestination(icon: Icon(Icons.people_outline), label: 'Contacts'),
+          NavigationDestination(icon: Icon(Icons.description_outlined), label: 'Templates'),
+          NavigationDestination(icon: Icon(Icons.draw_outlined), label: 'Signatures'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
@@ -327,6 +327,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _filterDepartment;
   SortOption? _sortOption;
   List<String> _departments = [];
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -334,6 +335,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _searchController.addListener(_filterDocuments);
     _fetchData();
     _loadDepartments();
+    _loadUnreadCount();
   }
 
   @override
@@ -351,6 +353,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       // Ignore error, departments are optional
     }
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final notifications = await ApiService.getNotifications();
+      final unread = (notifications as List).where((n) => n['read_at'] == null).length;
+      if (mounted) setState(() => _unreadNotificationCount = unread);
+    } catch (e) {
+      // Ignore — badge count is optional
+    }
+  }
+
+  void _showAllDocuments() {
+    _searchController.clear();
+    setState(() {
+      _filterStatus = null;
+      _filterDepartment = null;
+      _sortOption = null;
+    });
+    _filterDocuments();
   }
 
   void _applyFilters(String? status, String? department, SortOption? sort) {
@@ -596,14 +618,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: const Badge(
-                    child: Icon(Icons.notifications_outlined),
+                  icon: Badge(
+                    isLabelVisible: _unreadNotificationCount > 0,
+                    label: Text('$_unreadNotificationCount'),
+                    child: const Icon(Icons.notifications_outlined),
                   ),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                    );
+                    ).then((_) => _loadUnreadCount());
                   },
                 ),
                 IconButton(
@@ -743,9 +767,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     TextButton(
-                      onPressed: () {
-                        // Show all documents
-                      },
+                      onPressed: _showAllDocuments,
                       child: const Text('View All'),
                     ),
                   ],

@@ -459,10 +459,7 @@ class DocumentController extends Controller
             return response()->json(['message' => 'Document file is not available.'], 404);
         }
 
-        $mimeType = $document->mime_type ?: 'application/pdf';
-        if ($mimeType !== 'application/pdf') {
-            return response()->json(['message' => 'This document could not be converted to PDF. Please upload a PDF file or try again.'], 415);
-        }
+        $itemMimeType = $document->mime_type ?: 'application/octet-stream';
 
         try {
             return response()->stream(function () use ($path) {
@@ -472,7 +469,7 @@ class DocumentController extends Controller
                     fclose($stream);
                 }
             }, 200, [
-                'Content-Type' => $mimeType,
+                'Content-Type' => $itemMimeType,
                 'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
             ]);
         } catch (\Exception $e) {

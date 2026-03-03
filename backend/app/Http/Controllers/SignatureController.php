@@ -15,12 +15,18 @@ class SignatureController extends Controller
     protected $delegationService;
     protected $documentService;
     protected $auditService;
+    protected $workflowService;
 
-    public function __construct(DelegationService $delegationService, \App\Services\DocumentService $documentService, \App\Services\AuditService $auditService)
-    {
+    public function __construct(
+        DelegationService $delegationService,
+        \App\Services\DocumentService $documentService,
+        \App\Services\AuditService $auditService,
+        \App\Services\SigningWorkflowService $workflowService
+    ) {
         $this->delegationService = $delegationService;
         $this->documentService = $documentService;
         $this->auditService = $auditService;
+        $this->workflowService = $workflowService;
     }
 
     public function sign(Request $request, $documentId)
@@ -59,7 +65,12 @@ class SignatureController extends Controller
                     continue;
 
                 // Authorization: Check ownership or DELEGATION
-                $isOwner = ($field->signer_email === $user->email) || ($field->document_signer_id === $user->id);
+                // Check by signer email or by matching the signer record's user_id
+                $signerRecord = $field->document_signer_id
+                    ? \App\Models\DocumentSigner::find($field->document_signer_id)
+                    : null;
+                $isOwner = ($field->signer_email === $user->email)
+                    || ($signerRecord && $signerRecord->user_id === $user->id);
                 $canSign = $isOwner;
 
                 // If not directly owned, check delegation
@@ -196,7 +207,8 @@ class SignatureController extends Controller
 
                 if ($nextOrder) {
                     $document->update(['current_signing_order' => $nextOrder]);
-                    // Notify next signers (WorkflowService TODO)
+                    // Notify next signers in the queue
+                    $this->workflowService->notifyCurrentSigners($document->fresh());
                 } else {
                     // No next order -> Completed
                     $isCompleted = true;
@@ -225,8 +237,22 @@ class SignatureController extends Controller
     public function reject(Request $request, $documentId)
     {
         $document = Document::findOrFail($documentId);
-        // Log rejection...
-        $document->update(['status' => 'VOIDED']);
-        return response()->json(['message' => 'Document rejected']);
+        $validated = $request->validate(['reason' => 'nullable|string|max:1000']);
+
+        // Mark the rejecting signer as declined
+        $user = $request->user();
+        $signer = $document->signers()->where('email', $user->email)->first()
+            ?? $document->signers()->where('user_id', $user->id)->first();
+
+        if ($signer) {
+            $signer->update([
+                'status' => 'declined',
+                'declined_at' => now(),
+                'decline_reason' => $validated['reason'] ?? null,
+            ]);
+        }
+
+        $document->update(['status' => 'DECLINED']);
+        return response()->json(['message' => 'Document rejected successfully.']);
     }
 }

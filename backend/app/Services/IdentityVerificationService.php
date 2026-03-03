@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\DocumentSigner;
 use App\Models\IdentityVerification;
+use App\Mail\OtpMail;
+use App\Mail\VerifySignerMail;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -203,12 +205,17 @@ class IdentityVerificationService
     {
         $verificationUrl = config('app.frontend_url') . "/verify-email?token={$token}";
 
-        // TODO: Replace with actual email sending
-        // Mail::to($signer->email)->send(new VerifyEmailMail($verificationUrl));
+        try {
+            Mail::to($signer->email)->send(new VerifySignerMail($verificationUrl, $signer->name));
+        } catch (\Exception $e) {
+            Log::error('Failed to send verification email', [
+                'signer_email' => $signer->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         Log::info('Verification email sent', [
             'signer_email' => $signer->email,
-            'url' => $verificationUrl,
         ]);
     }
 
@@ -217,14 +224,16 @@ class IdentityVerificationService
      */
     protected function sendOTP(DocumentSigner $signer, string $code): void
     {
-        // TODO: Integrate with Twilio or similar for SMS
-        // For now, send via email as fallback
-        // Mail::to($signer->email)->send(new OTPMail($code));
+        try {
+            Mail::to($signer->email)->send(new OtpMail($code, $signer->email));
+        } catch (\Exception $e) {
+            Log::error('Failed to send OTP email', [
+                'signer_email' => $signer->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-        Log::info('OTP sent', [
-            'signer_email' => $signer->email,
-            'code' => $code, // Remove in production
-        ]);
+        Log::info('OTP sent', ['signer_email' => $signer->email]);
     }
 
     /**

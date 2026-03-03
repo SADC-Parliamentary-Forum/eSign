@@ -35,12 +35,12 @@ class SignerController extends Controller
             return response()->json(['message' => 'This document has expired.'], 410);
         }
 
-        if ($document->status === 'completed') {
+        if ($document->status === 'COMPLETED') {
             return response()->json(['message' => 'This document has already been completed.'], 410);
         }
 
-        if ($document->status === 'declined') {
-            return response()->json(['message' => 'This document has been declined.'], 410);
+        if (in_array($document->status, ['VOIDED', 'DECLINED'])) {
+            return response()->json(['message' => 'This document has been declined or voided.'], 410);
         }
 
         // Generate signed URL for PDF access

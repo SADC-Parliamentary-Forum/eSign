@@ -291,7 +291,12 @@ class TemplateController extends Controller
      */
     public function approve(Request $request, $id)
     {
-        // TODO: Add authorization check for approver role
+        // Only admins may approve templates
+        $role = optional($request->user()->role)->name ?? '';
+        if (strtolower($role) !== 'admin') {
+            return response()->json(['message' => 'Only administrators can approve templates.'], 403);
+        }
+
         $template = Template::where('status', 'REVIEW')->findOrFail($id);
 
         try {

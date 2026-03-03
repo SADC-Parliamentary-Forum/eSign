@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\DocumentSigner;
 use App\Models\IdentityVerification;
+use App\Mail\OtpMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -95,9 +97,17 @@ class VerificationController extends Controller
             'expires_at' => now()->addMinutes(15),
         ]);
 
-        // Mock Email Sending (Log it for MVP / Demo)
-        // In production: Mail::to($signer->email)->send(new OtpMail($otp));
-        Log::info("OTP for Signer {$signer->email}: {$otp}");
+        // Send OTP via email
+        try {
+            Mail::to($signer->email)->send(new OtpMail($otp, $signer->email));
+        } catch (\Exception $e) {
+            Log::error('Failed to send OTP email to signer', [
+                'signer_email' => $signer->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        Log::info("OTP sent for Signer {$signer->email}");
 
         return response()->json([
             'message' => 'OTP sent to email.',
