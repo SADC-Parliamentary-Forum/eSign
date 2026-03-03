@@ -3,6 +3,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 import { getErrorMessage } from '@/utils/api'
+import { getSafeReturnUrl } from '@/utils/redirect'
 
 definePage({
   meta: {
@@ -35,8 +36,7 @@ async function handleLogin() {
     if (success) {
       // Load full user + role before redirect so name/role are correct immediately
       await authStore.fetchUser()
-      const returnUrl = route.query.returnUrl || '/'
-      router.push(returnUrl)
+      router.push(getSafeReturnUrl(route.query.returnUrl, '/'))
     }
   } catch (e) {
     error.value = getErrorMessage(e)

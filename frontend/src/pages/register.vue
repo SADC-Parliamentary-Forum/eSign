@@ -3,6 +3,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 import { ref } from 'vue'
+import { getSafeReturnUrl } from '@/utils/redirect'
 
 definePage({
   meta: {
@@ -44,9 +45,7 @@ async function handleRegister() {
     })
     
     if (success) {
-      const returnUrl = route.query.returnUrl || '/'
-
-      router.push(returnUrl)
+      router.push(getSafeReturnUrl(route.query.returnUrl, '/'))
     }
   } catch (e) {
     error.value = getErrorMessage(e)

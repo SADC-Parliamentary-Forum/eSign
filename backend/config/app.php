@@ -39,7 +39,8 @@ return [
     |
     */
 
-    'debug' => (bool) env('APP_DEBUG', env('APP_ENV') === 'local'),
+    // In production, debug is always false to prevent leaking stack traces and env details
+    'debug' => env('APP_ENV') === 'production' ? false : (bool) env('APP_DEBUG', env('APP_ENV') === 'local'),
 
     /*
     |--------------------------------------------------------------------------

@@ -21,11 +21,14 @@ return [
 
     'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')))),
 
-    // Regex patterns: allow Flutter web / Vue dev / mobile dev from any localhost port
-    'allowed_origins_patterns' => [
-        '#^https?://localhost(:\d+)?$#',
-        '#^https?://127\.0\.0\.1(:\d+)?$#',
-    ],
+    // In production, set CORS_ALLOWED_ORIGINS to exact frontend origin(s), e.g. https://esign.sadcpf.org
+    // Patterns are disabled in production so only explicit origins are allowed (credentials-safe).
+    'allowed_origins_patterns' => env('APP_ENV', 'production') === 'production'
+        ? []
+        : [
+            '#^https?://localhost(:\d+)?$#',
+            '#^https?://127\.0\.0\.1(:\d+)?$#',
+        ],
 
     'allowed_headers' => ['*'],
 

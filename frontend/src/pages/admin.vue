@@ -434,7 +434,7 @@ function openEditDepartmentDialog(dept) {
 async function createDepartment() {
   saving.value = true
   try {
-    await $api('/departments', { method: 'POST', body: departmentForm.value })
+    await $api('/admin/departments', { method: 'POST', body: departmentForm.value })
     success.value = 'Department created'
     showCreateDepartmentDialog.value = false
     await fetchDepartments()
@@ -448,7 +448,7 @@ async function createDepartment() {
 async function updateDepartment() {
   saving.value = true
   try {
-    await $api(`/departments/${selectedDepartment.value.id}`, { method: 'PUT', body: departmentForm.value })
+    await $api(`/admin/departments/${selectedDepartment.value.id}`, { method: 'PUT', body: departmentForm.value })
     success.value = 'Department updated'
     showEditDepartmentDialog.value = false
     await fetchDepartments()
@@ -465,7 +465,7 @@ async function deleteDepartment(id) {
     'Are you sure you want to delete this department?',
     async () => {
       try {
-        await $api(`/departments/${id}`, { method: 'DELETE' })
+        await $api(`/admin/departments/${id}`, { method: 'DELETE' })
         success.value = 'Department deleted'
         await fetchDepartments()
       } catch(e) {
@@ -490,7 +490,7 @@ function openEditOrgRoleDialog(role) {
 async function createOrgRole() {
   saving.value = true
   try {
-    await $api('/org-roles', { method: 'POST', body: orgRoleForm.value })
+    await $api('/admin/org-roles', { method: 'POST', body: orgRoleForm.value })
     success.value = 'Role created'
     showCreateOrgRoleDialog.value = false
     await fetchOrgRoles()
@@ -504,7 +504,7 @@ async function createOrgRole() {
 async function updateOrgRole() {
   saving.value = true
   try {
-    await $api(`/org-roles/${selectedOrgRole.value.id}`, { method: 'PUT', body: orgRoleForm.value })
+    await $api(`/admin/org-roles/${selectedOrgRole.value.id}`, { method: 'PUT', body: orgRoleForm.value })
     success.value = 'Role updated'
     showEditOrgRoleDialog.value = false
     await fetchOrgRoles()
@@ -521,7 +521,7 @@ async function deleteOrgRole(id) {
     'Are you sure you want to delete this role?',
     async () => {
       try {
-        await $api(`/org-roles/${id}`, { method: 'DELETE' })
+        await $api(`/admin/org-roles/${id}`, { method: 'DELETE' })
         success.value = 'Role deleted'
         await fetchOrgRoles()
       } catch(e) {

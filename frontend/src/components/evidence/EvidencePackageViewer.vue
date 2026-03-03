@@ -1,6 +1,9 @@
 <script setup>
 import { $api } from '@/utils/api'
+import { config } from '@/config'
 import TrustScoreIndicator from '@/components/common/TrustScoreIndicator.vue'
+
+const apiBaseUrl = config.api.baseUrl || import.meta.env.VITE_API_URL || '/api'
 
 const props = defineProps({
   documentId: {
@@ -56,7 +59,7 @@ async function downloadEvidence() {
   downloading.value = true
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/evidence/documents/${props.documentId}/download`,
+      `${apiBaseUrl}/evidence/documents/${props.documentId}/download`,
       {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

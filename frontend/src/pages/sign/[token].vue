@@ -1,11 +1,17 @@
 <script setup>
 /**
  * Public Signing Page
- * 
+ *
  * Enhanced with clear View / Approve / Reject actions
  * Supports saved signatures from user profiles
  * Embedded PDF preview for document viewing before signing
  */
+definePage({
+  meta: {
+    public: true,
+  },
+})
+
 import VuePdfEmbed from 'vue-pdf-embed'
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

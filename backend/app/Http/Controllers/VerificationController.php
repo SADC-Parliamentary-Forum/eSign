@@ -5,11 +5,27 @@ namespace App\Http\Controllers;
 use App\Models\DocumentSigner;
 use App\Models\IdentityVerification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class VerificationController extends Controller
 {
+    /**
+     * Ensure the authenticated user is the signer for the given DocumentSigner (by user_id or email).
+     */
+    private function authorizeSigner(Request $request, DocumentSigner $signer): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+        if ($signer->user_id !== null && $signer->user_id === $user->id) {
+            return true;
+        }
+        return $signer->email === $user->email;
+    }
+
     /**
      * Send email verification link.
      */
@@ -62,10 +78,9 @@ class VerificationController extends Controller
     {
         $signer = DocumentSigner::findOrFail($signerId);
 
-        // Security: Ensure the user requesting this is the signer (via token) or authorized user
-        // For guest access, we usually trust the token in URL, but here we might need validation.
-        // Assuming this endpoint is called from the signing page which has the `token`.
-        // TODO: Validate token if needed, or rely on the route middleware if it was protected.
+        if (!$this->authorizeSigner($request, $signer)) {
+            return response()->json(['message' => 'You are not authorized to request OTP for this signer.'], 403);
+        }
 
         // Generate OTP
         $otp = (string) rand(100000, 999999);
@@ -82,12 +97,11 @@ class VerificationController extends Controller
 
         // Mock Email Sending (Log it for MVP / Demo)
         // In production: Mail::to($signer->email)->send(new OtpMail($otp));
-        \Log::info("OTP for Signer {$signer->email}: {$otp}");
+        Log::info("OTP for Signer {$signer->email}: {$otp}");
 
         return response()->json([
             'message' => 'OTP sent to email.',
             'verification_id' => $verification->id,
-            'debug_otp' => $otp // REMOVE IN PRODUCTION
         ]);
     }
 
@@ -101,6 +115,10 @@ class VerificationController extends Controller
         ]);
 
         $signer = DocumentSigner::findOrFail($signerId);
+
+        if (!$this->authorizeSigner($request, $signer)) {
+            return response()->json(['message' => 'You are not authorized to verify OTP for this signer.'], 403);
+        }
 
         $verification = IdentityVerification::where('document_signer_id', $signer->id)
             ->where('verification_type', 'OTP')
@@ -143,9 +161,13 @@ class VerificationController extends Controller
     /**
      * Get verification status.
      */
-    public function getVerificationStatus($signerId)
+    public function getVerificationStatus(Request $request, $signerId)
     {
         $signer = DocumentSigner::findOrFail($signerId);
+
+        if (!$this->authorizeSigner($request, $signer)) {
+            return response()->json(['message' => 'You are not authorized to view verification status for this signer.'], 403);
+        }
 
         return response()->json([
             'is_verified' => !is_null($signer->verified_at),

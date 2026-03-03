@@ -449,9 +449,6 @@ class DocumentController extends Controller
             abort(403, 'Unauthorized access to this document.');
         }
 
-        if ($document->status === 'IN_PROGRESS') {
-            return response()->json(['message' => 'Document is still being processed. Please wait.'], 409);
-        }
 
         if ($document->status === 'FAILED') {
             return response()->json(['message' => 'Document conversion failed. Please try uploading a PDF or another file.'], 422);

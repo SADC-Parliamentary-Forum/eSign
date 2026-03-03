@@ -137,14 +137,16 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('folders/{id}/download', [App\Http\Controllers\FolderController::class, 'download']);
 
     // -------------------------------------------------------------------------
-    // Departments
+    // Departments (read-only for all authenticated; create/update/delete under admin)
     // -------------------------------------------------------------------------
-    Route::apiResource('departments', App\Http\Controllers\DepartmentController::class);
+    Route::get('departments', [App\Http\Controllers\DepartmentController::class, 'index']);
+    Route::get('departments/{department}', [App\Http\Controllers\DepartmentController::class, 'show']);
 
     // -------------------------------------------------------------------------
-    // Organizational Roles
+    // Organizational Roles (read-only for all authenticated; create/update/delete under admin)
     // -------------------------------------------------------------------------
-    Route::apiResource('org-roles', App\Http\Controllers\OrganizationalRoleController::class);
+    Route::get('org-roles', [App\Http\Controllers\OrganizationalRoleController::class, 'index']);
+    Route::get('org-roles/{organizational_role}', [App\Http\Controllers\OrganizationalRoleController::class, 'show']);
 
     // -------------------------------------------------------------------------
     // Templates
@@ -231,8 +233,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::prefix('verification')->group(function () {
         Route::post('/signers/{signerId}/email', [VerificationController::class, 'createEmailVerification']);
 
-        Route::post('/signers/{signerId}/otp', [VerificationController::class, 'createOTPVerification']);
-        Route::post('/signers/{signerId}/otp/verify', [VerificationController::class, 'verifyOTP']);
+        Route::post('/signers/{signerId}/otp', [VerificationController::class, 'createOTPVerification'])->middleware('throttle:10,1');
+        Route::post('/signers/{signerId}/otp/verify', [VerificationController::class, 'verifyOTP'])->middleware('throttle:10,1');
         Route::post('/signers/{signerId}/device', [VerificationController::class, 'createDeviceVerification']);
         Route::get('/signers/{signerId}/status', [VerificationController::class, 'getVerificationStatus']);
     });
@@ -267,5 +269,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         // Moved from general protected area
         Route::apiResource('/users', UserController::class);
         Route::get('/audit-logs', [AuditController::class, 'index']);
+
+        // Departments and org-roles: only admins can create/update/delete (read remains in main group for templates)
+        Route::apiResource('/departments', App\Http\Controllers\DepartmentController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/org-roles', App\Http\Controllers\OrganizationalRoleController::class)->only(['store', 'update', 'destroy']);
     });
 });

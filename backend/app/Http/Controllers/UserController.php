@@ -5,9 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use App\Services\AuditService;
 
 class UserController extends Controller
 {
+    public function __construct(
+        protected AuditService $auditService
+    ) {}
+
     /**
      * List all users
      */
@@ -41,6 +46,11 @@ class UserController extends Controller
             'status' => $validated['status'] ?? 'ACTIVE',
             'department' => $validated['department'] ?? null,
             'job_title' => $validated['job_title'] ?? null,
+        ]);
+
+        $this->auditService->log($request->user(), 'user_created', 'user', $user->id, [
+            'email' => $user->email,
+            'role_id' => $user->role_id,
         ]);
 
         return response()->json($user->load('role'), 201);
@@ -86,7 +96,14 @@ class UserController extends Controller
             unset($validated['password']);
         }
 
+        $roleChanged = array_key_exists('role_id', $validated) && (string) $validated['role_id'] !== (string) $user->role_id;
         $user->update($validated);
+
+        $details = [];
+        if ($roleChanged) {
+            $details['role_id'] = $validated['role_id'];
+        }
+        $this->auditService->log($currentUser, 'user_updated', 'user', $user->id, $details);
 
         return response()->json($user->load('role'));
     }
@@ -94,8 +111,10 @@ class UserController extends Controller
     /**
      * Delete user
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
+        $user = User::findOrFail($id);
+        $this->auditService->log($request->user(), 'user_deleted', 'user', $user->id, ['email' => $user->email]);
         User::destroy($id);
         return response()->json(['message' => 'User deleted']);
     }

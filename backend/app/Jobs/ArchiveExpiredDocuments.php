@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ArchiveExpiredDocuments implements ShouldQueue
@@ -34,12 +35,12 @@ class ArchiveExpiredDocuments implements ShouldQueue
         // 2. Not Archived
         // 3. Not on Legal Hold
         // 4. Past their retention period
+        $defaultRetentionDays = 3650;
         $expiredDocs = Document::whereIn('status', ['COMPLETED', 'VOIDED'])
             ->whereNull('archived_at')
             ->where('is_legal_hold', false)
-            // Use safe standard SQL or bindings if possible.
-            // Since interval is dynamic (column), we use safe string interpolation assuming column name is safe.
-            ->whereRaw("completed_at < NOW() - (COALESCE(retention_period_days, 3650) || ' DAY')::INTERVAL")
+            // Bound parameter for default retention; column retention_period_days is not user input
+            ->whereRaw("completed_at < NOW() - (COALESCE(retention_period_days, ?)::integer || ' days')::interval", [$defaultRetentionDays])
             ->get();
 
         foreach ($expiredDocs as $doc) {

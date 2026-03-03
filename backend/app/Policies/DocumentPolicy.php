@@ -63,13 +63,24 @@ class DocumentPolicy
 
     /**
      * Determine whether the user can sign the document.
+     * Requires the user to be a designated signer and to be allowed to sign at this step (e.g. their turn in sequential flow).
      */
     public function sign(User $user, Document $document): bool
     {
-        // Check if user is a designated signer (Logic depends on SignatureField or implementation)
-        // For MVP, if they can view, they might be able to sign if pending? 
-        // Better to be strict: only if they are the requested signer.
+        if ($user->role && $user->role->name === 'admin') {
+            return true;
+        }
 
-        return $this->view($user, $document); // Fallback for now
+        $signer = $document->signers()
+            ->where(function ($q) use ($user) {
+                $q->where('email', $user->email)->orWhere('user_id', $user->id);
+            })
+            ->first();
+
+        if (!$signer) {
+            return false;
+        }
+
+        return $signer->canSign();
     }
 }
