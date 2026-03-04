@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -79,7 +80,15 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->mixedCase()       // requires upper + lower
+                    ->numbers()         // requires at least one digit
+                    ->symbols()         // requires at least one special char
+                    ->uncompromised(),  // checks against known breach databases
+            ],
             'phone_number' => ['nullable', 'string', 'max:20'],
         ]);
 

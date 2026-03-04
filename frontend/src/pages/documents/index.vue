@@ -820,7 +820,6 @@ function onBulkSigned(results) {
       <VCard v-if="documents.length > 0">
         <VList
           lines="two"
-          select-strategy="classic"
         >
           <VListItem
             v-for="doc in documents"
@@ -1196,6 +1195,7 @@ function onBulkSigned(results) {
 .document-item {
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   transition: background 0.15s;
+  cursor: pointer;
 }
 
 .document-item:hover {

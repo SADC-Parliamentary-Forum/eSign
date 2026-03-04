@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_links/app_links.dart';
 import 'package:mobile/config/app_config.dart';
 import 'package:mobile/theme/app_design.dart';
 import 'services/api_service.dart';
@@ -12,6 +13,7 @@ import 'screens/templates_screen.dart';
 import 'screens/signatures_screen.dart';
 import 'screens/upload_document_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/guest_signer_screen.dart';
 import 'widgets/search_bar.dart';
 import 'widgets/loading_skeleton.dart';
 import 'widgets/error_widget.dart';
@@ -33,8 +35,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final _navigatorKey = GlobalKey<NavigatorState>();
-  // late AppLinks _appLinks; // Uncomment when package is available
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final AppLinks _appLinks = AppLinks();
 
   @override
   void initState() {
@@ -44,21 +46,41 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _initDeepLinks() async {
     try {
-      // Uncomment when app_links package is available
-      // import 'package:app_links/app_links.dart';
-      // _appLinks = AppLinks();
-      //
-      // Check initial link
-      // final appLink = await _appLinks.getInitialLink();
-      // if (appLink != null) _handleLink(appLink);
-      //
-      // Subscribe to link changes
-      // _appLinks.uriLinkStream.listen((uri) {
-      //   _handleLink(uri);
-      // });
+      // Handle link that launched the app (cold start)
+      final initialLink = await _appLinks.getInitialLink();
+      if (initialLink != null) {
+        _handleDeepLink(initialLink);
+      }
+
+      // Subscribe to links received while app is running (warm start)
+      _appLinks.uriLinkStream.listen(
+        _handleDeepLink,
+        onError: (err) => debugPrint('Deep link stream error: $err'),
+      );
     } catch (e) {
-      print('Deep links initialization error: $e');
+      debugPrint('Deep links initialization error: $e');
     }
+  }
+
+  /// Route incoming URIs to the correct screen.
+  /// Handled patterns:
+  ///   esign://sign/{token}      — native deep link
+  ///   https://*.../sign/{token} — App Link / Universal Link
+  void _handleDeepLink(Uri uri) {
+    final segments = uri.pathSegments;
+
+    // /sign/{token}
+    if (segments.length >= 2 && segments[0] == 'sign') {
+      final token = segments[1];
+      _navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => GuestSignerScreen(token: token),
+        ),
+      );
+      return;
+    }
+
+    debugPrint('Unhandled deep link: $uri');
   }
 
   @override

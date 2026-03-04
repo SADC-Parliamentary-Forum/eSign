@@ -7,6 +7,7 @@ const isDragging = ref(false)
 const fileInput = ref(null)
 const isSelfSign = ref(false)
 const isUploading = ref(false)
+const error = ref(null)
 
 function onFileChange(eventOrFiles) {
     let file = null
@@ -32,19 +33,48 @@ async function uploadSingleFile(file) {
     if (isUploading.value) return
     
     isUploading.value = true
+    error.value = null
     try {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('title', file.name.replace(/\.[^/.]+$/, ''))
         formData.append('is_self_sign', isSelfSign.value ? '1' : '0')
-        
-        const res = await $api('/documents', { method: 'POST', body: formData })
-        
-        // Go straight to prepare
+
+        // Use native fetch — ofetch's onRequest hook can corrupt the
+        // multipart/form-data boundary when it rebuilds the Headers object.
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('token')
+        const apiUrl = import.meta.env.VITE_API_URL || '/api'
+
+        // Read XSRF-TOKEN cookie (required by Laravel Sanctum)
+        const xsrfToken = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('XSRF-TOKEN='))
+            ?.split('=')[1]
+
+        const response = await fetch(`${apiUrl}/documents`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                ...(xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {}),
+                // Do NOT set Content-Type — browser sets it automatically with the correct boundary
+            },
+            body: formData,
+        })
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}))
+            const msg = data?.errors
+                ? Object.values(data.errors).flat().join(' ')
+                : data?.message || 'Upload failed'
+            throw new Error(msg)
+        }
+
+        const res = await response.json()
         router.push(`/prepare/${res.id}`)
     } catch(e) {
         console.error(e)
-        // Ideally show toast
+        error.value = e.message || 'Upload failed. Please try again.'
     } finally {
         isUploading.value = false
     }
@@ -152,6 +182,18 @@ async function uploadSingleFile(file) {
                 </div>
             </VOverlay>
         </VCard>
+
+        <!-- Upload Error -->
+        <VAlert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          class="mb-6"
+          closable
+          @click:close="error = null"
+        >
+          {{ error }}
+        </VAlert>
 
         <!-- SECONDARY ACTIONS -->
         <VRow>

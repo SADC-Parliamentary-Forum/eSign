@@ -751,12 +751,20 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> signAsGuest(String token, String signatureData) async {
+  static Future<Map<String, dynamic>?> signAsGuest(
+    String token,
+    String signatureData, {
+    String? amountInWords,
+  }) async {
     try {
+      final body = <String, dynamic>{'signature_data': signatureData};
+      if (amountInWords != null && amountInWords.isNotEmpty) {
+        body['amount_in_words'] = amountInWords;
+      }
       final response = await http.post(
         Uri.parse('$baseUrl/sign/$token/sign'),
         headers: await _getHeaders(includeAuth: false),
-        body: jsonEncode({'signature_data': signatureData}),
+        body: jsonEncode(body),
       );
       return await _handleResponse(response);
     } catch (e) {
@@ -775,6 +783,39 @@ class ApiService {
       return await _handleResponse(response);
     } catch (e) {
       print('Decline As Guest Error: $e');
+      rethrow;
+    }
+  }
+
+  // ============================================================================
+  // Amount Verification
+  // ============================================================================
+  /// Returns canonical word form for a plain numeric amount.
+  /// Calls GET /api/amount/{numeric}/words
+  static Future<Map<String, dynamic>> getAmountInWords(double amount) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/amount/$amount/words'),
+        headers: await _getHeaders(),
+      );
+      return (await _handleResponse(response)) ?? {};
+    } catch (e) {
+      print('Get Amount In Words Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Extracts the amount from a document's PDF and returns the word form.
+  /// Calls GET /api/documents/{id}/amount-words
+  static Future<Map<String, dynamic>> getDocumentAmountWords(String documentId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/documents/$documentId/amount-words'),
+        headers: await _getHeaders(),
+      );
+      return (await _handleResponse(response)) ?? {};
+    } catch (e) {
+      print('Get Document Amount Words Error: $e');
       rethrow;
     }
   }

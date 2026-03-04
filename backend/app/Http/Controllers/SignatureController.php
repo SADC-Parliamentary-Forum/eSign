@@ -135,14 +135,42 @@ class SignatureController extends Controller
                         ['field_id' => $field->id, 'type' => $field->type]
                     );
                 } else {
-                    // Text/Date/Checkbox
+                    // Text/Date/Checkbox/Amount-in-Words
                     $val = $input['value'];
-                    if ($field->type === 'CHECKBOX') {
+
+                    if ($field->type === 'AMOUNT_IN_WORDS') {
+                        /** @var \App\Services\AmountInWordsService $amountService */
+                        $amountService = app(\App\Services\AmountInWordsService::class);
+
+                        // Extract the authoritative amount from the PDF itself
+                        $docAmount = $amountService->extractAmountFromDocument($document);
+
+                        // Fall back to the stored DB amount (if PDF extraction failed)
+                        if ($docAmount === null) {
+                            $docAmount = (float) ($document->amount ?? 0);
+                        }
+
+                        if ($docAmount <= 0) {
+                            abort(422, 'Could not determine the document amount. Ensure the PDF contains a clear monetary amount.');
+                        }
+
+                        $result = $amountService->verify($docAmount, (string) $val);
+
+                        if (!$result['match']) {
+                            abort(422, sprintf(
+                                'Amount in words does not match the amount in the document. ' .
+                                'Expected: "%s". You entered: "%s".',
+                                $result['expected'],
+                                $result['provided']
+                            ));
+                        }
+                    } elseif ($field->type === 'CHECKBOX') {
                         $val = filter_var($val, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
                     }
+
                     $field->update([
                         'text_value' => (string) $val,
-                        'signed_at' => now()
+                        'signed_at' => now(),
                     ]);
                 }
             }

@@ -881,34 +881,10 @@ function deleteSelectedField() {
          <div class="flex-grow-1 overflow-y-auto mb-4">
             <div class="text-overline mb-2 text-medium-emphasis">Workflow Timeline</div>
             <workflow-timeline v-if="workflow" :steps="workflow.steps" class="mb-6" />
-            
-            <div v-if="risks.length > 0">
-               <v-divider class="my-4" />
-               <div class="text-overline mb-2 text-warning">Risk Analysis</div>
-               <v-alert
-                  v-for="(risk, i) in risks" :key="i"
-                  type="warning" variant="tonal" density="compact" class="mb-2 text-caption"
-                  :icon="false"
-               >
-                  <strong>{{ risk.term }}</strong>: {{ risk.message }}
-               </v-alert>
-            </div>
          </div>
 
          <!-- Mobile Actions -->
          <div class="pt-4 border-t">
-              <v-btn
-                block
-                variant="outlined"
-                color="primary"
-                class="mb-2"
-                prepend-icon="mdi-robot"
-                :loading="analyzing"
-                @click="analyzeDocument"
-              >
-                Run AI Analysis
-              </v-btn>
-
               <v-btn
                 v-if="document?.status === 'COMPLETED'"
                 block
@@ -1040,34 +1016,10 @@ function deleteSelectedField() {
          <div class="pa-4 flex-grow-1 overflow-y-auto">
             <div class="text-overline mb-2 text-medium-emphasis">Workflow Timeline</div>
             <workflow-timeline v-if="workflow" :steps="workflow.steps" class="mb-6" />
-            
-            <div v-if="risks.length > 0">
-               <v-divider class="my-4" />
-               <div class="text-overline mb-2 text-warning">Risk Analysis</div>
-               <v-alert
-                  v-for="(risk, i) in risks" :key="i"
-                  type="warning" variant="tonal" density="compact" class="mb-2 text-caption"
-                  :icon="false"
-               >
-                  <strong>{{ risk.term }}</strong>: {{ risk.message }}
-               </v-alert>
-            </div>
          </div>
 
          <!-- Sidebar Footer Actions -->
          <div class="pa-4 bg-grey-lighten-5 border-t">
-              <v-btn
-                block
-                variant="outlined"
-                color="primary"
-                class="mb-2"
-                prepend-icon="mdi-robot"
-                :loading="analyzing"
-                @click="analyzeDocument"
-              >
-                Run AI Analysis
-              </v-btn>
-
               <v-btn
                 v-if="document?.status === 'COMPLETED'"
                 block

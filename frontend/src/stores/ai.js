@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
-import { aiAPI } from '@/utils/api'
 
+/**
+ * AI store is intentionally disabled.
+ * AI features have been replaced by the Amount-in-Words verification feature.
+ * This stub keeps existing imports from breaking.
+ */
 export const useAIStore = defineStore('ai', {
   state: () => ({
     suggestions: [],
@@ -8,152 +12,32 @@ export const useAIStore = defineStore('ai', {
     analysis: null,
     loading: false,
     error: null,
-    lastAnalyzedFile: null, // For caching
-    retryCount: 0,
   }),
 
   getters: {
-    strongSuggestions: state => state.suggestions.filter(s => s.strength === 'STRONG'),
-    moderateSuggestions: state => state.suggestions.filter(s => s.strength === 'MODERATE'),
-    hasSuggestions: state => state.suggestions.length > 0,
-    topSuggestion: state => state.suggestions[0] || null,
-    hasStrongMatch: state => state.suggestions.some(s => s.strength === 'STRONG'),
-    isAnalyzing: state => state.loading,
+    strongSuggestions: () => [],
+    moderateSuggestions: () => [],
+    hasSuggestions: () => false,
+    topSuggestion: () => null,
+    hasStrongMatch: () => false,
+    isAnalyzing: () => false,
     hasError: state => !!state.error,
   },
 
   actions: {
-    async suggestTemplates(file, forceRefresh = false) {
-      // Check cache unless force refresh
-      if (!forceRefresh && this.lastAnalyzedFile === file?.name) {
-        return this.suggestions
-      }
-
-      // Validate file before attempting
-      if (!file || !file.name) {
-        console.warn('AI: No valid file provided for analysis')
-        return []
-      }
-
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await aiAPI.suggestTemplate(file)
-        const suggestions = response?.suggestions || response || []
-
-        this.suggestions = suggestions.sort((a, b) => b.confidence - a.confidence)
-        this.lastAnalyzedFile = file?.name
-        this.retryCount = 0
-
-        return this.suggestions
-      } catch (error) {
-        this.error = error.message || 'Failed to analyze document'
-        console.error('Failed to get template suggestions:', error)
-
-        // Retry logic - but don't retry 422 errors (validation errors)
-        if (this.retryCount < 2 && !error.message?.includes('422')) {
-          this.retryCount++
-          console.log(`Retrying AI analysis (attempt ${this.retryCount})...`)
-          return this.suggestTemplates(file, true)
-        }
-
-        // Don't throw - just return empty array so flow can continue
-        this.suggestions = []
-        return []
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async analyzeDocument(file) {
-      this.loading = true
-      this.error = null
-
-      try {
-        this.analysis = await aiAPI.analyzeDocument(file)
-        return this.analysis
-      } catch (error) {
-        this.error = error.message || 'Failed to analyze document'
-        console.error('Failed to analyze document:', error)
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async validateTemplate(templateId, file) {
-      this.loading = true
-      this.error = null
-
-      try {
-        const result = await aiAPI.validateTemplate(templateId, file)
-        return result
-      } catch (error) {
-        this.error = error.message || 'Failed to validate template'
-        console.error('Failed to validate template:', error)
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async getBestMatch(file) {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await aiAPI.getBestMatch(file)
-        this.bestMatch = response?.best_match || response
-        return this.bestMatch
-      } catch (error) {
-        this.error = error.message || 'Failed to get best match'
-        console.error('Failed to get best match:', error)
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
+    async suggestTemplates() { return [] },
+    async analyzeDocument() { return null },
+    async validateTemplate() { return null },
+    async getBestMatch() { return null },
     clearSuggestions() {
       this.suggestions = []
       this.bestMatch = null
       this.analysis = null
       this.error = null
-      this.lastAnalyzedFile = null
-      this.retryCount = 0
     },
-
-    clearError() {
-      this.error = null
-    },
-
-    getConfidenceColor(confidence) {
-      if (confidence >= 90) return 'success'
-      if (confidence >= 70) return 'info'
-      return 'warning'
-    },
-
-    getConfidenceIcon(strength) {
-      switch (strength) {
-        case 'STRONG':
-          return 'mdi-star'
-        case 'MODERATE':
-          return 'mdi-star-half-full'
-        default:
-          return 'mdi-star-outline'
-      }
-    },
-
-    getConfidenceLabel(strength) {
-      switch (strength) {
-        case 'STRONG':
-          return 'Excellent Match'
-        case 'MODERATE':
-          return 'Good Match'
-        default:
-          return 'Possible Match'
-      }
-    },
+    clearError() { this.error = null },
+    getConfidenceColor() { return 'grey' },
+    getConfidenceIcon() { return 'mdi-star-outline' },
+    getConfidenceLabel() { return 'N/A' },
   },
 })

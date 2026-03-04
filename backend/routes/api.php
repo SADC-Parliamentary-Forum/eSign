@@ -219,13 +219,11 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Route::get('/audit-logs', [AuditController::class, 'index']);
 
     // -------------------------------------------------------------------------
-    // AI Features
+    // Amount-in-Words Verification (Financial Document Signing)
     // -------------------------------------------------------------------------
-    Route::post('/documents/{id}/analyze', [App\Http\Controllers\AIController::class, 'analyze']);
-    Route::post('/ai/suggest-template', [App\Http\Controllers\AIController::class, 'suggestTemplate']);
-    Route::post('/ai/analyze-document', [App\Http\Controllers\AIController::class, 'analyzeDocument']);
-    Route::post('/ai/validate-template', [App\Http\Controllers\AIController::class, 'validateTemplateForDocument']);
-    Route::post('/ai/best-match', [App\Http\Controllers\AIController::class, 'getBestMatch']);
+    Route::get('/amount/{numeric}/words', [App\Http\Controllers\AmountVerificationController::class, 'toWords']);
+    Route::post('/amount/verify', [App\Http\Controllers\AmountVerificationController::class, 'verify']);
+    Route::get('/documents/{id}/amount-words', [App\Http\Controllers\AmountVerificationController::class, 'fromDocument']);
 
     // -------------------------------------------------------------------------
     // Identity Verification (Phase 10: Legal Defensibility)
@@ -240,9 +238,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     });
 
     // -------------------------------------------------------------------------
-    // Evidence Packages (Phase 10: Legal Defensibility)
+    // Evidence Packages (Legal Defensibility)
     // -------------------------------------------------------------------------
-    // TODO: Implement EvidencePackageController
     Route::prefix('evidence')->group(function () {
         Route::get('/documents/{id}', [App\Http\Controllers\EvidencePackageController::class, 'show']);
         Route::post('/documents/{id}/generate', [App\Http\Controllers\EvidencePackageController::class, 'generate']);
@@ -254,11 +251,23 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/delegations', [App\Http\Controllers\DelegationController::class, 'store']);
     Route::delete('/delegations/{id}', [App\Http\Controllers\DelegationController::class, 'destroy']);
 
-    // Compliance (Admin)
-    // TODO: Implement ComplianceController
-    // Route::post('/compliance/rules', [App\Http\Controllers\ComplianceController::class, 'store']);
     // -------------------------------------------------------------------------
-    // Admin Routes
+    // Compliance (Admin)
+    // -------------------------------------------------------------------------
+    Route::prefix('compliance')->middleware(['admin'])->group(function () {
+        // Rule CRUD
+        Route::get('/rules', [App\Http\Controllers\ComplianceController::class, 'index']);
+        Route::post('/rules', [App\Http\Controllers\ComplianceController::class, 'store']);
+        Route::get('/rules/{id}', [App\Http\Controllers\ComplianceController::class, 'show']);
+        Route::put('/rules/{id}', [App\Http\Controllers\ComplianceController::class, 'update']);
+        Route::delete('/rules/{id}', [App\Http\Controllers\ComplianceController::class, 'destroy']);
+
+        // Document compliance actions (admin or owner, checked in controller)
+        Route::post('/documents/{id}/evaluate', [App\Http\Controllers\ComplianceController::class, 'evaluate']);
+        Route::post('/documents/{id}/legal-hold', [App\Http\Controllers\ComplianceController::class, 'toggleLegalHold']);
+        Route::get('/documents/{id}/status', [App\Http\Controllers\ComplianceController::class, 'status']);
+    });
+
     // -------------------------------------------------------------------------
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/logs/system', [App\Http\Controllers\SystemLogController::class, 'show']);

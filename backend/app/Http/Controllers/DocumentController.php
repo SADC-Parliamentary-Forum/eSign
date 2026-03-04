@@ -133,7 +133,7 @@ class DocumentController extends Controller
                 'file',
                 'mimes:pdf,docx,doc,xls,xlsx,jpg,jpeg,png,gif,webp,bmp,tiff,tif',
                 'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff',
-                'max:10240',
+                'max:25600',
             ],
             'template_id' => 'required_without:file|exists:templates,id',
             'signature_level' => 'nullable|string',

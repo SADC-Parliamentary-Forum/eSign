@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../services/api_service.dart';
+import '../theme/app_design.dart';
 import 'dart:convert';
 
 class GuestSignerScreen extends StatefulWidget {
@@ -24,15 +25,34 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
   bool _isSigning = false;
   String? _errorMessage;
 
+  // Amount-in-words state
+  String? _expectedAmountWords;
+  final TextEditingController _amountWordsController = TextEditingController();
+  bool? _amountWordsMatch;
+
+  bool get _hasAmountField {
+    final fields = _document?['fields'] as List?;
+    if (fields == null) return false;
+    return fields.any((f) => f['type'] == 'AMOUNT_IN_WORDS');
+  }
+
+  double? get _documentAmount {
+    final amount = _document?['amount'];
+    if (amount == null) return null;
+    return double.tryParse(amount.toString());
+  }
+
   @override
   void initState() {
     super.initState();
     _loadDocument();
+    _amountWordsController.addListener(_onAmountWordsChanged);
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _amountWordsController.dispose();
     super.dispose();
   }
 
@@ -43,6 +63,11 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
         _document = doc;
         _isLoading = false;
       });
+      // Fetch the canonical word form from the PDF for hint display
+      final docId = doc['id']?.toString();
+      if (docId != null && _hasAmountField) {
+        _fetchExpectedWords(docId);
+      }
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -51,10 +76,55 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
     }
   }
 
+  Future<void> _fetchExpectedWords(String documentId) async {
+    try {
+      final result = await ApiService.getDocumentAmountWords(documentId);
+      if (mounted) {
+        setState(() => _expectedAmountWords = result['words'] as String?);
+      }
+    } catch (_) {
+      // Non-critical — hint will just not appear
+    }
+  }
+
+  void _onAmountWordsChanged() {
+    if (_expectedAmountWords == null) return;
+    final typed = _amountWordsController.text.trim();
+    final expected = _expectedAmountWords!.trim();
+    setState(() {
+      _amountWordsMatch = typed.toLowerCase() == expected.toLowerCase();
+    });
+  }
+
   Future<void> _signDocument() async {
+    // If this document has an AMOUNT_IN_WORDS field, validate it first
+    if (_hasAmountField) {
+      if (_amountWordsController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter the amount in words before signing.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      if (_amountWordsMatch == false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Amount in words does not match.\nExpected: "${_expectedAmountWords}"',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+    }
+
     if (_controller.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign before submitting')),
+        const SnackBar(content: Text('Please draw your signature before submitting')),
       );
       return;
     }
@@ -68,7 +138,8 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
       final data = await _controller.toPngBytes();
       if (data != null) {
         final base64Signature = 'data:image/png;base64,${base64Encode(data)}';
-        await ApiService.signAsGuest(widget.token, base64Signature);
+        final amountWords = _hasAmountField ? _amountWordsController.text.trim() : null;
+        await ApiService.signAsGuest(widget.token, base64Signature, amountInWords: amountWords);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -82,7 +153,7 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     } finally {
       if (mounted) setState(() => _isSigning = false);
@@ -142,18 +213,18 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Sign Document'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: AppDesign.primary,
           foregroundColor: Colors.white,
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (_errorMessage != null || _document == null) {
+    if (_errorMessage != null && _document == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Sign Document'),
-          backgroundColor: const Color(0xFF2D3748),
+          backgroundColor: AppDesign.primary,
           foregroundColor: Colors.white,
         ),
         body: Center(
@@ -162,7 +233,10 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              Text(_errorMessage ?? 'Document not found'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(_errorMessage!, textAlign: TextAlign.center),
+              ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.pop(context),
@@ -177,11 +251,12 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_document!['title'] ?? 'Sign Document'),
-        backgroundColor: const Color(0xFF2D3748),
+        backgroundColor: AppDesign.primary,
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
+          // PDF Preview
           Expanded(
             child: Container(
               color: Colors.grey[200],
@@ -202,6 +277,8 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
               ),
             ),
           ),
+
+          // Signing Controls
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
@@ -211,7 +288,23 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Draw your signature below:', style: TextStyle(fontWeight: FontWeight.bold)),
+
+                // ─── Amount in Words Field ───────────────────────────────
+                if (_hasAmountField) ...[
+                  _AmountInWordsField(
+                    controller: _amountWordsController,
+                    expectedWords: _expectedAmountWords,
+                    numericAmount: _documentAmount,
+                    isMatch: _amountWordsMatch,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // ─── Signature Pad ───────────────────────────────────────
+                const Text(
+                  'Draw your signature below:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
@@ -220,24 +313,29 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
                   ),
                   child: Signature(
                     controller: _controller,
-                    height: 200,
+                    height: 160,
                     backgroundColor: Colors.white,
                   ),
                 ),
+
                 if (_errorMessage != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
                   ),
+
                 const SizedBox(height: 16),
+
+                // ─── Actions ─────────────────────────────────────────────
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _isSigning ? null : _declineDocument,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                         child: const Text('Decline'),
                       ),
                     ),
@@ -247,13 +345,16 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
                       child: FilledButton(
                         onPressed: _isSigning ? null : _signDocument,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF2F855A),
+                          backgroundColor: AppDesign.statusCompleted,
                         ),
                         child: _isSigning
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Sign Document'),
                       ),
@@ -265,6 +366,117 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Amount in Words Input Widget ─────────────────────────────────────────────
+
+class _AmountInWordsField extends StatelessWidget {
+  final TextEditingController controller;
+  final String? expectedWords;
+  final double? numericAmount;
+  final bool? isMatch;
+
+  const _AmountInWordsField({
+    required this.controller,
+    required this.expectedWords,
+    required this.numericAmount,
+    required this.isMatch,
+  });
+
+  Color get _borderColor {
+    if (isMatch == null || controller.text.isEmpty) return Colors.grey.shade400;
+    return isMatch! ? Colors.green : Colors.red;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row with amount badge
+        Row(
+          children: [
+            const Icon(Icons.payments_outlined, size: 18, color: Color(0xFF1e3a5f)),
+            const SizedBox(width: 6),
+            const Text(
+              'Amount in Words',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const Spacer(),
+            if (numericAmount != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1e3a5f).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'ZAR ${numericAmount!.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1e3a5f),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        // Helper text showing the expected format
+        if (expectedWords != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Expected: $expectedWords',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
+            ),
+          ),
+
+        // Text input
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            border: Border.all(color: _borderColor, width: 1.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: 'e.g. One Thousand Five Hundred Rand and Zero Cents',
+              hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.all(12),
+              suffixIcon: isMatch == null
+                  ? null
+                  : Icon(
+                      isMatch! ? Icons.check_circle : Icons.cancel,
+                      color: isMatch! ? Colors.green : Colors.red,
+                    ),
+            ),
+            textCapitalization: TextCapitalization.words,
+            maxLines: 2,
+          ),
+        ),
+
+        // Match/mismatch feedback
+        if (isMatch != null && controller.text.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              isMatch!
+                  ? '✓ Amount in words matches'
+                  : '✗ Does not match — please check your spelling',
+              style: TextStyle(
+                fontSize: 11,
+                color: isMatch! ? Colors.green[700] : Colors.red[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
