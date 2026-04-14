@@ -4,7 +4,7 @@
  * Uses same drag/drop field editing, signer management, etc.
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import VuePdfEmbed from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 import { useRoute, useRouter } from 'vue-router'
 import { useTemplateStore } from '@/stores/templates'
 import { useDisplay } from 'vuetify'
@@ -963,3 +963,4 @@ function handleKeydown(e) {
 @media (max-width: 960px) { .left-sidebar, .right-sidebar { display: none; } }
 @media (max-width: 600px) { .header-bar { padding: 6px 12px; } .pdf-scroll { padding: 12px; } }
 </style>
+

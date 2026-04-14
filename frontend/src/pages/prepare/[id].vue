@@ -7,7 +7,7 @@
  * - Elegant field placement
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import VuePdfEmbed from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
@@ -2197,3 +2197,4 @@ async function handleSelfSign() {
   }
 }
 </style>
+

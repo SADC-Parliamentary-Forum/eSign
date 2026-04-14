@@ -4,7 +4,7 @@
  * Supports draw-to-place field creation and field manipulation
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import VuePdfEmbed from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 
 const props = defineProps({
   pdfSource: {
@@ -517,3 +517,4 @@ const drawingRect = computed(() => {
   background-color: rgba(var(--v-theme-primary), 0.1);
 }
 </style>
+

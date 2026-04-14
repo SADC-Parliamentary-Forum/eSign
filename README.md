@@ -182,10 +182,13 @@ If the console shows **"violates the following Content Security Policy directive
 
 To allow the app and reCAPTCHA to work when you use an **enforcing** CSP, include at least:
 
-- **script-src:** your app origin (e.g. `https://esign.sadcpf.org`), `https://www.google.com` (reCAPTCHA), and if you use inline scripts, `'unsafe-inline'` or script hashes/nonces.
-- **frame-src** (if using reCAPTCHA checkbox): `https://www.recaptcha.net` (and/or `https://www.google.com`).
+- **script-src / script-src-elem:** your app origin plus reCAPTCHA hosts (https://www.google.com, https://www.gstatic.com, https://www.recaptcha.net).
+- **worker-src:** 'self' so PDF.js worker can load from bundled assets.
+- **style-src / style-src-elem:** 'self' and https://fonts.googleapis.com (MDI is served locally).
+- **font-src:** 'self' and https://fonts.gstatic.com.
+- **frame-src** (if using reCAPTCHA checkbox): https://www.recaptcha.net and/or https://www.google.com.
 
-Where to change it depends on your setup (e.g. Cloudflare Dashboard → Security → Settings, or Nginx `add_header`, or Laravel middleware). This repo does not set CSP by default.
+Where to change it depends on your setup (e.g. Cloudflare Dashboard → Security → Settings, or Nginx `add_header`, or Laravel middleware). This repo sets CSP in `production/nginx.conf` and `docker/nginx/conf.d/esign.conf`; upstream proxies (e.g. Cloudflare) can still override it.
 
 ### Mobile / Flutter web: "Failed to fetch" when logging in from localhost
 
@@ -211,3 +214,4 @@ To find the **cause** of the restart:
 
 - **Recent restarts:** Run `docker events --filter type=container --filter container=esign_app` (or `docker compose -f docker-compose.prod.yml events`) and look for `die`/`oom` vs. `restart`/`create` to see if the container exited or was recreated manually.
 - **Logs from before the restart:** Run `docker compose logs app --since 30m` and look at the **last lines before** the entrypoint output (e.g. "Syncing public assets...", "Starting Supervisor..."). Look for OOM, PHP fatals, or Reverb/worker exits.
+

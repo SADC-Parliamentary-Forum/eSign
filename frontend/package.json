@@ -19,6 +19,8 @@
     "@floating-ui/dom": "1.6.8",
     "@formkit/drag-and-drop": "0.1.6",
     "@iconify-json/bxl": "1.2.2",
+    "@mdi/font": "^7.4.47",
+    "@sentry/vue": "^10.42.0",
     "@sindresorhus/is": "7.1.1",
     "@tiptap/extension-highlight": "^2.27.1",
     "@tiptap/extension-image": "^2.27.1",
@@ -55,11 +57,11 @@
     "vue-i18n": "11.1.12",
     "vue-pdf-embed": "^2.1.3",
     "vue-prism-component": "2.0.0",
+    "vue-recaptcha-v3": "^2.0.1",
     "vue-router": "4.5.1",
     "vue3-apexcharts": "1.5.3",
     "vue3-perfect-scrollbar": "2.0.0",
     "vuetify": "3.10.8",
-    "vue-recaptcha-v3": "^2.0.1",
     "webfontloader": "1.6.28"
   },
   "devDependencies": {
@@ -135,3 +137,5 @@
     "workerDirectory": "public"
   }
 }
+
+

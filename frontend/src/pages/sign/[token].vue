@@ -12,7 +12,7 @@ definePage({
   },
 })
 
-import VuePdfEmbed from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth' // Import auth store
@@ -1301,3 +1301,4 @@ const hasSavedInitials = computed(() => savedInitials.value.length > 0)
   justify-content: center;
 }
 </style>
+

@@ -5,7 +5,7 @@
  * No tabs, no review workflow, no thresholds
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import VuePdfEmbed from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 import { useRoute, useRouter } from 'vue-router'
 import { useTemplateStore } from '@/stores/templates'
 import { useOrganizationStore } from '@/stores/organization'
@@ -135,7 +135,6 @@ async function fetchTemplate() {
       const blob = await response.blob()
       pdfSource.value = {
         url: URL.createObjectURL(blob),
-        standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@5.4.530/standard_fonts/',
       }
     }
     
@@ -1063,3 +1062,5 @@ function handleKeydown(e) {
 @media (max-width: 960px) { .left-sidebar, .right-sidebar { display: none; } }
 @media (max-width: 600px) { .header-bar { padding: 6px 12px; } .pdf-scroll { padding: 12px; } }
 </style>
+
+

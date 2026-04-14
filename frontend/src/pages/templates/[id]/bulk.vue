@@ -1,5 +1,5 @@
 <script setup>
-import VuePdfEmbed from 'vue-pdf-embed'
+import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 import { useTemplateStore } from '@/stores/templates'
 
 const route = useRoute()
@@ -402,3 +402,4 @@ function handleDocumentLoad(pdf) {
   border-style: dashed !important;
 }
 </style>
+
