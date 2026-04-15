@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { $api } from '@/utils/api'
+import { config } from '@/config'
 import * as Sentry from '@sentry/vue'
 import { logger } from '@/utils/logger'
 
@@ -48,11 +49,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email, password) {
     try {
       // 1. Get CSRF Cookie
-      // Helper to handle relative path issue if API_URL includes /api
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
-      const csrfUrl = apiUrl.endsWith('/api')
-        ? apiUrl.replace('/api', '/sanctum/csrf-cookie')
-        : `${apiUrl}/sanctum/csrf-cookie`
+      const apiBaseUrl = config.api.baseUrl || '/api'
+      const normalizedApiBaseUrl = apiBaseUrl.replace(/\/+$/, '')
+      const csrfUrl = normalizedApiBaseUrl.endsWith('/api')
+        ? `${normalizedApiBaseUrl.slice(0, -4)}/sanctum/csrf-cookie`
+        : `${normalizedApiBaseUrl}/sanctum/csrf-cookie`
 
       await $api(csrfUrl, { method: 'GET' })
 
