@@ -1,4 +1,4 @@
-import { GlobalWorkerOptions } from 'vue-pdf-embed/dist/index.essential.mjs'
+import { GlobalWorkerOptions } from 'pdfjs-dist'
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 
 GlobalWorkerOptions.workerSrc = PdfWorker

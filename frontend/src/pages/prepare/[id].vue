@@ -8,10 +8,13 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
-import { getDocument } from 'pdfjs-dist'
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
+
+GlobalWorkerOptions.workerSrc = PdfWorker
 
 // Core states
 const route = useRoute()
