@@ -1194,16 +1194,23 @@ async function handleSelfSign() {
         </div>
 
         <div v-else-if="pdfSource" class="pdf-scroll">
-          <!-- Hidden loader for page count -->
-          <div style="display: none;">
-            <VuePdfEmbed
-              v-if="pageCount === 0"
-              :source="pdfSource"
-              @loaded="handleDocumentLoad"
-            />
+          <div
+            v-if="pageCount === 0"
+            class="pdf-page-wrapper"
+          >
+            <div class="pdf-page" :style="{ width: pdfWidth + 'px' }">
+              <VuePdfEmbed
+                :source="pdfSource"
+                :page="1"
+                :width="pdfWidth"
+                @loaded="handleDocumentLoad"
+              />
+            </div>
+            <div class="page-indicator">Loading pages...</div>
           </div>
 
-          <div 
+          <div
+            v-else
             v-for="page in pageCount" 
             :key="page" 
             class="pdf-page-wrapper"
