@@ -56,3 +56,7 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.temp
+backend/composer_error.txt
+backend/composer_error2.txt
+backend/composer_error3.txt
+backend/composer_error4.txt

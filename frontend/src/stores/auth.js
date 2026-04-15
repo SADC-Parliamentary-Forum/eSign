@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { $api } from '@/utils/api'
+import * as Sentry from '@sentry/vue'
+import { logger } from '@/utils/logger'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token'))
@@ -21,6 +23,14 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (newUser) {
       localStorage.setItem('user', JSON.stringify(newUser))
+
+      if (Sentry.getCurrentHub && Sentry.getCurrentHub().getClient()) {
+        Sentry.setUser({
+          id: newUser.id,
+          email: newUser.email,
+          ip_address: '{{auto}}' // Let Sentry/GlitchTip capture from server IP
+        })
+      }
     }
   }
 
@@ -29,6 +39,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+
+    if (Sentry.getCurrentHub && Sentry.getCurrentHub().getClient()) {
+      Sentry.setUser(null)
+    }
   }
 
   async function login(email, password) {
@@ -48,8 +62,6 @@ export const useAuthStore = defineStore('auth', () => {
         body: { email, password },
       })
 
-      console.log('Login Response:', data)
-
       if (!data.access_token && !data.token) {
         throw new Error('Login failed: No access token received from server.')
       }
@@ -60,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return true
     } catch (error) {
-      console.error(error)
+      logger.captureError(error, { context: 'login' })
       const status = error?.status || error?.response?.status
       if (status >= 500 && status < 600) {
         throw new Error('Server is temporarily unavailable (error ' + status + '). Please try again in a few minutes.')
@@ -79,7 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
       setAuth(data.access_token, data.user)
       return true
     } catch (error) {
-      console.error(error)
+      logger.captureError(error, { context: 'register' })
       throw error
     }
   }
@@ -95,7 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       return userData
     } catch (error) {
-      console.error('Failed to fetch user:', error)
+      logger.captureError(error, { context: 'fetchUser' })
       const status = error?.status || error?.response?.status
       if (status >= 500 && status < 600) {
         throw new Error('Server is temporarily unavailable. Please try again later.')
@@ -116,7 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return true
     } catch (error) {
-      console.error(error)
+      logger.captureError(error, { context: 'forgotPassword' })
       throw error
     }
   }
@@ -129,7 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
       })
       return true
     } catch (error) {
-      console.error(error)
+      logger.captureError(error, { context: 'resetPassword' })
       throw error
     }
   }

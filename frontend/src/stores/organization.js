@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia'
+import { $api } from '@/utils/api'
+import { logger } from '@/utils/logger'
 
 export const useOrganizationStore = defineStore('organization', {
     state: () => ({
@@ -23,7 +25,7 @@ export const useOrganizationStore = defineStore('organization', {
                 this.departments = await $api('/departments')
             } catch (error) {
                 this.error = error.message
-                console.error('Failed to fetch departments:', error)
+                logger.warn('Failed to fetch departments', { status: error?.status })
             } finally {
                 this.loading = false
             }
@@ -35,7 +37,7 @@ export const useOrganizationStore = defineStore('organization', {
                 this.roles = await $api('/org-roles')
             } catch (error) {
                 this.error = error.message
-                console.error('Failed to fetch organizational roles:', error)
+                logger.warn('Failed to fetch organizational roles', { status: error?.status })
             } finally {
                 this.loading = false
             }

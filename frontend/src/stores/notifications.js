@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { $api } from '@/utils/api'
+import { logger } from '@/utils/logger'
 
 export const useNotificationStore = defineStore('notifications', {
   state: () => ({
@@ -61,7 +62,7 @@ export const useNotificationStore = defineStore('notifications', {
         }))
         this.unreadCount = this.notifications.filter(n => !n.read).length
       } catch (error) {
-        console.error('Failed to fetch notifications:', error)
+        logger.warn('Failed to fetch notifications', { status: error?.status })
       } finally {
         this.loading = false
       }

@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ensure CORS is handled for API routes
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\RequestLogger::class,
         ]);
 
         // Exclude Login from CSRF (Use Token Auth instead of Session for Login)
@@ -38,6 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Integrate Sentry for error tracking
+        \Sentry\Laravel\Integration::handles($exceptions);
+
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
             if ($request->is('api/*')) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);

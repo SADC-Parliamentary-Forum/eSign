@@ -215,3 +215,14 @@ To find the **cause** of the restart:
 - **Recent restarts:** Run `docker events --filter type=container --filter container=esign_app` (or `docker compose -f docker-compose.prod.yml events`) and look for `die`/`oom` vs. `restart`/`create` to see if the container exited or was recreated manually.
 - **Logs from before the restart:** Run `docker compose logs app --since 30m` and look at the **last lines before** the entrypoint output (e.g. "Syncing public assets...", "Starting Supervisor..."). Look for OOM, PHP fatals, or Reverb/worker exits.
 
+### Production build fails at `npm ci`
+
+The production image uses `npm ci --ignore-scripts` in [`docker/production/Dockerfile`](/C:/dev/esign/docker/production/Dockerfile:7), so the deployed `frontend/package.json` and `frontend/package-lock.json` must come from the same commit. If Docker reports that a package is missing from the lock file, verify the server checkout first:
+
+```bash
+cd frontend
+npm run check:lock-sync
+```
+
+If that check fails, regenerate the lock file with `npm install`, commit both files together, redeploy the updated checkout, and rebuild with `docker compose -f docker-compose.prod.yml up -d --build`.
+

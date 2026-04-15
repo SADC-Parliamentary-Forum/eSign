@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { $api } from '@/utils/api'
+import { logger } from '@/utils/logger'
 
 export const useAppStore = defineStore('app', {
     state: () => ({
@@ -24,7 +25,7 @@ export const useAppStore = defineStore('app', {
             } catch (error) {
                 // Silently handle 403 Forbidden errors (e.g. for non-admin users)
                 if (error.response?.status !== 403) {
-                    console.error('Failed to fetch app settings:', error)
+                    logger.warn('Failed to fetch app settings', { status: error.response?.status })
                 }
             } finally {
                 this.loading = false

@@ -56,6 +56,15 @@ php artisan route:cache
 php artisan view:cache
 php artisan event:cache
 
+# Artisan commands above run as root during container startup and can recreate
+# storage/logs files with root ownership. Restore writable ownership before
+# handing requests to php-fpm, which runs as www-data.
+mkdir -p /var/www/html/storage/logs
+touch /var/www/html/storage/logs/laravel.log
+touch /var/www/html/storage/logs/esign.log
+chown -R www-data:www-data /var/www/html/storage
+chmod -R 775 /var/www/html/storage
+
 # Run migrations forced
 # Wait for Database
 echo "Waiting for Database..."

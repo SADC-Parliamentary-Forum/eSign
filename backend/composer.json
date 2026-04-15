@@ -20,7 +20,13 @@
         "setasign/fpdf": "^1.8",
         "setasign/fpdi": "^2.6",
         "smalot/pdfparser": "^2.11",
-        "tecnickcom/tcpdf": "^6.10"
+        "tecnickcom/tcpdf": "^6.10",
+        "sentry/sentry-laravel": "^4.0"
+    },
+    "conflict": {
+        "symfony/css-selector": ">=8.0.0",
+        "symfony/filesystem": ">=8.0.0",
+        "symfony/event-dispatcher": ">=8.0.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -70,6 +76,9 @@
         }
     },
     "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,

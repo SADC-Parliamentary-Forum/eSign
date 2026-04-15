@@ -1,4 +1,5 @@
 import { ofetch } from 'ofetch'
+import { logger } from '@/utils/logger'
 
 import { config } from '@/config'
 
@@ -59,7 +60,7 @@ export const $api = ofetch.create({
             options.headers.set('X-Human-Token', token)
           }
         } catch (e) {
-          console.warn('Bot Protection Token Check Failed', e)
+          logger.warn('Bot Protection Token Check Failed', { error: e?.message })
         }
       }
     }

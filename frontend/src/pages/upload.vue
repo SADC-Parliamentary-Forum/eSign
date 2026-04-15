@@ -1,6 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
+import { logger } from '@/utils/logger'
 
 const router = useRouter()
 const isDragging = ref(false)
@@ -73,7 +74,7 @@ async function uploadSingleFile(file) {
         const res = await response.json()
         router.push(`/prepare/${res.id}`)
     } catch(e) {
-        console.error(e)
+        logger.captureError(e, { context: 'uploadSingleFile' })
         error.value = e.message || 'Upload failed. Please try again.'
     } finally {
         isUploading.value = false

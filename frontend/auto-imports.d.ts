@@ -63,6 +63,7 @@ declare global {
   const getCurrentScope: typeof import('vue')['getCurrentScope']
   const getErrorMessage: typeof import('./src/utils/api.js')['getErrorMessage']
   const getReadableDate: typeof import('./src/utils/accessibility.js')['getReadableDate']
+  const getSafeReturnUrl: typeof import('./src/utils/redirect.js')['getSafeReturnUrl']
   const getStatusDescription: typeof import('./src/utils/accessibility.js')['getStatusDescription']
   const h: typeof import('vue')['h']
   const hexToRgb: typeof import('./src/@core/utils/colorConverter.js')['hexToRgb']
@@ -82,6 +83,7 @@ declare global {
   const isToday: typeof import('./src/@core/utils/helpers.js')['isToday']
   const kFormatter: typeof import('./src/@core/utils/formatters.js')['kFormatter']
   const lengthValidator: typeof import('./src/@core/utils/validators.js')['lengthValidator']
+  const logger: typeof import('./src/utils/logger.js')['logger']
   const logicAnd: typeof import('@vueuse/math')['logicAnd']
   const logicNot: typeof import('@vueuse/math')['logicNot']
   const logicOr: typeof import('@vueuse/math')['logicOr']
@@ -388,7 +390,6 @@ declare module 'vue' {
     readonly COOKIE_MAX_AGE_1_YEAR: UnwrapRef<typeof import('./src/utils/constants.js')['COOKIE_MAX_AGE_1_YEAR']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly acceptHMRUpdate: UnwrapRef<typeof import('pinia')['acceptHMRUpdate']>
-    readonly aiAPI: UnwrapRef<typeof import('./src/utils/api.js')['aiAPI']>
     readonly alphaDashValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['alphaDashValidator']>
     readonly alphaValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['alphaValidator']>
     readonly announce: UnwrapRef<typeof import('./src/utils/accessibility.js')['announce']>
@@ -441,6 +442,7 @@ declare module 'vue' {
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getErrorMessage: UnwrapRef<typeof import('./src/utils/api.js')['getErrorMessage']>
     readonly getReadableDate: UnwrapRef<typeof import('./src/utils/accessibility.js')['getReadableDate']>
+    readonly getSafeReturnUrl: UnwrapRef<typeof import('./src/utils/redirect.js')['getSafeReturnUrl']>
     readonly getStatusDescription: UnwrapRef<typeof import('./src/utils/accessibility.js')['getStatusDescription']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly hexToRgb: UnwrapRef<typeof import('./src/@core/utils/colorConverter.js')['hexToRgb']>
@@ -460,6 +462,7 @@ declare module 'vue' {
     readonly isToday: UnwrapRef<typeof import('./src/@core/utils/helpers.js')['isToday']>
     readonly kFormatter: UnwrapRef<typeof import('./src/@core/utils/formatters.js')['kFormatter']>
     readonly lengthValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['lengthValidator']>
+    readonly logger: UnwrapRef<typeof import('./src/utils/logger.js')['logger']>
     readonly logicAnd: UnwrapRef<typeof import('@vueuse/math')['logicAnd']>
     readonly logicNot: UnwrapRef<typeof import('@vueuse/math')['logicNot']>
     readonly logicOr: UnwrapRef<typeof import('@vueuse/math')['logicOr']>

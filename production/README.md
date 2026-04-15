@@ -33,6 +33,13 @@ cp .env.production.example .env
 
 ### 2. Start Services
 
+Before rebuilding, verify the frontend manifest and lock file in the deployed checkout are in sync:
+```bash
+cd ../frontend
+npm run check:lock-sync
+cd ..
+```
+
 Run the application stack:
 ```bash
 docker-compose up -d --build
@@ -63,6 +70,7 @@ Then open `http://localhost:9001` in your browser.
 
 - **Logs**: `docker-compose logs -f app`
 - **Update**: `git pull && docker-compose build && docker-compose up -d`
+- **Frontend dependency drift**: If the production build fails in the frontend stage, run `cd frontend && npm run check:lock-sync`. If it reports a mismatch, regenerate the lock file with `npm install`, commit both `package.json` and `package-lock.json`, redeploy, then rebuild.
 
 ### Intermittent 502 / Connection refused
 

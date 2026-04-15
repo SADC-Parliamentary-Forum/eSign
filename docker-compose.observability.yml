@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: glitchtip
+      POSTGRES_PASSWORD: glitchtip_password
+      POSTGRES_DB: glitchtip
+    restart: unless-stopped
+    volumes:
+      - glitchtip_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glitchtip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - glitchtip-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - glitchtip_redis_data:/data
+    networks:
+      - glitchtip-network
+
+  web:
+    image: glitchtip/glitchtip:latest
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8080:8000"
+    environment:
+      DATABASE_URL: postgres://glitchtip:glitchtip_password@db:5432/glitchtip
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change_me_to_a_random_string}
+      PORT: 8000
+      GLITCHTIP_DOMAIN: http://localhost:8080
+      EMAIL_URL: consolemail://
+      # Enable signups temporarily to make the first account, then you can set to False
+      ENABLE_USER_REGISTRATION: "True"
+    restart: unless-stopped
+    volumes:
+      - glitchtip_uploads:/code/uploads
+    networks:
+      - glitchtip-network
+
+  worker:
+    image: glitchtip/glitchtip:latest
+    command: ./bin/run-celery-with-beat.sh
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://glitchtip:glitchtip_password@db:5432/glitchtip
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change_me_to_a_random_string}
+      GLITCHTIP_DOMAIN: http://localhost:8080
+      EMAIL_URL: consolemail://
+    restart: unless-stopped
+    volumes:
+      - glitchtip_uploads:/code/uploads
+    networks:
+      - glitchtip-network
+
+volumes:
+  glitchtip_pg_data:
+  glitchtip_redis_data:
+  glitchtip_uploads:
+
+networks:
+  glitchtip-network:
+    driver: bridge

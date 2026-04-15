@@ -4,7 +4,8 @@ FROM node:20 as frontend
 WORKDIR /app
 
 COPY frontend/package*.json ./
-RUN npm ci --ignore-scripts
+COPY frontend/scripts/check-lock-sync.mjs ./scripts/check-lock-sync.mjs
+RUN node scripts/check-lock-sync.mjs && npm ci --ignore-scripts
 
 COPY frontend/ .
 # Rebuild dependencies (like esbuild) that were skipped and run setup scripts

@@ -378,6 +378,8 @@
     "formatDateTime": true,
     "formatRelative": true,
     "formatDateIntl": true,
-    "getErrorMessage": true
+    "getErrorMessage": true,
+    "getSafeReturnUrl": true,
+    "logger": true
   }
 }

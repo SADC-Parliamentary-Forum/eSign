@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useNotificationStore } from '@/stores/notifications'
 import { useWorkflowStore } from '@/stores/workflows'
 import { useAuthStore } from '@/stores/auth'
+import { logger } from '@/utils/logger'
 
 export function useRealTimeNotifications() {
   const notificationStore = useNotificationStore()
@@ -17,7 +18,7 @@ export function useRealTimeNotifications() {
   function setupListeners() {
     const echo = window.Echo
     if (!echo) {
-      console.warn('Echo not initialized - WebSocket features disabled')
+      logger.warn('Echo not initialized - WebSocket features disabled')
       connectionStatus.value = 'error'
       return
     }
@@ -27,7 +28,7 @@ export function useRealTimeNotifications() {
     // Get user ID from auth store or localStorage
     const userId = authStore.user?.id || localStorage.getItem('user_id')
     if (!userId) {
-      console.warn('No user ID found for WebSocket subscription')
+      logger.warn('No user ID found for WebSocket subscription')
       return
     }
 
@@ -38,7 +39,7 @@ export function useRealTimeNotifications() {
           handleNotification(notification)
         })
         .error(error => {
-          console.error('Private channel error:', error)
+          logger.error('Private channel error', { code: error?.status || error?.type })
           handleConnectionError()
         })
 
@@ -70,9 +71,9 @@ export function useRealTimeNotifications() {
       connectionStatus.value = 'connected'
       reconnectAttempts.value = 0
 
-      console.log('Real-time notifications connected')
+      logger.info('Real-time notifications connected')
     } catch (error) {
-      console.error('Failed to setup WebSocket listeners:', error)
+      logger.captureError(error, { context: 'WebSocket setup' })
       handleConnectionError()
     }
   }
@@ -211,14 +212,14 @@ export function useRealTimeNotifications() {
       const delay = Math.pow(2, reconnectAttempts.value) * 1000
       reconnectAttempts.value++
 
-      console.log(`WebSocket reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts.value}/${maxReconnectAttempts})`)
+      logger.info(`WebSocket reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts.value}/${maxReconnectAttempts})`)
 
       reconnectTimeout = setTimeout(() => {
         connectionStatus.value = 'connecting'
         setupListeners()
       }, delay)
     } else {
-      console.error('Max WebSocket reconnection attempts reached')
+      logger.warn('Max WebSocket reconnection attempts reached')
     }
   }
 
