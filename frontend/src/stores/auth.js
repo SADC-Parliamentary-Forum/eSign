@@ -55,7 +55,17 @@ export const useAuthStore = defineStore('auth', () => {
         ? `${normalizedApiBaseUrl.slice(0, -4)}/sanctum/csrf-cookie`
         : `${normalizedApiBaseUrl}/sanctum/csrf-cookie`
 
-      await $api(csrfUrl, { method: 'GET' })
+      const csrfResponse = await fetch(csrfUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+
+      if (!csrfResponse.ok) {
+        throw new Error(`CSRF bootstrap failed with status ${csrfResponse.status}.`)
+      }
 
       // 2. Login using $api (triggers interceptors for Bot Protection)
       const data = await $api('/auth/login', {
