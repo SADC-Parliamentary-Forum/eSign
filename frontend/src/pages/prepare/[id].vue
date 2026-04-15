@@ -8,6 +8,7 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
+import { getDocument } from 'pdfjs-dist'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
@@ -581,6 +582,8 @@ async function fetchDocument() {
 
 async function loadPdfBlob(documentId) {
   try {
+    pageCount.value = 0
+
     const token = localStorage.getItem('token')
     const response = await fetch(`/api/documents/${documentId}/pdf`, {
       headers: {
@@ -600,7 +603,22 @@ async function loadPdfBlob(documentId) {
     if (blob.type && blob.type !== 'application/pdf') {
       throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
     }
-    pdfSource.value = URL.createObjectURL(blob)
+
+    const objectUrl = URL.createObjectURL(blob)
+    const pdfBytes = await blob.arrayBuffer()
+    const loadingTask = getDocument({ data: pdfBytes })
+
+    try {
+      const pdf = await loadingTask.promise
+      pageCount.value = pdf.numPages || 1
+      pdf.destroy()
+    } finally {
+      if (typeof loadingTask.destroy === 'function') {
+        await loadingTask.destroy()
+      }
+    }
+
+    pdfSource.value = objectUrl
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
     error.value = e.message || 'Failed to load PDF preview.'
