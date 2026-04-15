@@ -205,20 +205,11 @@ class DocumentController extends Controller
             abort(403, 'Unauthorized access to this document.');
         }
 
-        // Generate signed URL for PDF access
-        try {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('minio');
-            $document->pdf_url = $disk->temporaryUrl(
-                $document->file_path,
-                now()->addHours(2)
-            );
-        } catch (\Exception $e) {
-            // Fallback for local storage or misconfigured minio
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('minio');
-            $document->pdf_url = $disk->url($document->file_path);
-        }
+        // Keep authenticated document access same-origin. The PDF is already streamed
+        // through this application, so this endpoint should not depend on MinIO URL generation.
+        $document->pdf_url = $document->file_path
+            ? url("/api/documents/{$document->id}/pdf")
+            : null;
 
         return response()->json($document);
     }
@@ -1056,4 +1047,3 @@ class DocumentController extends Controller
         return $summary;
     }
 }
-
