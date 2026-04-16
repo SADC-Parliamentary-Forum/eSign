@@ -460,7 +460,7 @@ async function fetchDocument() {
     let res = await $api(`/documents/${route.params.id}`)
     doc.value = res
 
-    if (res.status === 'IN_PROGRESS') {
+    if (res.status === 'IN_PROGRESS' || res.status === 'PROCESSING') {
       error.value = ''
       res = await waitForDocumentReady(route.params.id)
     }

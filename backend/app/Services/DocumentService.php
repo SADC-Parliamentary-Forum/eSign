@@ -160,7 +160,7 @@ class DocumentService
             'title' => $metadata['title'] ?? $file->getClientOriginalName(),
             'file_path' => null, // Placeholder until processed
             'file_hash' => null,
-            'status' => 'DRAFT',
+            'status' => 'PROCESSING',
             'mime_type' => $file->getClientMimeType(),
             'size' => $file->getSize(),
             'metadata' => $metadata,
