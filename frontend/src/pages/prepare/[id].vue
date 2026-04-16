@@ -447,8 +447,8 @@ async function waitForDocumentReady(documentId, maxAttempts = 60) {
   for (let i = 0; i < maxAttempts; i++) {
     const res = await $api(`/documents/${documentId}`)
     doc.value = res
-    if (res.status === 'DRAFT') return res
     if (res.status === 'FAILED') throw new Error('Document conversion failed. Please upload a PDF or try again.')
+    if (res.status === 'DRAFT' && res.pdf_url) return res
     await new Promise(r => setTimeout(r, 2000))
   }
   throw new Error('Document is taking too long to process. Please try again later.')
@@ -460,7 +460,7 @@ async function fetchDocument() {
     let res = await $api(`/documents/${route.params.id}`)
     doc.value = res
 
-    if (res.status === 'IN_PROGRESS' || res.status === 'PROCESSING') {
+    if (res.status === 'IN_PROGRESS' || (res.status === 'DRAFT' && !res.pdf_url)) {
       error.value = ''
       res = await waitForDocumentReady(route.params.id)
     }
