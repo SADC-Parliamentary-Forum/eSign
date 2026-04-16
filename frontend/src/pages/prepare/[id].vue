@@ -8,13 +8,9 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
-
-GlobalWorkerOptions.workerSrc = PdfWorker
 
 // Core states
 const route = useRoute()
@@ -38,7 +34,6 @@ const error = ref('')
 // PDF state
 const pdfSource = ref(null)
 const pageCount = ref(0)
-const pdfLoadingTask = ref(null)
 
 // Signers state
 const signers = ref([])
@@ -608,32 +603,15 @@ async function loadPdfBlob(documentId) {
       throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
     }
 
-    const objectUrl = URL.createObjectURL(blob)
-    const pdfBytes = await blob.arrayBuffer()
-
-    // Load with getDocument to pre-count pages and keep the worker alive for VuePdfEmbed.
-    // We intentionally do NOT destroy the loading task so the worker remains running;
-    // destroying it terminates the shared worker and VuePdfEmbed renders blank pages.
-    if (pdfLoadingTask.value) {
-      pdfLoadingTask.value.destroy().catch(() => {})
-    }
-    pdfLoadingTask.value = getDocument({ data: pdfBytes })
-    const pdf = await pdfLoadingTask.value.promise
-    pageCount.value = pdf.numPages || 1
-
-    pdfSource.value = objectUrl
+    pdfSource.value = URL.createObjectURL(blob)
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
     error.value = e.message || 'Failed to load PDF preview.'
   }
 }
 
-// Cleanup blob URL and pdfjs loading task on unmount
+// Cleanup blob URL on unmount
 onUnmounted(() => {
-  if (pdfLoadingTask.value) {
-    pdfLoadingTask.value.destroy().catch(() => {})
-    pdfLoadingTask.value = null
-  }
   if (pdfSource.value && pdfSource.value.startsWith('blob:')) {
     URL.revokeObjectURL(pdfSource.value)
   }
@@ -1219,20 +1197,12 @@ async function handleSelfSign() {
         </div>
 
         <div v-else-if="pdfSource" class="pdf-scroll">
-          <div
+          <VuePdfEmbed
             v-if="pageCount === 0"
-            class="pdf-page-wrapper"
-          >
-            <div class="pdf-page" :style="{ width: pdfWidth + 'px' }">
-              <VuePdfEmbed
-                :source="pdfSource"
-                :page="1"
-                :width="pdfWidth"
-                @loaded="handleDocumentLoad"
-              />
-            </div>
-            <div class="page-indicator">Loading pages...</div>
-          </div>
+            :source="pdfSource"
+            class="d-none"
+            @loaded="handleDocumentLoad"
+          />
 
           <div
             v-else
