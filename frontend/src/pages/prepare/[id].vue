@@ -8,7 +8,7 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
+import { GlobalWorkerOptions } from 'pdfjs-dist'
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -607,21 +607,7 @@ async function loadPdfBlob(documentId) {
       throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
     }
 
-    const objectUrl = URL.createObjectURL(blob)
-    const pdfBytes = await blob.arrayBuffer()
-    const loadingTask = getDocument({ data: pdfBytes })
-
-    try {
-      const pdf = await loadingTask.promise
-      pageCount.value = pdf.numPages || 1
-      pdf.destroy()
-    } finally {
-      if (typeof loadingTask.destroy === 'function') {
-        await loadingTask.destroy()
-      }
-    }
-
-    pdfSource.value = objectUrl
+    pdfSource.value = URL.createObjectURL(blob)
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
     error.value = e.message || 'Failed to load PDF preview.'
