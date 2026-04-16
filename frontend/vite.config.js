@@ -105,6 +105,37 @@ export default defineConfig(({ mode }) => {
       }),
       svgLoader(),
     ],
+    css: {
+      preprocessorOptions: {
+        scss: {
+          api: 'modern',
+          // Vuetify 3.8+ no longer ships SCSS source in the npm package.
+          // This importer provides the missing `vuetify/lib/styles/tools/functions`
+          // module (used by the Vuexy template for map-deep-merge) using the
+          // native sass:map equivalent.
+          importers: [{
+            canonicalize(url) {
+              if (url === 'vuetify/lib/styles/tools/functions') {
+                return new URL('vuetify-sass-stub:functions')
+              }
+              return null
+            },
+            load(canonicalUrl) {
+              if (canonicalUrl.protocol === 'vuetify-sass-stub:') {
+                return {
+                  contents: `@use 'sass:map';
+@function map-deep-merge($map1, $map2) {
+  @return map.deep-merge($map1, $map2);
+}`,
+                  syntax: 'scss',
+                }
+              }
+              return null
+            },
+          }],
+        },
+      },
+    },
     define: { 'process.env': {} },
     resolve: {
       alias: {
