@@ -380,7 +380,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadUnreadCount() async {
     try {
       final notifications = await ApiService.getNotifications();
-      final unread = (notifications as List).where((n) => n['read_at'] == null).length;
+      final unread = (notifications).where((n) => n['read_at'] == null).length;
       if (mounted) setState(() => _unreadNotificationCount = unread);
     } catch (e) {
       // Ignore — badge count is optional
@@ -594,8 +594,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {'PENDING': 0, 'COMPLETED': 0, 'DRAFT': 0, 'IN_PROGRESS': 0, 'FAILED': 0, 'VOIDED': 0, 'DECLINED': 0},
       (m, d) {
         final s = ((d['status'] ?? '') as String).toUpperCase();
-        if (m.containsKey(s)) m[s] = m[s]! + 1;
-        else m['PENDING'] = (m['PENDING'] ?? 0) + 1;
+        if (m.containsKey(s)) {
+          m[s] = m[s]! + 1;
+        } else {
+          m['PENDING'] = (m['PENDING'] ?? 0) + 1;
+        }
         return m;
       },
     );

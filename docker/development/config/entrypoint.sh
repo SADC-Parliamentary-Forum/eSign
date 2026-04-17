@@ -17,10 +17,11 @@ done
 echo "Running Migrations..."
 php artisan migrate --force
 
-# 3. Install/Update Frontend Dependencies
+# 3. Install/Update Frontend Dependencies from the committed lockfile
 echo "Installing Frontend Dependencies..."
 cd /var/www/html/frontend
-npm install
+node scripts/check-lock-sync.mjs
+npm ci
 
 # 4. Start Supervisor (which starts the app servers and workers)
 echo "Starting Supervisor..."

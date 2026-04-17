@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import '../services/api_service.dart';
@@ -112,7 +111,7 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Amount in words does not match.\nExpected: "${_expectedAmountWords}"',
+              'Amount in words does not match.\nExpected: "$_expectedAmountWords"',
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
