@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { $api } from '@/utils/api'
+import { resolveApiUrl } from '@/utils/http'
 import * as Sentry from '@sentry/vue'
 import { logger } from '@/utils/logger'
 
@@ -48,7 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email, password) {
     try {
       // 1. Best-effort CSRF bootstrap (required for cookie-auth flows, harmless for token auth)
-      const csrfUrl = new URL('/sanctum/csrf-cookie', window.location.origin).toString()
+      const csrfUrl = new URL('/sanctum/csrf-cookie', resolveApiUrl('/')).toString()
       try {
         await fetch(csrfUrl, {
           method: 'GET',
