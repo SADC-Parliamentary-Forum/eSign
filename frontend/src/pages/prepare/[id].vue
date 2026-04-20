@@ -8,6 +8,7 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
+import { getDocument } from 'pdfjs-dist'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
@@ -614,6 +615,16 @@ async function loadPdfBlob(documentId) {
       throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
     }
 
+    // Resolve page count from PDF bytes directly, so the UI does not depend
+    // on hidden render probes that may not emit reliably in some browsers.
+    const pdfBytes = await blob.arrayBuffer()
+    const loadingTask = getDocument({ data: pdfBytes })
+    const pdf = await loadingTask.promise
+    pageCount.value = Number(pdf?.numPages) || 0
+    if (pageCount.value <= 0) {
+      throw new Error('PDF preview loaded, but page count could not be determined.')
+    }
+
     pdfSource.value = URL.createObjectURL(blob)
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
@@ -647,6 +658,13 @@ function handleDocumentLoad(pdf) {
 
   if (detectedPages > 0) {
     pageCount.value = detectedPages
+  }
+}
+
+function handlePdfRenderError(err) {
+  console.error('PDF render failed:', err)
+  if (!pdfLoadError.value) {
+    pdfLoadError.value = 'Unable to render PDF preview. Please retry loading the document.'
   }
 }
 
@@ -1226,16 +1244,18 @@ async function handleSelfSign() {
         </div>
 
         <div v-else-if="pdfSource" class="pdf-scroll">
-          <VuePdfEmbed
-            v-if="pageCount === 0"
-            :source="pdfSource"
-            class="pdf-probe"
-            @loaded="handleDocumentLoad"
-          />
-
-          <div v-if="pageCount === 0" class="loading-state">
+          <div v-if="pageCount === 0 && !pdfLoadError" class="loading-state">
             <v-progress-circular indeterminate size="44" color="primary" />
             <div class="text-caption mt-3">Rendering document preview...</div>
+          </div>
+
+          <div v-else-if="pageCount === 0 && pdfLoadError" class="loading-state">
+            <v-card class="pa-5 text-center" max-width="560">
+              <v-icon icon="ri-error-warning-line" size="44" color="warning" class="mb-2" />
+              <div class="text-body-1 mb-2">Document preview failed to render</div>
+              <div class="text-body-2 text-medium-emphasis mb-4">{{ pdfLoadError }}</div>
+              <v-btn color="primary" @click="retryLoadPdf">Retry</v-btn>
+            </v-card>
           </div>
 
           <div
@@ -1249,6 +1269,7 @@ async function handleSelfSign() {
                 :source="pdfSource" 
                 :page="page"
                 :width="pdfWidth"
+                @loading-failed="handlePdfRenderError"
               />
               
               <!-- Field Overlay -->
@@ -2076,15 +2097,6 @@ async function handleSelfSign() {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-}
-
-.pdf-probe {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  overflow: hidden;
 }
 
 .pdf-page-wrapper {
