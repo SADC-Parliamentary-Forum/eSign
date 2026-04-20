@@ -58,6 +58,13 @@ class _GuestSignerScreenState extends State<GuestSignerScreen> {
   Future<void> _loadDocument() async {
     try {
       final doc = await ApiService.getSignerDocument(widget.token);
+      if (doc == null) {
+        setState(() {
+          _errorMessage = 'Document details could not be loaded.';
+          _isLoading = false;
+        });
+        return;
+      }
       setState(() {
         _document = doc;
         _isLoading = false;

@@ -21,10 +21,16 @@ switchToVerticalNavOnLtOverlayNavBreakpoint()
 const userReady = ref(false)
 const hasToken = computed(() => !!authStore.token)
 onMounted(async () => {
-  if (hasToken.value) {
-    await authStore.fetchUser()
+  try {
+    if (hasToken.value) {
+      await authStore.fetchUser()
+    }
+  } catch (error) {
+    // Do not block app rendering when user refresh fails.
+    console.error('Failed to bootstrap authenticated user state.', error)
+  } finally {
+    userReady.value = true
   }
-  userReady.value = true
 })
 
 const { layoutAttrs, injectSkinClasses } = useSkins()
