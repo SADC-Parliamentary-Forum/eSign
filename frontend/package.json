@@ -43,7 +43,7 @@
     "laravel-echo": "^1.16.1",
     "mapbox-gl": "3.5.2",
     "ofetch": "1.5.1",
-    "pdfjs-dist": "^5.4.530",
+    "pdfjs-dist": "^4.10.38",
     "pinia": "3.0.4",
     "prismjs": "1.30.0",
     "pusher-js": "^8.4.0-rc2",

@@ -8,12 +8,13 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf'
-import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
 
+// loadPdfBlob uses getDocument from pdfjs-dist directly; configure its worker too.
 GlobalWorkerOptions.workerSrc = PdfWorker
 
 // Core states
