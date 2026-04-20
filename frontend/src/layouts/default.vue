@@ -3,6 +3,7 @@ import { useConfigStore } from '@core/stores/config'
 import { AppContentLayoutNav } from '@layouts/enums'
 import { switchToVerticalNavOnLtOverlayNavBreakpoint } from '@layouts/utils'
 import { useAuthStore } from '@/stores/auth'
+import { apiFetch } from '@/utils/http'
 import { ref, computed, defineAsyncComponent, watch } from 'vue'
 
 const DefaultLayoutWithHorizontalNav = defineAsyncComponent(() => import('./components/DefaultLayoutWithHorizontalNav.vue'))
@@ -50,11 +51,10 @@ const verificationSent = ref(false)
 const resendVerification = async () => {
   resending.value = true
   try {
-    const res = await fetch('/api/email/verification-notification', {
+    const res = await apiFetch('/email/verification-notification', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
       },
     })
     

@@ -380,6 +380,10 @@
     "formatDateIntl": true,
     "getErrorMessage": true,
     "getSafeReturnUrl": true,
-    "logger": true
+    "logger": true,
+    "apiFetch": true,
+    "getCookieValue": true,
+    "getXsrfTokenFromCookie": true,
+    "resolveApiUrl": true
   }
 }

@@ -16,6 +16,7 @@ import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth' // Import auth store
+import { apiFetch } from '@/utils/http'
 
 const route = useRoute()
 const router = useRouter()
@@ -122,7 +123,7 @@ async function fetchDocument() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/api/sign/${token.value}`)
+    const res = await apiFetch(`/sign/${token.value}`)
     const data = await res.json()
     
     if (!res.ok) {
@@ -181,7 +182,7 @@ async function fetchDocument() {
     pdfSource.value = data.pdf_url || `/storage/${data.document.file_path}`
 
     // Mark as viewed
-    await fetch(`/api/sign/${token.value}/view`, { method: 'POST' })
+    await apiFetch(`/sign/${token.value}/view`, { method: 'POST' })
   } catch (e) {
     error.value = 'Failed to load document'
   } finally {
@@ -195,7 +196,7 @@ async function fetchSavedSignatures() {
 
   loadingSignatures.value = true
   try {
-    const res = await fetch('/api/signatures/mine', {
+    const res = await apiFetch('/signatures/mine', {
       headers: { 'Authorization': `Bearer ${authToken}` },
     })
 
@@ -361,7 +362,7 @@ async function register() {
   registering.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/auth/register', {
+    const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registerForm.value),
@@ -437,7 +438,7 @@ async function submitSignature() {
   const authToken = localStorage.getItem('token')
   
   try {
-    const res = await fetch(`/api/sign/${token.value}/sign`, {
+    const res = await apiFetch(`/sign/${token.value}/sign`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -487,7 +488,7 @@ async function confirmDecline() {
   
   submitting.value = true
   try {
-    const res = await fetch(`/api/sign/${token.value}/decline`, {
+    const res = await apiFetch(`/sign/${token.value}/decline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: declineReason.value }),

@@ -1,0 +1,10 @@
+HTTP/1.1 403 Forbidden
+Server: nginx
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: no-cache, private
+Date: Fri, 17 Apr 2026 09:37:24 GMT
+Vary: Origin
+Set-Cookie: sadc_parliamentary_forum_session=eyJpdiI6ImVtc2JqNGd4TlczcUMxT0UyMGlqWWc9PSIsInZhbHVlIjoiYU8zZXF0MXZkTDNHcDN6U2lMNDZaSzU4NXJVdmpRbUx1UStSa2dQakkxaUtoMzBRVTVqVktVS1JJeEVuVlAzdVplVjdmaFp2U2NsYTFQZFJmZ0YwWXNQWTlPK3Vvb2FVeE1QTkVEbFkySTN1Z0hCWVQyRVRSc0ZNTEFEZ20zVlgiLCJtYWMiOiI5ZjZiNTAwOTlmNWEwOWE2Y2MxYjcxYmVmNDg5YWQ2ZjUxYzIzZDA2OTNmNzhkZjcyMTM1NjcwMDkzMjE4Mjk3IiwidGFnIjoiIn0%3D; expires=Fri, 17 Apr 2026 11:37:24 GMT; Max-Age=7200; path=/; httponly; samesite=lax
+

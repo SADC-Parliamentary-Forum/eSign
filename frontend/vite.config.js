@@ -6,7 +6,6 @@ import Components from 'unplugin-vue-components/vite'
 import { VueRouterAutoImports, getPascalCaseRouteName } from 'unplugin-vue-router'
 import VueRouter from 'unplugin-vue-router/vite'
 import { defineConfig, loadEnv } from 'vite'
-import VueDevTools from 'vite-plugin-vue-devtools'
 import MetaLayouts from 'vite-plugin-vue-meta-layouts'
 import vuetify from 'vite-plugin-vuetify'
 import svgLoader from 'vite-svg-loader'
@@ -22,16 +21,22 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
+      hmr: {
+        host: env.VITE_HMR_HOST || '127.0.0.1',
+        protocol: 'ws',
+        port: 5173,
+        clientPort: 5173,
+      },
       proxy: {
         '/api': {
-          target: env.VITE_PROXY_TARGET || 'http://localhost:8000',
+          target: env.VITE_PROXY_TARGET || 'http://app:8000',
           changeOrigin: true,
           secure: false,
           timeout: 300000,
           proxyTimeout: 300000,
         },
         '/broadcasting': {
-          target: env.VITE_PROXY_TARGET || 'http://localhost:8000',
+          target: env.VITE_PROXY_TARGET || 'http://app:8000',
           changeOrigin: true,
           secure: false,
         },
@@ -55,7 +60,6 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
-      VueDevTools(),
       vueJsx(),
 
       // Docs: https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin

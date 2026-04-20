@@ -38,6 +38,13 @@ return [
             'report' => false,
         ],
 
+        'processing' => [
+            'driver' => 'local',
+            'root' => env('PROCESSING_DISK_ROOT', '/tmp/esign-processing'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

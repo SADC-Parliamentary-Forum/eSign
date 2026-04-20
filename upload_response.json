@@ -1,0 +1,1 @@
+{"message":"The file field is required when template id is not present. (and 1 more error)","errors":{"file":["The file field is required when template id is not present."],"template_id":["The template id field is required when file is not present."]}}

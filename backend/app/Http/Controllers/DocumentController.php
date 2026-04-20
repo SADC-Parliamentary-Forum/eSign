@@ -182,6 +182,13 @@ class DocumentController extends Controller
                 'exception' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            if (str_contains($e->getMessage(), 'Failed to stage uploaded file for processing')) {
+                return response()->json([
+                    'message' => 'Failed to stage uploaded file for processing. Please try again.',
+                ], 422);
+            }
+
             $message = app()->isProduction() ? 'An error occurred while creating the document.' : 'Failed to create document: ' . $e->getMessage();
             return response()->json(['message' => $message], 500);
         }

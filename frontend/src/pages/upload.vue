@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 import { logger } from '@/utils/logger'
+import { resolveApiUrl, getXsrfTokenFromCookie } from '@/utils/http'
 
 const router = useRouter()
 const isDragging = ref(false)
@@ -44,20 +45,16 @@ async function uploadSingleFile(file) {
         // Use native fetch — ofetch's onRequest hook can corrupt the
         // multipart/form-data boundary when it rebuilds the Headers object.
         const token = localStorage.getItem('accessToken') || localStorage.getItem('token')
-        const apiUrl = import.meta.env.VITE_API_URL || '/api'
+        const uploadUrl = resolveApiUrl('/documents')
+        const xsrfToken = getXsrfTokenFromCookie()
 
-        // Read XSRF-TOKEN cookie (required by Laravel Sanctum)
-        const xsrfToken = document.cookie
-            .split('; ')
-            .find(row => row.startsWith('XSRF-TOKEN='))
-            ?.split('=')[1]
-
-        const response = await fetch(`${apiUrl}/documents`, {
+        const response = await fetch(uploadUrl, {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json',
-                ...(xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {}),
+                ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
                 // Do NOT set Content-Type — browser sets it automatically with the correct boundary
             },
             body: formData,

@@ -10,13 +10,14 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ProcessDocumentUpload implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $document;
-    protected $localPath;
+    protected $processingPath;
     protected $isTemplate;
 
     public $timeout = 300; // 5 minutes for conversion/upload
@@ -25,13 +26,13 @@ class ProcessDocumentUpload implements ShouldQueue
      * Create a new job instance.
      *
      * @param Document $document
-     * @param string $localPath Storage-relative path on the local disk (e.g. processing/uuid.docx)
+     * @param string $processingPath Storage-relative path on the processing disk (e.g. processing/uuid.docx)
      * @param bool $isTemplate Whether this upload is for a template
      */
-    public function __construct(Document $document, string $localPath, bool $isTemplate = false)
+    public function __construct(Document $document, string $processingPath, bool $isTemplate = false)
     {
         $this->document = $document;
-        $this->localPath = $localPath;
+        $this->processingPath = $processingPath;
         $this->isTemplate = $isTemplate;
     }
 
@@ -41,8 +42,8 @@ class ProcessDocumentUpload implements ShouldQueue
     public function handle(DocumentConversionService $conversionService): void
     {
         try {
-            // 1. Convert to PDF if needed (path is relative to local disk so conversion can read it)
-            $conversionResult = $conversionService->convertToPdfIfNeeded($this->localPath, 'local');
+            // 1. Convert to PDF if needed (path is relative to processing disk)
+            $conversionResult = $conversionService->convertToPdfIfNeeded($this->processingPath, 'processing');
             $processedPath = $conversionResult['path'];
 
             // If conversion was attempted but failed, do not upload the original file
@@ -51,7 +52,7 @@ class ProcessDocumentUpload implements ShouldQueue
                 throw new \RuntimeException($conversionResult['error']);
             }
 
-            $fullProcessedPath = Storage::disk('local')->path($processedPath);
+            $fullProcessedPath = Storage::disk('processing')->path($processedPath);
             if (!file_exists($fullProcessedPath)) {
                 throw new \RuntimeException("Processed file not found: {$processedPath}");
             }
@@ -75,15 +76,15 @@ class ProcessDocumentUpload implements ShouldQueue
             ]);
 
             // 5. Cleanup local files
-            if (Storage::disk('local')->exists($this->localPath)) {
-                Storage::disk('local')->delete($this->localPath);
+            if (Storage::disk('processing')->exists($this->processingPath)) {
+                Storage::disk('processing')->delete($this->processingPath);
             }
-            if ($processedPath !== $this->localPath && Storage::disk('local')->exists($processedPath)) {
-                Storage::disk('local')->delete($processedPath);
+            if ($processedPath !== $this->processingPath && Storage::disk('processing')->exists($processedPath)) {
+                Storage::disk('processing')->delete($processedPath);
             }
 
         } catch (\Exception $e) {
-            \Log::error("Document processing failed for {$this->document->id}: " . $e->getMessage());
+            Log::error("Document processing failed for {$this->document->id}: " . $e->getMessage());
             $this->document->update(['status' => 'FAILED']);
             throw $e;
         }

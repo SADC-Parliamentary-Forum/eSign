@@ -25,6 +25,18 @@ export function useRealTimeNotifications() {
 
     connectionStatus.value = 'connecting'
 
+    // Refresh auth header at subscription time so post-login reconnects
+    // always use the latest bearer token (not the value at app boot).
+    const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token')
+    if (accessToken) {
+      if (echo.connector?.options?.auth?.headers) {
+        echo.connector.options.auth.headers.Authorization = `Bearer ${accessToken}`
+      }
+      if (echo.connector?.pusher?.config?.auth?.headers) {
+        echo.connector.pusher.config.auth.headers.Authorization = `Bearer ${accessToken}`
+      }
+    }
+
     // Get user ID from auth store or localStorage
     const userId = authStore.user?.id || localStorage.getItem('user_id')
     if (!userId) {

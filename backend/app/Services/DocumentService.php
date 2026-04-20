@@ -4,11 +4,13 @@ namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use App\Models\Document;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use setasign\Fpdi\Fpdi;
+use RuntimeException;
 
 class DocumentService
 {
@@ -144,15 +146,70 @@ class DocumentService
      */
     public function upload(UploadedFile $file, $user, array $metadata = []): Document
     {
-        // 1. Move to Processing Storage (Persistent vs UploadedFile which is tmp)
-        $ext = $file->getClientOriginalExtension();
-        $processingPath = 'processing/' . Str::uuid() . '.' . $ext;
+        // 1. Stage upload to persistent local processing storage before queueing work.
+        $processingDisk = Storage::disk('processing');
+        $processingRoot = $processingDisk->path('');
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+        $safeExtension = preg_match('/^[a-z0-9]+$/', $extension) ? $extension : 'bin';
+        $stagedFilename = (string) Str::uuid() . '.' . $safeExtension;
+        $stagedRelativePath = 'processing/' . $stagedFilename;
 
-        // Ensure processing directory exists (local disk root is storage/app/private)
-        Storage::disk('local')->makeDirectory('processing');
+        try {
+            if (!is_dir($processingRoot)) {
+                @mkdir($processingRoot, 0777, true);
+            }
 
-        // Store in restricted local disk (e.g. storage/app/private/processing)
-        Storage::disk('local')->putFileAs('processing', $file, basename($processingPath));
+            $processingDir = $processingDisk->path('processing');
+            if (!is_dir($processingDir)) {
+                @mkdir($processingDir, 0777, true);
+            }
+            @chmod($processingDir, 0777);
+
+            $storedProcessingPath = $processingDisk->putFileAs('processing', $file, $stagedFilename);
+            $fullStagedPath = $processingDisk->path($stagedRelativePath);
+            $writeSucceeded = is_string($storedProcessingPath)
+                && $storedProcessingPath !== ''
+                && $processingDisk->exists($stagedRelativePath)
+                && is_file($fullStagedPath);
+
+            if (!$writeSucceeded) {
+                Log::error('Document upload staging verification failed.', [
+                    'disk' => 'processing',
+                    'local_root' => $processingRoot,
+                    'stored_processing_path' => $storedProcessingPath,
+                    'expected_processing_path' => $stagedRelativePath,
+                    'expected_full_path' => $fullStagedPath,
+                    'disk_exists' => $processingDisk->exists($stagedRelativePath),
+                    'file_exists' => is_file($fullStagedPath),
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getClientMimeType(),
+                    'size' => $file->getSize(),
+                ]);
+
+                throw new RuntimeException(
+                    app()->isProduction()
+                        ? 'Failed to stage uploaded file for processing.'
+                        : sprintf('Failed to stage uploaded file for processing. path=%s', $stagedRelativePath)
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error('Document upload staging threw an exception.', [
+                'disk' => 'processing',
+                'local_root' => $processingRoot,
+                'expected_processing_path' => $stagedRelativePath,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'size' => $file->getSize(),
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new RuntimeException(
+                app()->isProduction()
+                    ? 'Failed to stage uploaded file for processing.'
+                    : sprintf('Failed to stage uploaded file for processing. path=%s error=%s', $stagedRelativePath, $e->getMessage()),
+                previous: $e
+            );
+        }
 
         // 2. Create Record with PROCESSING status
         $document = Document::create([
@@ -167,7 +224,7 @@ class DocumentService
         ]);
 
         // 3. Dispatch Job (pass storage-relative path so conversion can read from local disk)
-        \App\Jobs\ProcessDocumentUpload::dispatch($document, $processingPath);
+        \App\Jobs\ProcessDocumentUpload::dispatch($document, $stagedRelativePath);
 
         return $document;
     }

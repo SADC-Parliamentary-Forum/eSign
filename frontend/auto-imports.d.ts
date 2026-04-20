@@ -14,6 +14,7 @@ declare global {
   const alphaDashValidator: typeof import('./src/@core/utils/validators.js')['alphaDashValidator']
   const alphaValidator: typeof import('./src/@core/utils/validators.js')['alphaValidator']
   const announce: typeof import('./src/utils/accessibility.js')['announce']
+  const apiFetch: typeof import('./src/utils/http.js')['apiFetch']
   const asyncComputed: typeof import('@vueuse/core')['asyncComputed']
   const autoResetRef: typeof import('@vueuse/core')['autoResetRef']
   const avatarText: typeof import('./src/@core/utils/formatters.js')['avatarText']
@@ -59,12 +60,14 @@ declare global {
   const generateAriaLabel: typeof import('./src/utils/accessibility.js')['generateAriaLabel']
   const generateId: typeof import('./src/utils/accessibility.js')['generateId']
   const getActivePinia: typeof import('pinia')['getActivePinia']
+  const getCookieValue: typeof import('./src/utils/http.js')['getCookieValue']
   const getCurrentInstance: typeof import('vue')['getCurrentInstance']
   const getCurrentScope: typeof import('vue')['getCurrentScope']
   const getErrorMessage: typeof import('./src/utils/api.js')['getErrorMessage']
   const getReadableDate: typeof import('./src/utils/accessibility.js')['getReadableDate']
   const getSafeReturnUrl: typeof import('./src/utils/redirect.js')['getSafeReturnUrl']
   const getStatusDescription: typeof import('./src/utils/accessibility.js')['getStatusDescription']
+  const getXsrfTokenFromCookie: typeof import('./src/utils/http.js')['getXsrfTokenFromCookie']
   const h: typeof import('vue')['h']
   const hexToRgb: typeof import('./src/@core/utils/colorConverter.js')['hexToRgb']
   const ignorableWatch: typeof import('@vueuse/core')['ignorableWatch']
@@ -137,6 +140,7 @@ declare global {
   const regexValidator: typeof import('./src/@core/utils/validators.js')['regexValidator']
   const registerPlugins: typeof import('./src/@core/utils/plugins.js')['registerPlugins']
   const requiredValidator: typeof import('./src/@core/utils/validators.js')['requiredValidator']
+  const resolveApiUrl: typeof import('./src/utils/http.js')['resolveApiUrl']
   const resolveComponent: typeof import('vue')['resolveComponent']
   const resolveRef: typeof import('@vueuse/core')['resolveRef']
   const resolveUnref: typeof import('@vueuse/core')['resolveUnref']
@@ -393,6 +397,7 @@ declare module 'vue' {
     readonly alphaDashValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['alphaDashValidator']>
     readonly alphaValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['alphaValidator']>
     readonly announce: UnwrapRef<typeof import('./src/utils/accessibility.js')['announce']>
+    readonly apiFetch: UnwrapRef<typeof import('./src/utils/http.js')['apiFetch']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly avatarText: UnwrapRef<typeof import('./src/@core/utils/formatters.js')['avatarText']>
@@ -438,12 +443,14 @@ declare module 'vue' {
     readonly generateAriaLabel: UnwrapRef<typeof import('./src/utils/accessibility.js')['generateAriaLabel']>
     readonly generateId: UnwrapRef<typeof import('./src/utils/accessibility.js')['generateId']>
     readonly getActivePinia: UnwrapRef<typeof import('pinia')['getActivePinia']>
+    readonly getCookieValue: UnwrapRef<typeof import('./src/utils/http.js')['getCookieValue']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getErrorMessage: UnwrapRef<typeof import('./src/utils/api.js')['getErrorMessage']>
     readonly getReadableDate: UnwrapRef<typeof import('./src/utils/accessibility.js')['getReadableDate']>
     readonly getSafeReturnUrl: UnwrapRef<typeof import('./src/utils/redirect.js')['getSafeReturnUrl']>
     readonly getStatusDescription: UnwrapRef<typeof import('./src/utils/accessibility.js')['getStatusDescription']>
+    readonly getXsrfTokenFromCookie: UnwrapRef<typeof import('./src/utils/http.js')['getXsrfTokenFromCookie']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly hexToRgb: UnwrapRef<typeof import('./src/@core/utils/colorConverter.js')['hexToRgb']>
     readonly ignorableWatch: UnwrapRef<typeof import('@vueuse/core')['ignorableWatch']>
@@ -516,6 +523,7 @@ declare module 'vue' {
     readonly regexValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['regexValidator']>
     readonly registerPlugins: UnwrapRef<typeof import('./src/@core/utils/plugins.js')['registerPlugins']>
     readonly requiredValidator: UnwrapRef<typeof import('./src/@core/utils/validators.js')['requiredValidator']>
+    readonly resolveApiUrl: UnwrapRef<typeof import('./src/utils/http.js')['resolveApiUrl']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly resolveRef: UnwrapRef<typeof import('@vueuse/core')['resolveRef']>
     readonly resolveUnref: UnwrapRef<typeof import('@vueuse/core')['resolveUnref']>

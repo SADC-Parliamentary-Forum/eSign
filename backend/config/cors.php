@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')))),
+    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://127.0.0.1:8000')))),
 
     // In production, set CORS_ALLOWED_ORIGINS to exact frontend origin(s), e.g. https://esign.sadcpf.org
     // Patterns are disabled in production so only explicit origins are allowed (credentials-safe).

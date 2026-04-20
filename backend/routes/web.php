@@ -3,6 +3,10 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
+    if (app()->environment('local')) {
+        return redirect(config('app.frontend_url'));
+    }
+
     return view('welcome');
 });
 

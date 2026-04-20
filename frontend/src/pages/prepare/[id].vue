@@ -30,6 +30,8 @@ const doc = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const pdfLoadError = ref('')
+const processingStatusText = ref('')
 
 // PDF state
 const pdfSource = ref(null)
@@ -441,23 +443,29 @@ onMounted(async () => {
 
 async function waitForDocumentReady(documentId, maxAttempts = 60) {
   for (let i = 0; i < maxAttempts; i++) {
+    processingStatusText.value = `Processing document... (${i + 1}/${maxAttempts})`
     const res = await $api(`/documents/${documentId}`)
     doc.value = res
     if (res.status === 'FAILED') throw new Error('Document conversion failed. Please upload a PDF or try again.')
-    if (res.status === 'DRAFT' && res.pdf_url) return res
+    if (res.status === 'DRAFT' && res.pdf_url) {
+      processingStatusText.value = ''
+      return res
+    }
     await new Promise(r => setTimeout(r, 2000))
   }
+  processingStatusText.value = ''
   throw new Error('Document is taking too long to process. Please try again later.')
 }
 
 async function fetchDocument() {
   try {
     loading.value = true
+    error.value = ''
+    pdfLoadError.value = ''
     let res = await $api(`/documents/${route.params.id}`)
     doc.value = res
 
     if (res.status === 'IN_PROGRESS' || (res.status === 'DRAFT' && !res.pdf_url)) {
-      error.value = ''
       res = await waitForDocumentReady(route.params.id)
     }
     if (res.status === 'FAILED') {
@@ -572,6 +580,7 @@ async function fetchDocument() {
       hasOrganizationalRoles.value = res.fields.some(f => f.organizational_role_id)
     }
   } catch (e) {
+    processingStatusText.value = ''
     error.value = 'Failed to load document: ' + (e.message || 'Unknown error')
     console.error('Failed to load document', e)
   } finally {
@@ -581,6 +590,8 @@ async function fetchDocument() {
 
 async function loadPdfBlob(documentId) {
   try {
+    pdfLoadError.value = ''
+    error.value = ''
     pageCount.value = 0
 
     const token = localStorage.getItem('token')
@@ -594,7 +605,7 @@ async function loadPdfBlob(documentId) {
     const contentType = response.headers.get('Content-Type') || ''
     if (!response.ok) {
       const errBody = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
-      const msg = errBody.message || `Failed to load PDF: ${response.statusText}`
+      const msg = errBody.message || `Failed to load PDF (${response.status})`
       throw new Error(msg)
     }
 
@@ -606,7 +617,17 @@ async function loadPdfBlob(documentId) {
     pdfSource.value = URL.createObjectURL(blob)
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
-    error.value = e.message || 'Failed to load PDF preview.'
+    pdfLoadError.value = e.message || 'Failed to load PDF preview.'
+  }
+}
+
+async function retryLoadPdf() {
+  if (!doc.value?.id) return
+  loading.value = true
+  try {
+    await fetchDocument()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -1193,7 +1214,7 @@ async function handleSelfSign() {
       <main class="pdf-area">
         <div v-if="loading" class="loading-state">
           <v-progress-circular indeterminate size="48" color="primary" />
-          <div class="text-caption mt-3">Loading document...</div>
+          <div class="text-caption mt-3">{{ processingStatusText || 'Loading document...' }}</div>
         </div>
 
         <div v-else-if="pdfSource" class="pdf-scroll">
@@ -1299,6 +1320,20 @@ async function handleSelfSign() {
             </div>
             <div class="page-indicator">{{ page }} / {{ pageCount }}</div>
           </div>
+        </div>
+
+        <div v-else class="loading-state">
+          <v-card class="pa-6 text-center" max-width="520">
+            <v-icon icon="ri-file-warning-line" size="48" color="warning" class="mb-3" />
+            <div class="text-h6 mb-2">Document preview unavailable</div>
+            <div class="text-body-2 text-medium-emphasis mb-4">
+              {{ pdfLoadError || error || processingStatusText || 'The document is still processing or could not be previewed yet.' }}
+            </div>
+            <div class="d-flex justify-center gap-2">
+              <v-btn color="primary" variant="elevated" @click="retryLoadPdf">Retry</v-btn>
+              <v-btn variant="tonal" @click="router.push('/upload')">Back to Upload</v-btn>
+            </div>
+          </v-card>
         </div>
         
         <!-- No signer hint -->

@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { $api } from '@/utils/api'
-import { config } from '@/config'
 import * as Sentry from '@sentry/vue'
 import { logger } from '@/utils/logger'
 
@@ -48,23 +47,22 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email, password) {
     try {
-      // 1. Get CSRF Cookie
-      const apiBaseUrl = config.api.baseUrl || '/api'
-      const normalizedApiBaseUrl = apiBaseUrl.replace(/\/+$/, '')
-      const csrfUrl = normalizedApiBaseUrl.endsWith('/api')
-        ? `${normalizedApiBaseUrl.slice(0, -4)}/sanctum/csrf-cookie`
-        : `${normalizedApiBaseUrl}/sanctum/csrf-cookie`
-
-      const csrfResponse = await fetch(csrfUrl, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-        },
-      })
-
-      if (!csrfResponse.ok) {
-        throw new Error(`CSRF bootstrap failed with status ${csrfResponse.status}.`)
+      // 1. Best-effort CSRF bootstrap (required for cookie-auth flows, harmless for token auth)
+      const csrfUrl = new URL('/sanctum/csrf-cookie', window.location.origin).toString()
+      try {
+        await fetch(csrfUrl, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+          },
+          credentials: 'include',
+        })
+      } catch (csrfError) {
+        logger.warn('CSRF bootstrap request failed; continuing with token login flow.', {
+          context: 'login',
+          csrfUrl,
+          error: csrfError?.message,
+        })
       }
 
       // 2. Login using $api (triggers interceptors for Bot Protection)
