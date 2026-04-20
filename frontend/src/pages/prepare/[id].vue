@@ -639,7 +639,15 @@ onUnmounted(() => {
 })
 
 function handleDocumentLoad(pdf) {
-  pageCount.value = pdf.numPages
+  const detectedPages =
+    Number(pdf?.numPages) ||
+    Number(pdf?.detail?.numPages) ||
+    Number(pdf?.pdf?.numPages) ||
+    0
+
+  if (detectedPages > 0) {
+    pageCount.value = detectedPages
+  }
 }
 
 // Signer management
@@ -1221,9 +1229,14 @@ async function handleSelfSign() {
           <VuePdfEmbed
             v-if="pageCount === 0"
             :source="pdfSource"
-            class="d-none"
+            class="pdf-probe"
             @loaded="handleDocumentLoad"
           />
+
+          <div v-if="pageCount === 0" class="loading-state">
+            <v-progress-circular indeterminate size="44" color="primary" />
+            <div class="text-caption mt-3">Rendering document preview...</div>
+          </div>
 
           <div
             v-else
@@ -2063,6 +2076,15 @@ async function handleSelfSign() {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+}
+
+.pdf-probe {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .pdf-page-wrapper {
