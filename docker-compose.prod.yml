@@ -39,28 +39,55 @@ services:
       - storage_data:/var/www/html/storage/app/public
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/99-custom.ini:ro
     environment:
-      APP_ENV: production
-      APP_DEBUG: "true"
-      APP_URL: https://esign.sadcpf.org
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: sadc_esign
-      DB_USERNAME: sadc_esign
-      DB_PASSWORD: secret
-      REDIS_HOST: redis
-      REDIS_PASSWORD: null
-      REDIS_PORT: 6379
-      SANCTUM_STATEFUL_DOMAINS: esign.sadcpf.org
-      SESSION_DOMAIN: esign.sadcpf.org
-      SESSION_SECURE_COOKIE: "true"
+      APP_NAME: "SADCPF eSign"
+      APP_ENV: "production"
+      APP_KEY: "base64:sUkLaM5mVSjlJkCx5+uCQyruZeYlRBnG9BIFh2/4fQA="
+      APP_DEBUG: "false"
+      APP_URL: "https://esign.sadcpf.org"
+      FRONTEND_URL: "https://esign.sadcpf.org"
       CORS_ALLOWED_ORIGINS: "https://esign.sadcpf.org"
+
+      DB_CONNECTION: "pgsql"
+      DB_HOST: "db"
+      DB_PORT: "5432"
+      DB_DATABASE: "sadc_esign"
+      DB_USERNAME: "sadc_esign"
+      DB_PASSWORD: "secret"
+
+      CACHE_STORE: "database"
+      QUEUE_CONNECTION: "database"
+      SESSION_DRIVER: "database"
+      SESSION_DOMAIN: "esign.sadcpf.org"
+      SESSION_SECURE_COOKIE: "true"
+      SANCTUM_STATEFUL_DOMAINS: "esign.sadcpf.org"
+
+      REDIS_HOST: "redis"
+      REDIS_PASSWORD: "null"
+      REDIS_PORT: "6379"
+
+      # Required by ProcessDocumentUpload -> Storage::disk('minio')
+      FILESYSTEM_DISK: "minio"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_BUCKET: "documents"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_USE_SSL: "false"
+
+      # S3 compatibility values for Laravel Flysystem adapter
+      AWS_ACCESS_KEY_ID: "minioadmin"
+      AWS_SECRET_ACCESS_KEY: "minioadmin"
+      AWS_DEFAULT_REGION: "us-east-1"
+      AWS_BUCKET: "documents"
+      AWS_ENDPOINT: "http://minio:9000"
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+
       REVERB_APP_ID: "54321"
       REVERB_APP_KEY: "4c75bbe4bc2986cca241be38054f10a106a2f5f9"
       REVERB_APP_SECRET: "0a7c3c6eb5a3ccd984d1a7deaa22363040ec542b91162840304efc67f34893da"
       REVERB_HOST: "localhost"
       REVERB_PORT: "8080"
       REVERB_SCHEME: "http"
+
       RECAPTCHA_SITE_KEY: "6LcPo1YsAAAAAJQr8pn3DrVofmLuffM4rlMCqdpB"
       RECAPTCHA_SECRET_KEY: "6LcPo1YsAAAAALVNAfO3I0iTA5Jr_gA6cjwYz_TU"
     depends_on:
