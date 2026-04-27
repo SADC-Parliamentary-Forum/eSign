@@ -12,7 +12,7 @@ export function useRealTimeNotifications() {
   // Connection status
   const connectionStatus = ref('disconnected') // 'connecting', 'connected', 'disconnected', 'error'
   const reconnectAttempts = ref(0)
-  const maxReconnectAttempts = 5
+  const maxReconnectAttempts = 3
   let reconnectTimeout = null
 
   function setupListeners() {
@@ -217,7 +217,7 @@ export function useRealTimeNotifications() {
   }
 
   function handleConnectionError() {
-    connectionStatus.value = 'error'
+    connectionStatus.value = 'disconnected'
 
     if (reconnectAttempts.value < maxReconnectAttempts) {
       // Exponential backoff: 1s, 2s, 4s, 8s, 16s
@@ -231,7 +231,7 @@ export function useRealTimeNotifications() {
         setupListeners()
       }, delay)
     } else {
-      logger.warn('Max WebSocket reconnection attempts reached')
+      logger.warn('Max WebSocket reconnection attempts reached; realtime disabled for this session.')
     }
   }
 

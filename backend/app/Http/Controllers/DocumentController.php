@@ -218,6 +218,9 @@ class DocumentController extends Controller
             ? url("/api/documents/{$document->id}/pdf")
             : null;
 
+        $document->processing_progress = (int) ($document->processing_progress ?? 0);
+        $document->processing_stage = $document->processing_stage ?? 'queued';
+
         return response()->json($document);
     }
 
@@ -374,6 +377,12 @@ class DocumentController extends Controller
             'document_id' => $document->id,
             'title' => $document->title,
             'status' => $document->status,
+            'processing_progress' => (int) ($document->processing_progress ?? 0),
+            'processing_stage' => $document->processing_stage ?? 'queued',
+            'processing_error' => $document->processing_error,
+            'pdf_url' => $document->file_path
+                ? url("/api/documents/{$document->id}/pdf")
+                : null,
             'sent_at' => $document->sent_at,
             'expires_at' => $document->expires_at,
             'completed_at' => $document->completed_at,

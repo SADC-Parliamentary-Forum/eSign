@@ -17,6 +17,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth' // Import auth store
 import { apiFetch } from '@/utils/http'
+import { useProgressivePdfRender } from '@/composables/useProgressivePdfRender'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,8 +36,15 @@ const error = ref('')
 const submitting = ref(false)
 
 // PDF state
-const pdfSource = ref(null)
-const pageCount = ref(0)
+const {
+  pdfSource,
+  pageCount,
+  visiblePages,
+  renderProgress,
+  renderError,
+  loadPdfFromResponse,
+  markPageRendered,
+} = useProgressivePdfRender()
 
 // Saved signatures & initials
 const savedSignatures = ref([])
@@ -179,7 +187,7 @@ async function fetchDocument() {
       }
     }
 
-    pdfSource.value = data.pdf_url || `/storage/${data.document.file_path}`
+    await loadPublicPdf(data.pdf_url || `/storage/${data.document.file_path}`)
 
     // Mark as viewed
     await apiFetch(`/sign/${token.value}/view`, { method: 'POST' })
@@ -188,6 +196,15 @@ async function fetchDocument() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadPublicPdf(pdfUrl) {
+  const response = await fetch(pdfUrl, {
+    headers: {
+      Accept: 'application/pdf',
+    },
+  })
+  await loadPdfFromResponse(response, { initialVisiblePages: 2 })
 }
 
 async function fetchSavedSignatures() {
@@ -225,10 +242,6 @@ async function fetchSavedSignatures() {
   } finally {
     loadingSignatures.value = false
   }
-}
-
-function handleDocumentLoad(pdf) {
-  pageCount.value = pdf.numPages
 }
 
 // View Actions
@@ -546,11 +559,19 @@ const hasSavedInitials = computed(() => savedInitials.value.length > 0)
       <div class="text-body-1 text-medium-emphasis mt-4">
         Loading document...
       </div>
+      <VProgressLinear
+        indeterminate
+        color="primary"
+        height="6"
+        rounded
+        class="mt-4"
+        style="width: 320px;"
+      />
     </div>
 
     <!-- Error -->
     <VCard
-      v-else-if="error && !doc"
+      v-else-if="(error || renderError) && !doc"
       class="error-card mx-auto my-8"
       max-width="500"
     >
@@ -565,7 +586,7 @@ const hasSavedInitials = computed(() => savedInitials.value.length > 0)
           Unable to Load Document
         </h3>
         <p class="text-body-2 text-medium-emphasis">
-          {{ error }}
+          {{ error || renderError }}
         </p>
       </VCardText>
     </VCard>
@@ -789,8 +810,14 @@ const hasSavedInitials = computed(() => savedInitials.value.length > 0)
       </VToolbar>
 
       <div class="pdf-viewer-container pa-8 text-center bg-grey-lighten-3">
+        <div class="mb-3 text-start">
+          <VProgressLinear :model-value="renderProgress" color="secondary" height="6" rounded />
+          <div class="text-caption text-medium-emphasis mt-1">
+            Rendering pages... {{ renderProgress }}%
+          </div>
+        </div>
         <div 
-          v-for="page in pageCount" 
+          v-for="page in visiblePages"
           :key="page" 
           class="pdf-page mb-4 elevation-3 position-relative d-inline-block bg-white"
         >
@@ -798,7 +825,7 @@ const hasSavedInitials = computed(() => savedInitials.value.length > 0)
             :source="pdfSource" 
             :page="page"
             width="700"
-            @loaded="handleDocumentLoad"
+            @loaded="markPageRendered(page)"
           />
 
           <!-- Highlight My Fields -->

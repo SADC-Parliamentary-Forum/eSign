@@ -1,6 +1,7 @@
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
 import { resolveApiUrl } from '@/utils/http'
+import { logger } from '@/utils/logger'
 
 window.Pusher = Pusher
 
@@ -10,6 +11,7 @@ export default function (app) {
   const isTLS = scheme === 'https'
   const host = import.meta.env.VITE_REVERB_HOST || window.location.hostname || 'localhost'
   const configuredPort = Number(import.meta.env.VITE_REVERB_PORT)
+
   const port = Number.isFinite(configuredPort) && configuredPort > 0
     ? configuredPort
     : (isTLS ? 443 : 8080)
@@ -28,7 +30,17 @@ export default function (app) {
     wssPort: port,
     forceTLS: isTLS,
     enabledTransports: isTLS ? ['wss'] : ['ws'],
+    disableStats: true,
   })
+
+  const pusherConnection = echo?.connector?.pusher?.connection
+  if (pusherConnection) {
+    pusherConnection.bind('error', error => {
+      logger.warn('Realtime socket unavailable. Falling back to polling flows.', {
+        code: error?.error?.data?.code || error?.error?.type || 'unknown',
+      })
+    })
+  }
 
   app.config.globalProperties.$echo = echo
   app.provide('echo', echo)

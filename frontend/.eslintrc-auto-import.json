@@ -384,6 +384,8 @@
     "apiFetch": true,
     "getCookieValue": true,
     "getXsrfTokenFromCookie": true,
-    "resolveApiUrl": true
+    "resolveApiUrl": true,
+    "useDocumentProcessingProgress": true,
+    "useProgressivePdfRender": true
   }
 }

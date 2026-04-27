@@ -43,6 +43,9 @@ class Document extends Model implements \OwenIt\Auditing\Contracts\Auditable
         'is_self_sign',
         'completion_recipients',
         'bulk_batch_id',
+        'processing_progress',
+        'processing_stage',
+        'processing_error',
     ];
 
     protected $casts = [
@@ -58,6 +61,7 @@ class Document extends Model implements \OwenIt\Auditing\Contracts\Auditable
         'is_legal_hold' => 'boolean',
         'is_self_sign' => 'boolean',
         'completion_recipients' => 'array',
+        'processing_progress' => 'integer',
     ];
 
     /**

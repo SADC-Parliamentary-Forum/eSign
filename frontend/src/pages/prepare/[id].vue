@@ -8,14 +8,11 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed/dist/index.essential.mjs'
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
-
-// loadPdfBlob uses getDocument from pdfjs-dist directly; configure its worker too.
-GlobalWorkerOptions.workerSrc = PdfWorker
+import { useDocumentProcessingProgress } from '@/composables/useDocumentProcessingProgress'
+import { useProgressivePdfRender } from '@/composables/useProgressivePdfRender'
 
 // Core states
 const route = useRoute()
@@ -35,12 +32,24 @@ const doc = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
-const pdfLoadError = ref('')
-const processingStatusText = ref('')
+
+const {
+  processingProgress,
+  processingLabel,
+  applyDocumentState,
+  waitForReadyDocument,
+} = useDocumentProcessingProgress()
 
 // PDF state
-const pdfSource = ref(null)
-const pageCount = ref(0)
+const {
+  pdfSource,
+  pageCount,
+  visiblePages,
+  renderProgress,
+  renderError: pdfLoadError,
+  loadPdfFromResponse,
+  markPageRendered,
+} = useProgressivePdfRender()
 
 // Signers state
 const signers = ref([])
@@ -446,22 +455,6 @@ onMounted(async () => {
   await fetchDocument()
 })
 
-async function waitForDocumentReady(documentId, maxAttempts = 60) {
-  for (let i = 0; i < maxAttempts; i++) {
-    processingStatusText.value = `Processing document... (${i + 1}/${maxAttempts})`
-    const res = await $api(`/documents/${documentId}`)
-    doc.value = res
-    if (res.status === 'FAILED') throw new Error('Document conversion failed. Please upload a PDF or try again.')
-    if (res.status === 'DRAFT' && res.pdf_url) {
-      processingStatusText.value = ''
-      return res
-    }
-    await new Promise(r => setTimeout(r, 2000))
-  }
-  processingStatusText.value = ''
-  throw new Error('Document is taking too long to process. Please try again later.')
-}
-
 async function fetchDocument() {
   try {
     loading.value = true
@@ -469,12 +462,20 @@ async function fetchDocument() {
     pdfLoadError.value = ''
     let res = await $api(`/documents/${route.params.id}`)
     doc.value = res
+    applyDocumentState(res)
 
     if (res.status === 'IN_PROGRESS' || (res.status === 'DRAFT' && !res.pdf_url)) {
-      res = await waitForDocumentReady(route.params.id)
+      res = await waitForReadyDocument(async () => {
+        const next = await $api(`/documents/${route.params.id}`)
+        doc.value = next
+        return next
+      }, {
+        intervalMs: 2500,
+        maxWaitMs: 240000,
+      })
     }
     if (res.status === 'FAILED') {
-      error.value = 'Document conversion failed. Please upload a PDF or try again.'
+      error.value = res.processing_error || 'Document conversion failed. Please upload a PDF or try again.'
       return
     }
 
@@ -585,8 +586,10 @@ async function fetchDocument() {
       hasOrganizationalRoles.value = res.fields.some(f => f.organizational_role_id)
     }
   } catch (e) {
-    processingStatusText.value = ''
-    error.value = 'Failed to load document: ' + (e.message || 'Unknown error')
+    const message = e?.message || 'Unknown error'
+    error.value = message.startsWith('Failed to load document')
+      ? message
+      : `Failed to load document: ${message}`
     console.error('Failed to load document', e)
   } finally {
     loading.value = false
@@ -597,7 +600,6 @@ async function loadPdfBlob(documentId) {
   try {
     pdfLoadError.value = ''
     error.value = ''
-    pageCount.value = 0
 
     const token = localStorage.getItem('token')
     const response = await fetch(`/api/documents/${documentId}/pdf`, {
@@ -607,29 +609,7 @@ async function loadPdfBlob(documentId) {
       }
     })
 
-    const contentType = response.headers.get('Content-Type') || ''
-    if (!response.ok) {
-      const errBody = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
-      const msg = errBody.message || `Failed to load PDF (${response.status})`
-      throw new Error(msg)
-    }
-
-    const blob = await response.blob()
-    if (blob.type && blob.type !== 'application/pdf') {
-      throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
-    }
-
-    // Resolve page count from PDF bytes directly, so the UI does not depend
-    // on hidden render probes that may not emit reliably in some browsers.
-    const pdfBytes = await blob.arrayBuffer()
-    const loadingTask = getDocument({ data: pdfBytes })
-    const pdf = await loadingTask.promise
-    pageCount.value = Number(pdf?.numPages) || 0
-    if (pageCount.value <= 0) {
-      throw new Error('PDF preview loaded, but page count could not be determined.')
-    }
-
-    pdfSource.value = URL.createObjectURL(blob)
+    await loadPdfFromResponse(response, { initialVisiblePages: 2 })
   } catch (e) {
     console.error('Failed to load PDF blob:', e)
     pdfLoadError.value = e.message || 'Failed to load PDF preview.'
@@ -643,25 +623,6 @@ async function retryLoadPdf() {
     await fetchDocument()
   } finally {
     loading.value = false
-  }
-}
-
-// Cleanup blob URL on unmount
-onUnmounted(() => {
-  if (pdfSource.value && pdfSource.value.startsWith('blob:')) {
-    URL.revokeObjectURL(pdfSource.value)
-  }
-})
-
-function handleDocumentLoad(pdf) {
-  const detectedPages =
-    Number(pdf?.numPages) ||
-    Number(pdf?.detail?.numPages) ||
-    Number(pdf?.pdf?.numPages) ||
-    0
-
-  if (detectedPages > 0) {
-    pageCount.value = detectedPages
   }
 }
 
@@ -1244,10 +1205,25 @@ async function handleSelfSign() {
       <main class="pdf-area">
         <div v-if="loading" class="loading-state">
           <v-progress-circular indeterminate size="48" color="primary" />
-          <div class="text-caption mt-3">{{ processingStatusText || 'Loading document...' }}</div>
+          <div class="text-caption mt-3">{{ processingLabel || 'Loading document...' }}</div>
+          <v-progress-linear
+            class="mt-3"
+            :model-value="processingProgress"
+            color="primary"
+            height="6"
+            rounded
+            max-width="360"
+          />
         </div>
 
         <div v-else-if="pdfSource" class="pdf-scroll">
+          <div class="w-100 mb-2">
+            <v-progress-linear :model-value="renderProgress" color="secondary" height="6" rounded />
+            <div class="text-caption text-medium-emphasis mt-1">
+              Rendering pages... {{ renderProgress }}%
+            </div>
+          </div>
+
           <div v-if="pageCount === 0 && !pdfLoadError" class="loading-state">
             <v-progress-circular indeterminate size="44" color="primary" />
             <div class="text-caption mt-3">Rendering document preview...</div>
@@ -1264,7 +1240,7 @@ async function handleSelfSign() {
 
           <div
             v-else
-            v-for="page in pageCount" 
+            v-for="page in visiblePages"
             :key="page" 
             class="pdf-page-wrapper"
           >
@@ -1273,6 +1249,7 @@ async function handleSelfSign() {
                 :source="pdfSource" 
                 :page="page"
                 :width="pdfWidth"
+                @loaded="markPageRendered(page)"
                 @loading-failed="handlePdfRenderError"
               />
               
@@ -1365,7 +1342,7 @@ async function handleSelfSign() {
             <v-icon icon="ri-file-warning-line" size="48" color="warning" class="mb-3" />
             <div class="text-h6 mb-2">Document preview unavailable</div>
             <div class="text-body-2 text-medium-emphasis mb-4">
-              {{ pdfLoadError || error || processingStatusText || 'The document is still processing or could not be previewed yet.' }}
+              {{ pdfLoadError || error || processingLabel || 'The document is still processing or could not be previewed yet.' }}
             </div>
             <div class="d-flex justify-center gap-2">
               <v-btn color="primary" variant="elevated" @click="retryLoadPdf">Retry</v-btn>

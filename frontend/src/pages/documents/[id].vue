@@ -4,11 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkflowStore } from '@/stores/workflows'
 import WorkflowTimeline from '@/components/workflows/WorkflowTimeline.vue'
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useDisplay } from 'vuetify'
 import { formatDate } from '@/utils/formatters'
 import { getErrorMessage } from '@/utils/api'
 import AppDateTimePicker from '@core/components/app-form-elements/AppDateTimePicker.vue'
+import { useProgressivePdfRender } from '@/composables/useProgressivePdfRender'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,9 +23,17 @@ const document = ref(null)
 const signers = ref([])
 const fields = ref([])
 const loading = ref(true)
-const pdfSource = ref(null) // Will be a Blob URL
-const pageCount = ref(0)
 const workflow = ref(null)
+const {
+  pdfSource,
+  pageCount,
+  visiblePages,
+  renderProgress,
+  renderError,
+  loadPdfFromResponse,
+  markPageRendered,
+  cleanupBlob,
+} = useProgressivePdfRender()
 
 // Field values
 const fieldValues = ref({}) 
@@ -190,18 +199,7 @@ async function fetchPdfBlob(id) {
             }
         })
 
-        const contentType = response.headers.get('Content-Type') || ''
-        if (!response.ok) {
-            const errBody = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {}
-            const msg = errBody.message || 'Failed to fetch PDF'
-            throw new Error(msg)
-        }
-
-        const blob = await response.blob()
-        if (blob.type && blob.type !== 'application/pdf') {
-            throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
-        }
-        pdfSource.value = URL.createObjectURL(blob)
+        await loadPdfFromResponse(response, { initialVisiblePages: 2 })
     } catch (e) {
         console.error('PDF Load Error', e)
         showSnackbar(getErrorMessage(e), 'error')
@@ -268,9 +266,13 @@ async function fetchSavedSignatures() {
   } catch (e) { /* ignore */ }
 }
 
-function handleDocumentLoad(pdf) {
-  pageCount.value = pdf.numPages
+function handleDocumentLoad(page) {
+  markPageRendered(page)
 }
+
+onUnmounted(() => {
+  cleanupBlob()
+})
 
 // --- Interaction ---
 
@@ -921,20 +923,27 @@ function deleteSelectedField() {
         <div v-if="loading" class="d-flex flex-column align-center justify-center h-50">
            <v-progress-circular indeterminate color="primary" size="64" />
            <span class="mt-4 text-subtitle-2 text-medium-emphasis">Loading secure document...</span>
+           <v-progress-linear
+             indeterminate
+             color="primary"
+             height="6"
+             rounded
+             class="mt-4"
+             style="width: 320px;"
+           />
         </div>
 
         <!-- The Paper -->
         <div v-else-if="pdfSource" class="pdf-container d-flex flex-column align-center gap-4 pb-16">
-           <!-- Hidden Loader to get Page Count -->
-           <VuePdfEmbed
-              v-if="pageCount === 0"
-              :source="pdfSource"
-              class="d-none"
-              @loaded="handleDocumentLoad"
-           />
+           <div class="w-100 px-4">
+             <v-progress-linear :model-value="renderProgress" color="secondary" height="6" rounded />
+             <div class="text-caption text-medium-emphasis mt-1">
+               Rendering pages... {{ renderProgress }}%
+             </div>
+           </div>
 
            <div 
-             v-for="page in pageCount" 
+             v-for="page in visiblePages"
              :key="page" 
              class="pdf-page elevation-4 position-relative bg-white rounded-lg overflow-hidden"
              :style="{ width: '650px', minHeight: '840px' }"
@@ -943,6 +952,7 @@ function deleteSelectedField() {
                 :source="pdfSource" 
                 :page="page"
                 width="650"
+                @loaded="handleDocumentLoad(page)"
               />
               
               <!-- Fields Overlay layer -->
@@ -1005,6 +1015,10 @@ function deleteSelectedField() {
                  </div>
               </div>
            </div>
+        </div>
+        <div v-else-if="renderError" class="d-flex flex-column align-center justify-center h-50">
+          <v-icon icon="mdi-alert-circle-outline" color="warning" size="44" />
+          <span class="mt-3 text-subtitle-2 text-medium-emphasis">{{ renderError }}</span>
         </div>
       </div>
 

@@ -146,6 +146,8 @@ class DocumentService
      */
     public function upload(UploadedFile $file, $user, array $metadata = []): Document
     {
+        $uploadCorrelationId = (string) Str::uuid();
+
         // 1. Stage upload to persistent local processing storage before queueing work.
         $processingDisk = Storage::disk('processing');
         $processingRoot = $processingDisk->path('');
@@ -174,6 +176,7 @@ class DocumentService
 
             if (!$writeSucceeded) {
                 Log::error('Document upload staging verification failed.', [
+                    'upload_correlation_id' => $uploadCorrelationId,
                     'disk' => 'processing',
                     'local_root' => $processingRoot,
                     'stored_processing_path' => $storedProcessingPath,
@@ -194,6 +197,7 @@ class DocumentService
             }
         } catch (\Throwable $e) {
             Log::error('Document upload staging threw an exception.', [
+                'upload_correlation_id' => $uploadCorrelationId,
                 'disk' => 'processing',
                 'local_root' => $processingRoot,
                 'expected_processing_path' => $stagedRelativePath,
@@ -220,7 +224,24 @@ class DocumentService
             'status' => 'DRAFT',
             'mime_type' => $file->getClientMimeType(),
             'size' => $file->getSize(),
-            'metadata' => $metadata,
+            'processing_progress' => 5,
+            'processing_stage' => 'queued',
+            'processing_error' => null,
+            'metadata' => array_merge($metadata, [
+                'upload_correlation_id' => $uploadCorrelationId,
+            ]),
+        ]);
+
+        Log::info('Document queued for async processing.', [
+            'upload_correlation_id' => $uploadCorrelationId,
+            'document_id' => $document->id,
+            'user_id' => $user->id,
+            'processing_path' => $stagedRelativePath,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getClientMimeType(),
+            'size' => $file->getSize(),
+            'processing_stage' => 'queued',
+            'processing_progress' => 5,
         ]);
 
         // 3. Dispatch Job (pass storage-relative path so conversion can read from local disk)
