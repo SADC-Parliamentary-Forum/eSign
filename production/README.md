@@ -45,6 +45,13 @@ Run the application stack:
 docker-compose up -d --build
 ```
 
+After boot, force a clean runtime so stale frontend chunks do not survive:
+```bash
+docker compose down
+docker compose up -d --build
+docker compose ps
+```
+
 ### 3. Verify Deployment
 
 Check that services are running:
@@ -71,6 +78,44 @@ Then open `http://localhost:9001` in your browser.
 - **Logs**: `docker-compose logs -f app`
 - **Update**: `git pull && docker-compose build && docker-compose up -d`
 - **Frontend dependency drift**: If the production build fails in the frontend stage, run `cd frontend && npm run check:lock-sync`. If it reports a mismatch, regenerate the lock file with `npm install`, commit both `package.json` and `package-lock.json`, redeploy, then rebuild.
+
+## Post-Deploy Verification Checklist
+
+Run these checks after every deploy that touches upload, prepare, or realtime behavior:
+
+1. **Container/runtime parity**
+   - `docker compose ps` shows `esign_app` and `esign_nginx` as `Up`.
+   - `docker compose logs --since 5m app` has no repeated crash loop for php-fpm, queue, or reverb.
+
+2. **Bundle freshness check**
+   - Open browser DevTools -> Network and hard-reload with cache disabled.
+   - Confirm `/prepare/:id` page JavaScript chunks are fetched fresh (status 200/304, not stale from old service worker/chunk map).
+   - Confirm timeout text is the new stage-aware variant, not legacy `(x/60)` wording.
+
+3. **Upload -> Prepare smoke test**
+   - Upload a 3-page PDF from `/upload`.
+   - Confirm no 503 on `/upload` page load.
+   - Confirm prepare view progresses and preview renders.
+   - Confirm old message `Document is taking too long to process. Please try again later.` is not shown.
+
+4. **Realtime non-blocking check**
+   - If WebSocket fails, ensure document list/load/prepare still works via API polling.
+   - Realtime errors should not block preview loading.
+
+## Rollback Guardrails
+
+If 5xx increases after deploy:
+
+1. Identify previous image:
+   - `docker images | rg esign-app-prod`
+2. Roll back app image (example tag placeholder):
+   - `docker compose down`
+   - update image tag to previous known-good
+   - `docker compose up -d`
+3. Validate:
+   - `/upload` loads without 503
+   - upload -> prepare -> preview works
+   - queue/reverb logs stable for at least 10 minutes
 
 ### Intermittent 502 / Connection refused
 
