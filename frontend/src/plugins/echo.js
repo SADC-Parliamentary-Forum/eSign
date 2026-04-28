@@ -11,10 +11,18 @@ export default function (app) {
   const isTLS = scheme === 'https'
   const host = import.meta.env.VITE_REVERB_HOST || window.location.hostname || 'localhost'
   const configuredPort = Number(import.meta.env.VITE_REVERB_PORT)
+  const sameHostAsPage = host === window.location.hostname
+  const browserOverHttps = window.location.protocol === 'https:'
 
-  const port = Number.isFinite(configuredPort) && configuredPort > 0
-    ? configuredPort
-    : (isTLS ? 443 : 8080)
+  // When the app is served over HTTPS on the same host, WebSocket should go through
+  // the public reverse proxy port instead of internal container ports like 8080.
+  const port = (browserOverHttps && sameHostAsPage)
+    ? 443
+    : (
+        Number.isFinite(configuredPort) && configuredPort > 0
+          ? configuredPort
+          : (isTLS ? 443 : 8080)
+      )
 
   const echo = new Echo({
     broadcaster: 'reverb',
