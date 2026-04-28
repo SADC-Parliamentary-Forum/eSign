@@ -11,7 +11,8 @@
     "lint": "eslint . -c .eslintrc.cjs --fix --ext .ts,.js,.cjs,.vue,.tsx,.jsx",
     "build:icons": "tsx src/plugins/iconify/build-icons.js",
     "msw:init": "msw init public/ --save",
-    "postinstall": "npm run build:icons && npm run msw:init",
+    "postinstall": "npm run build:icons && npm run msw:init && npm run sync:pdfjs-fonts",
+    "sync:pdfjs-fonts": "node scripts/sync-pdfjs-standard-fonts.mjs",
     "test": "vitest"
   },
   "dependencies": {

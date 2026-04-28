@@ -268,31 +268,21 @@ async function bulkDownload() {
 
   bulkDownloadLoading.value = true
   try {
-    const token = localStorage.getItem('token')
     const ids = selectedCompletedDocs.value.map(d => d.id)
-
-    // Use proxy in development to avoid CORS issues
-    const apiUrl = import.meta.env.DEV 
-      ? '/api' 
-      : (import.meta.env.VITE_API_URL || '/api')
-
-    const response = await fetch(`${apiUrl}/documents/bulk-download`, {
+    const response = await $api.raw('/documents/bulk-download', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ids }),
+      body: { ids },
       // Increase timeout for bulk downloads
       signal: AbortSignal.timeout(300000), // 5 minutes
+      responseType: 'blob',
     })
     
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.message || 'Download failed')
+    if (!response.ok || !response._data) {
+      const errorMessage = response?._data?.message || 'Download failed'
+      throw new Error(errorMessage)
     }
     
-    const blob = await response.blob()
+    const blob = response._data
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

@@ -122,38 +122,28 @@ async function signAllDocuments() {
 async function downloadAll() {
   try {
     const documentIds = createdDocuments.value.map(d => d.id)
-    const token = localStorage.getItem('token')
-    
-    // Use proxy in development to avoid CORS issues
-    const apiUrl = import.meta.env.DEV 
-      ? '/api' 
-      : (import.meta.env.VITE_API_URL || '/api')
-
-    const response = await fetch(`${apiUrl}/documents/bulk-download`, {
+    const response = await $api.raw('/documents/bulk-download', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ids: documentIds }),
+      body: { ids: documentIds },
       // Increase timeout for bulk downloads
       signal: AbortSignal.timeout(300000), // 5 minutes
+      responseType: 'blob',
     })
-    
-    if (response.ok) {
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `bulk-signed-${new Date().toISOString().split('T')[0]}.zip`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      showSnackbar('Download started', 'success')
-    } else {
-      throw new Error('Download failed')
+
+    if (!response.ok || !response._data) {
+      throw new Error(response?._data?.message || 'Download failed')
     }
+
+    const blob = response._data
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bulk-signed-${new Date().toISOString().split('T')[0]}.zip`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    showSnackbar('Download started', 'success')
   } catch (error) {
     console.error('Failed to download:', error)
     showSnackbar('Failed to download documents', 'error')

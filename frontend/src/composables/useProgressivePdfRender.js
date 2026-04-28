@@ -5,6 +5,10 @@ import PdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 
 GlobalWorkerOptions.workerSrc = PdfWorker
 
+const standardFontDataUrl
+  = import.meta.env.VITE_PDFJS_STANDARD_FONT_DATA_URL
+    || '/pdfjs-standard-fonts/'
+
 export function useProgressivePdfRender() {
   const pdfSource = ref(null)
   const pageCount = ref(0)
@@ -83,7 +87,11 @@ export function useProgressivePdfRender() {
         throw new Error('This document could not be converted to PDF. Please upload a PDF file or try again.')
 
       const pdfBytes = await blob.arrayBuffer()
-      const loadingTask = getDocument({ data: pdfBytes })
+      const loadingTask = getDocument({
+        data: pdfBytes,
+        standardFontDataUrl,
+        useSystemFonts: true,
+      })
       const pdf = await loadingTask.promise
 
       const detectedPages = Number(pdf?.numPages) || 0
