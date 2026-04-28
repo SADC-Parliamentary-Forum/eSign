@@ -6,6 +6,7 @@ use App\Models\DocumentSigner;
 use App\Models\IdentityVerification;
 use App\Mail\OtpMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -53,11 +54,14 @@ class VerificationController extends Controller
         }
 
         if ($user->hasVerifiedEmail()) {
+            Cache::forget("user.{$user->id}");
             return response()->json(['message' => 'Email already verified.']);
         }
 
         if ($user->markEmailAsVerified()) {
             event(new \Illuminate\Auth\Events\Verified($user));
+            // Keep /api/auth/me in sync immediately after verification.
+            Cache::forget("user.{$user->id}");
         }
 
         return response()->json(['message' => 'Email verified successfully.']);

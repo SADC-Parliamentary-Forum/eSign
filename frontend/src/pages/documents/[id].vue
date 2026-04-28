@@ -851,7 +851,7 @@ function deleteSelectedField() {
            </v-btn>
         </div>
 
-        <!-- Download Evidence Button in Toolbar for Completed Documents -->
+        <!-- Download Button in Toolbar for Completed Documents -->
         <div v-else-if="document?.status === 'COMPLETED'" class="d-flex align-center gap-2">
 
            <v-btn
@@ -863,7 +863,7 @@ function deleteSelectedField() {
               :loading="downloadingEvidence"
               @click="downloadEvidence"
            >
-              Download Evidence
+              Download
            </v-btn>
         </div>
       </div>
@@ -896,7 +896,7 @@ function deleteSelectedField() {
                 @click="downloadEvidence"
                 :loading="downloadingEvidence"
               >
-                Download Evidence
+                Download
               </v-btn>
 
                <v-btn
@@ -1043,7 +1043,7 @@ function deleteSelectedField() {
                 @click="downloadEvidence"
                 :loading="downloadingEvidence"
               >
-                Download Evidence
+                Download
               </v-btn>
 
                <v-btn

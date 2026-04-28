@@ -127,6 +127,23 @@ onMounted(async () => {
   await fetchSavedSignatures()
 })
 
+async function ensureAuthenticatedSession() {
+  if (authStore.isAuthenticated)
+    return true
+
+  const authToken = localStorage.getItem('token')
+  if (!authToken)
+    return false
+
+  try {
+    await authStore.fetchUser()
+  } catch (e) {
+    console.warn('Unable to restore authenticated session:', e)
+  }
+
+  return authStore.isAuthenticated
+}
+
 async function fetchDocument() {
   loading.value = true
   error.value = ''
@@ -155,11 +172,12 @@ async function fetchDocument() {
 
     // Enforce Authentication
     if (requiresAccount.value) {
-      if (!authStore.isAuthenticated) {
+      const isAuthenticated = await ensureAuthenticatedSession()
+      if (!isAuthenticated) {
         // Redirect to login with return URL
         const returnUrl = encodeURIComponent(route.fullPath)
 
-        window.location.href = `/auth/login?returnUrl=${returnUrl}`
+        window.location.href = `/login?returnUrl=${returnUrl}`
         
         return
       }
@@ -501,15 +519,23 @@ async function confirmDecline() {
   
   submitting.value = true
   try {
+    const authToken = localStorage.getItem('token')
     const res = await apiFetch(`/sign/${token.value}/decline`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      },
       body: JSON.stringify({ reason: declineReason.value }),
     })
     
     if (res.ok) {
       router.push('/sign/declined')
+      return
     }
+
+    const data = await res.json()
+    error.value = data.message || 'Failed to decline'
   } catch (e) {
     error.value = 'Failed to decline'
   } finally {

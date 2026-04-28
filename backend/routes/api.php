@@ -74,7 +74,7 @@ Route::get('/auth/magic/login/{id}', [MagicLinkController::class, 'login'])
 // =============================================================================
 // Guest Signer Routes (token-based access, no auth required)
 // =============================================================================
-Route::prefix('sign/{token}')->middleware('throttle:30,1')->group(function () {
+Route::prefix('sign/{token}')->middleware(['throttle:30,1', 'optional-auth'])->group(function () {
     Route::get('/', [SignerController::class, 'show']);
     Route::post('/view', [SignerController::class, 'markViewed']);
     Route::post('/sign', [SignerController::class, 'sign']);

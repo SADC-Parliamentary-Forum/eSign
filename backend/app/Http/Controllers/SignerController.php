@@ -238,6 +238,29 @@ class SignerController extends Controller
             'reason' => 'nullable|string|max:1000',
         ]);
 
+        // 1. Enforce Authentication
+        if (!$request->user()) {
+            return response()->json([
+                'message' => 'You must be logged in to decline this document.',
+                'requires_login' => true,
+            ], 401);
+        }
+
+        // 2. Enforce Email Match
+        if ($request->user()->email !== $signer->email) {
+            return response()->json([
+                'message' => 'The email address of your account (' . $request->user()->email . ') does not match the signer email (' . $signer->email . '). Please log in with the correct account.',
+            ], 403);
+        }
+
+        // 3. Enforce Email Verification
+        if (!$request->user()->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Please verify your email address before declining.',
+                'requires_verification' => true,
+            ], 403);
+        }
+
         try {
             $document = $this->workflowService->processDecline(
                 $signer,
