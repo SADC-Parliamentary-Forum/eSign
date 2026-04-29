@@ -172,10 +172,15 @@ function refreshSignaturePreviewFromState() {
   } else if (signatureMode.value === 'type') {
     data = generateTypedImage(typedName.value, selectedFont.value, 540, 120)
   } else {
-    if (!signatureCanvas.value) return null
-    data = signatureCanvas.value.toDataURL('image/png')
+    // Draw mode: fall back to saved profile signature if canvas isn't ready yet.
+    if (!signatureCanvas.value) {
+      data = savedDefaultSignatureData.value
+    } else {
+      data = signatureCanvas.value.toDataURL('image/png')
+    }
   }
 
+  if (!data) data = savedDefaultSignatureData.value
   signaturePreviewData.value = data
   return data
 }
@@ -187,10 +192,15 @@ function refreshInitialsPreviewFromState() {
   } else if (initialsMode.value === 'type') {
     data = generateTypedImage(typedInitials.value, selectedFont.value, 540, 80)
   } else {
-    if (!initialsCanvas.value) return null
-    data = initialsCanvas.value.toDataURL('image/png')
+    // Draw mode: fall back to saved profile initials if canvas isn't ready yet.
+    if (!initialsCanvas.value) {
+      data = savedDefaultInitialsData.value
+    } else {
+      data = initialsCanvas.value.toDataURL('image/png')
+    }
   }
 
+  if (!data) data = savedDefaultInitialsData.value
   initialsPreviewData.value = data
   return data
 }
@@ -405,6 +415,8 @@ const quickDateValue = ref(new Date().toISOString().slice(0, 10)) // YYYY-MM-DD
 // Snapshots of the currently prepared signature/initial assets for preview + placement.
 const signaturePreviewData = ref(null)
 const initialsPreviewData = ref(null)
+const savedDefaultSignatureData = ref(null)
+const savedDefaultInitialsData = ref(null)
 
 // Currently selected field (for per-field TEXT/DATE editor).
 const selectedField = computed(() => fields.value.find(f => f.id === selectedFieldId.value) || null)
@@ -419,6 +431,32 @@ const selectedFieldTextValue = computed({
     fields.value[idx].text_value = v
   }
 })
+
+async function fetchMyDefaultSignatures() {
+  try {
+    const res = await $api('/signatures/mine')
+    const signatures = Array.isArray(res) ? res : (res?.signatures || [])
+
+    const defaultSignature = signatures.find(s => s?.type === 'signature' && s?.is_default)
+      || signatures.find(s => s?.type === 'signature')
+    const defaultInitials = signatures.find(s => s?.type === 'initials' && s?.is_default)
+      || signatures.find(s => s?.type === 'initials')
+
+    savedDefaultSignatureData.value = defaultSignature?.image_data || null
+    savedDefaultInitialsData.value = defaultInitials?.image_data || null
+
+    // Use saved defaults as initial previews when local data isn't set yet.
+    if (!signaturePreviewData.value && savedDefaultSignatureData.value) {
+      signaturePreviewData.value = savedDefaultSignatureData.value
+    }
+    if (!initialsPreviewData.value && savedDefaultInitialsData.value) {
+      initialsPreviewData.value = savedDefaultInitialsData.value
+    }
+  } catch (e) {
+    // Non-blocking: placement can still continue with local draw/type/upload.
+    console.warn('Failed to load saved signatures', e)
+  }
+}
 
 const signatureFonts = [
   'Dancing Script',
@@ -644,6 +682,10 @@ async function fetchDocument() {
     let res = await $api(`/documents/${route.params.id}`)
     doc.value = res
     applyDocumentState(res)
+
+    if (res.is_self_sign) {
+      await fetchMyDefaultSignatures()
+    }
 
     if (res.status === 'IN_PROGRESS' || (res.status === 'DRAFT' && !res.pdf_url)) {
       res = await waitForReadyDocument(async () => {
