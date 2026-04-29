@@ -151,6 +151,15 @@ function getClientXYFromEvent(e) {
   return { clientX: e?.clientX, clientY: e?.clientY }
 }
 
+function normalizeImageSource(imageData) {
+  if (!imageData || typeof imageData !== 'string') return null
+  const value = imageData.trim()
+  if (!value) return null
+  if (value.startsWith('data:image/')) return value
+  // Fallback for raw base64 persisted without data-url prefix.
+  return `data:image/png;base64,${value}`
+}
+
 function getQuickFieldDimensions(type) {
   // Percent-based sizing (users can still drag/resize).
   switch (type) {
@@ -183,8 +192,9 @@ function refreshSignaturePreviewFromState() {
   }
 
   if (!data) data = savedDefaultSignatureData.value
-  signaturePreviewData.value = data
-  return data
+  const normalized = normalizeImageSource(data)
+  signaturePreviewData.value = normalized
+  return normalized
 }
 
 function refreshInitialsPreviewFromState() {
@@ -203,8 +213,9 @@ function refreshInitialsPreviewFromState() {
   }
 
   if (!data) data = savedDefaultInitialsData.value
-  initialsPreviewData.value = data
-  return data
+  const normalized = normalizeImageSource(data)
+  initialsPreviewData.value = normalized
+  return normalized
 }
 
 function quickPlaceField(e, page) {
@@ -404,10 +415,16 @@ function unbindGlobalInteractionListeners() {
 
 function getFieldImageSource(field) {
   if (field.type === 'SIGNATURE') {
-    return field.signature_preview_data || signaturePreviewData.value || savedDefaultSignatureData.value || null
+    return normalizeImageSource(field.signature_preview_data)
+      || normalizeImageSource(signaturePreviewData.value)
+      || normalizeImageSource(savedDefaultSignatureData.value)
+      || null
   }
   if (field.type === 'INITIALS') {
-    return field.initials_preview_data || initialsPreviewData.value || savedDefaultInitialsData.value || null
+    return normalizeImageSource(field.initials_preview_data)
+      || normalizeImageSource(initialsPreviewData.value)
+      || normalizeImageSource(savedDefaultInitialsData.value)
+      || null
   }
   return null
 }
@@ -513,8 +530,8 @@ async function fetchMyDefaultSignatures() {
     const defaultInitials = signatures.find(s => s?.type === 'initials' && s?.is_default)
       || signatures.find(s => s?.type === 'initials')
 
-    savedDefaultSignatureData.value = defaultSignature?.image_data || null
-    savedDefaultInitialsData.value = defaultInitials?.image_data || null
+    savedDefaultSignatureData.value = normalizeImageSource(defaultSignature?.image_data || null)
+    savedDefaultInitialsData.value = normalizeImageSource(defaultInitials?.image_data || null)
 
     // Use saved defaults as initial previews when local data isn't set yet.
     if (!signaturePreviewData.value && savedDefaultSignatureData.value) {
