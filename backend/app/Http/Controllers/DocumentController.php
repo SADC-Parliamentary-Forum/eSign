@@ -12,6 +12,7 @@ use App\Models\Template;
 
 use App\Models\DocumentField;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
@@ -178,7 +179,7 @@ class DocumentController extends Controller
             return response()->json($document, 201);
 
         } catch (\Exception $e) {
-            \Log::error('Document creation failed: ' . $e->getMessage(), [
+            Log::error('Document creation failed: ' . $e->getMessage(), [
                 'exception' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -358,8 +359,8 @@ class DocumentController extends Controller
                 'document' => $document->fresh(['signers']),
             ]);
         } catch (\Exception $e) {
-            \Log::error('Failed to send document: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
+            Log::error('Failed to send document: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
             $message = app()->isProduction() ? 'An error occurred while sending the document.' : 'Failed to send document: ' . $e->getMessage();
             return response()->json(['message' => $message], 500);
         }
@@ -410,11 +411,11 @@ class DocumentController extends Controller
     /**
      * Download evidence bundle.
      */
-    public function downloadEvidence($id)
+    public function downloadEvidence(Request $request, $id)
     {
         $document = Document::findOrFail($id);
 
-        if (auth()->user()->cannot('view', $document)) {
+        if ($request->user()->cannot('view', $document)) {
             abort(403, 'Unauthorized access to this document.');
         }
 
@@ -432,7 +433,7 @@ class DocumentController extends Controller
                 'Content-Disposition' => 'attachment; filename="' . $filename . '"',
             ]);
         } catch (\Exception $e) {
-            \Log::error('Evidence download error: ' . $e->getMessage());
+            Log::error('Evidence download error: ' . $e->getMessage());
             $message = app()->isProduction() ? 'Error generating evidence bundle.' : 'Error generating bundle: ' . $e->getMessage();
             return response()->json(['message' => $message], 500);
         }
@@ -534,7 +535,7 @@ class DocumentController extends Controller
                     $document->delete();
                     $count++;
                 } catch (\Exception $e) {
-                    \Log::warning('Bulk delete: failed to delete document ' . $id, ['error' => $e->getMessage()]);
+                    Log::warning('Bulk delete: failed to delete document ' . $id, ['error' => $e->getMessage()]);
                     $errors++;
                 }
             } else {
@@ -812,7 +813,21 @@ class DocumentController extends Controller
                         }
                         $isSigned = true;
                     } elseif ($field->type === 'DATE') {
-                        $field->update(['text_value' => now()->toDateString(), 'signed_at' => now()]);
+                        $this->applySelfSignDateField($field);
+                    } elseif ($field->type === 'TEXT') {
+                        if ($field->required && empty($field->text_value)) {
+                            throw new \Exception('Please provide a value for all required text fields before completing self-sign.');
+                        }
+
+                        // TEXT is filled at placement time; we just mark it as signed when present.
+                        if (!empty($field->text_value)) {
+                            $field->update(['signed_at' => now()]);
+                        }
+                    } elseif ($field->type === 'CHECKBOX') {
+                        // Checkbox is represented via text_value (e.g., "true"/"false"); we just mark signed_at when present.
+                        if (!empty($field->text_value)) {
+                            $field->update(['signed_at' => now()]);
+                        }
                     }
 
                     if ($isSigned && $signatureData) {
@@ -845,6 +860,22 @@ class DocumentController extends Controller
             $message = app()->isProduction() ? 'An error occurred while finishing the document.' : $e->getMessage();
             return response()->json(['message' => $message], 400);
         }
+    }
+
+    /**
+     * Apply DATE field behavior for self-sign.
+     *
+     * - If a user provided `text_value`, keep it.
+     * - Otherwise, default to today's date.
+     */
+    protected function applySelfSignDateField($field): void
+    {
+        if (empty($field->text_value)) {
+            $field->update(['text_value' => now()->toDateString(), 'signed_at' => now()]);
+            return;
+        }
+
+        $field->update(['text_value' => $field->text_value, 'signed_at' => now()]);
     }
 
     /**
@@ -896,7 +927,7 @@ class DocumentController extends Controller
             return response()->download($localZipPath, $filename)->deleteFileAfterSend(true);
 
         } catch (\Exception $e) {
-            \Log::error('Bulk download error: ' . $e->getMessage(), [
+            Log::error('Bulk download error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
             $message = app()->isProduction() ? 'Error creating download bundle.' : 'Error creating download bundle: ' . $e->getMessage();

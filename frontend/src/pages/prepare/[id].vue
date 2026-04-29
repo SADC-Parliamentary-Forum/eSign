@@ -137,6 +137,139 @@ function endDrawing(e) {
   showFieldTypePopup.value = true
 }
 
+// --- Self-sign quick: click-to-place actual content on the PDF ---
+function isSelfSignQuickMode() {
+  return !!doc.value?.is_self_sign
+}
+
+function getClientXYFromEvent(e) {
+  if (e?.touches?.[0]) {
+    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }
+  }
+  return { clientX: e?.clientX, clientY: e?.clientY }
+}
+
+function getQuickFieldDimensions(type) {
+  // Percent-based sizing (users can still drag/resize).
+  switch (type) {
+    case 'SIGNATURE':
+      return { width: 24, height: 8 }
+    case 'INITIALS':
+      return { width: 18, height: 6 }
+    case 'DATE':
+      return { width: 16, height: 5 }
+    case 'TEXT':
+      return { width: 24, height: 7 }
+    default:
+      return { width: 20, height: 6 }
+  }
+}
+
+function refreshSignaturePreviewFromState() {
+  let data = null
+  if (signatureMode.value === 'upload') {
+    data = uploadedSignature.value
+  } else if (signatureMode.value === 'type') {
+    data = generateTypedImage(typedName.value, selectedFont.value, 540, 120)
+  } else {
+    if (!signatureCanvas.value) return null
+    data = signatureCanvas.value.toDataURL('image/png')
+  }
+
+  signaturePreviewData.value = data
+  return data
+}
+
+function refreshInitialsPreviewFromState() {
+  let data = null
+  if (initialsMode.value === 'upload') {
+    data = uploadedInitials.value
+  } else if (initialsMode.value === 'type') {
+    data = generateTypedImage(typedInitials.value, selectedFont.value, 540, 80)
+  } else {
+    if (!initialsCanvas.value) return null
+    data = initialsCanvas.value.toDataURL('image/png')
+  }
+
+  initialsPreviewData.value = data
+  return data
+}
+
+function quickPlaceField(e, page) {
+  // Ignore placement when interacting with an existing field.
+  if (e?.target && typeof e.target.closest === 'function' && e.target.closest('.field-box')) return
+  if (!selectedSigner.value || isDragging.value || isResizing.value) return
+  if (!doc.value?.is_self_sign) return
+
+  const { clientX, clientY } = getClientXYFromEvent(e)
+  if (typeof clientX !== 'number' || typeof clientY !== 'number') return
+
+  const rect = e.currentTarget.getBoundingClientRect()
+  let x = ((clientX - rect.left) / rect.width) * 100
+  let y = ((clientY - rect.top) / rect.height) * 100
+
+  const { width: w, height: h } = getQuickFieldDimensions(quickTool.value)
+
+  // Clamp so the whole box stays inside the page.
+  x = Math.max(0, Math.min(100 - w, x))
+  y = Math.max(0, Math.min(100 - h, y))
+
+  const type = quickTool.value
+  let textValue = null
+  if (type === 'TEXT') textValue = quickTextValue.value
+  if (type === 'DATE') textValue = quickDateValue.value
+
+  // Ensure signature/initial snapshots exist before placement.
+  if (type === 'SIGNATURE') {
+    const data = refreshSignaturePreviewFromState()
+    if (!data) {
+      error.value = 'Create your signature first.'
+      return
+    }
+  }
+  if (type === 'INITIALS') {
+    const data = refreshInitialsPreviewFromState()
+    if (!data) {
+      error.value = 'Create your initials first.'
+      return
+    }
+  }
+
+  const newField = {
+    id: crypto.randomUUID(),
+    document_id: doc.value?.id,
+    type,
+    page_number: page,
+    x,
+    y,
+    width: w,
+    height: h,
+    signer_email: selectedSigner.value.email,
+    document_signer_id: selectedSigner.value.id,
+    signer_color: selectedSigner.value.color,
+    required: true,
+    label: type,
+    group_id: crypto.randomUUID(),
+    ...(textValue !== null ? { text_value: textValue } : {}),
+  }
+
+  fields.value.push(newField)
+  selectedFieldId.value = newField.id
+}
+
+function handleOverlayMouseDown(e, page) {
+  if (isSelfSignQuickMode()) {
+    quickPlaceField(e, page)
+    return
+  }
+  startDrawing(e, page)
+}
+
+function handleOverlayMouseMove(e, page) {
+  if (isSelfSignQuickMode()) return
+  onDrawing(e, page)
+}
+
 // --- Interaction Handlers (Drag/Resize) ---
 
 function startDrag(e, field) {
@@ -264,6 +397,29 @@ const typedInitials = ref('')
 const selectedFont = ref('Dancing Script')
 const saveToProfile = ref(true)
 
+// Self-sign quick placement (place actual content directly)
+const quickTool = ref('SIGNATURE') // 'SIGNATURE' | 'INITIALS' | 'TEXT' | 'DATE'
+const quickTextValue = ref('')
+const quickDateValue = ref(new Date().toISOString().slice(0, 10)) // YYYY-MM-DD
+
+// Snapshots of the currently prepared signature/initial assets for preview + placement.
+const signaturePreviewData = ref(null)
+const initialsPreviewData = ref(null)
+
+// Currently selected field (for per-field TEXT/DATE editor).
+const selectedField = computed(() => fields.value.find(f => f.id === selectedFieldId.value) || null)
+
+// Setter-backed text_value editor for TEXT/DATE fields.
+const selectedFieldTextValue = computed({
+  get: () => selectedField.value?.text_value || '',
+  set: (v) => {
+    if (!selectedFieldId.value) return
+    const idx = fields.value.findIndex(f => f.id === selectedFieldId.value)
+    if (idx === -1) return
+    fields.value[idx].text_value = v
+  }
+})
+
 const signatureFonts = [
   'Dancing Script',
   'Pacifico',
@@ -337,21 +493,25 @@ function initDraw(e) {
 function stopSigDrawing() {
   isSigDrawing = false
   sigCtx?.closePath()
+  refreshSignaturePreviewFromState()
 }
 
 function stopInitDrawing() {
   isInitDrawing = false
   initCtx?.closePath()
+  refreshInitialsPreviewFromState()
 }
 
 function clearSigCanvas() {
   if (!sigCtx) return
   sigCtx.clearRect(0, 0, signatureCanvas.value.width, signatureCanvas.value.height)
+  refreshSignaturePreviewFromState()
 }
 
 function clearInitCanvas() {
   if (!initCtx) return
   initCtx.clearRect(0, 0, initialsCanvas.value.width, initialsCanvas.value.height)
+  refreshInitialsPreviewFromState()
 }
 
 function generateTypedImage(text, font, width = 540, height = 120) {
@@ -375,12 +535,32 @@ function generateTypedImage(text, font, width = 540, height = 120) {
   return offscreen.toDataURL('image/png')
 }
 
+// Keep signature/initial previews in sync for "Type" mode.
+watch(
+  () => [doc.value?.is_self_sign, signatureMode.value, typedName.value, selectedFont.value],
+  ([isSelfSign, mode, name, font]) => {
+    if (!isSelfSign) return
+    if (mode !== 'type') return
+    signaturePreviewData.value = generateTypedImage(name, font, 540, 120)
+  }
+)
+
+watch(
+  () => [doc.value?.is_self_sign, initialsMode.value, typedInitials.value, selectedFont.value],
+  ([isSelfSign, mode, initials, font]) => {
+    if (!isSelfSign) return
+    if (mode !== 'type') return
+    initialsPreviewData.value = generateTypedImage(initials, font, 540, 80)
+  }
+)
+
 function handleInitUpload(event) {
   const file = event.target.files?.[0]
   if (!file) return
   const reader = new FileReader()
   reader.onload = e => {
     uploadedInitials.value = e.target.result
+    initialsPreviewData.value = e.target.result
   }
   reader.readAsDataURL(file)
 }
@@ -391,6 +571,7 @@ function handleSigUpload(event) {
   const reader = new FileReader()
   reader.onload = e => {
     uploadedSignature.value = e.target.result
+    signaturePreviewData.value = e.target.result
   }
   reader.readAsDataURL(file)
 }
@@ -907,12 +1088,17 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
-// Watch for dialog open to init canvas
-watch(showSelfSignDialog, (val) => {
-  if (val && signatureMode.value === 'draw') {
-    setTimeout(initSigCanvas, 100)
-  }
-})
+// Watch tool changes to init signature canvases (self-sign quick mode).
+watch(
+  () => [doc.value?.is_self_sign, quickTool.value],
+  ([isSelfSign, tool]) => {
+    if (!isSelfSign) return
+    if (tool === 'SIGNATURE' || tool === 'INITIALS') {
+      setTimeout(initSigCanvas, 100)
+    }
+  },
+  { immediate: true }
+)
 
 function openSelfSignDialog() {
   if (!validation.value.isValid) {
@@ -974,7 +1160,8 @@ async function handleSelfSign() {
         signer_email: realSignerEmail,
         document_signer_id: realSignerId,
         required: f.required,
-        group_id: f.group_id
+        group_id: f.group_id,
+        text_value: ['TEXT', 'DATE', 'CHECKBOX'].includes(f.type) ? (f.text_value ?? null) : null,
       }
     })
     
@@ -993,7 +1180,7 @@ async function handleSelfSign() {
     } else if (signatureMode.value === 'type') {
         sigData = generateTypedImage(typedName.value, selectedFont.value, 540, 120)
     } else {
-        sigData = signatureCanvas.value.toDataURL('image/png')
+        sigData = signatureCanvas.value?.toDataURL('image/png') ?? null
     }
 
     // Determine Initials
@@ -1002,7 +1189,7 @@ async function handleSelfSign() {
     } else if (initialsMode.value === 'type') {
         initData = generateTypedImage(typedInitials.value, selectedFont.value, 540, 80)
     } else {
-        initData = initialsCanvas.value.toDataURL('image/png')
+        initData = initialsCanvas.value?.toDataURL('image/png') ?? null
     }
 
     await $api(`/documents/${doc.value.id}/sign-self`, {
@@ -1084,7 +1271,7 @@ async function handleSelfSign() {
           variant="elevated"
           size="small"
           :disabled="!validation.isValid"
-          @click="doc?.is_self_sign ? openSelfSignDialog() : openSubmitDialog()"
+          @click="doc?.is_self_sign ? handleSelfSign() : openSubmitDialog()"
           class="submit-btn"
         >
           <v-icon :icon="doc?.is_self_sign ? 'ri-quill-pen-line' : 'ri-send-plane-line'" class="mr-1" size="18" />
@@ -1261,10 +1448,13 @@ async function handleSelfSign() {
                     'grabbing': isDragging,
                     'resizing': isResizing
                 }"
-                @mousedown="startDrawing($event, page)"
-                @mousemove="onDrawing($event, page)"
+                @mousedown="handleOverlayMouseDown($event, page)"
+                @mousemove="handleOverlayMouseMove($event, page)"
                 @mouseup="endDrawing"
                 @mouseleave="endDrawing"
+                @touchstart.prevent="handleOverlayMouseDown($event, page)"
+                @touchmove.prevent="handleOverlayMouseMove($event, page)"
+                @touchend="endDrawing"
               >
                 <!-- Placed Fields -->
                 <div
@@ -1288,7 +1478,34 @@ async function handleSelfSign() {
                   @mousedown="startDrag($event, field)"
                   @click.stop="selectField(field)"
                 >
-                  <v-icon :icon="getFieldTypeIcon(field.type)" size="14" />
+                  <div
+                    v-if="doc?.is_self_sign && (field.type === 'SIGNATURE' || field.type === 'INITIALS')"
+                    class="field-content-img"
+                  >
+                    <img
+                      v-if="field.type === 'SIGNATURE' && signaturePreviewData"
+                      :src="signaturePreviewData"
+                      alt="Signature"
+                    />
+                    <img
+                      v-else-if="field.type === 'INITIALS' && initialsPreviewData"
+                      :src="initialsPreviewData"
+                      alt="Initials"
+                    />
+                  </div>
+
+                  <div
+                    v-else-if="doc?.is_self_sign && (field.type === 'TEXT' || field.type === 'DATE')"
+                    class="field-content-text"
+                  >
+                    {{ field.text_value || (field.type === 'DATE' ? 'YYYY-MM-DD' : 'Text') }}
+                  </div>
+
+                  <v-icon
+                    v-else
+                    :icon="getFieldTypeIcon(field.type)"
+                    size="14"
+                  />
                   
                   <!-- Toolbar -->
                   <div v-if="selectedFieldId === field.id" class="field-toolbar">
@@ -1369,14 +1586,218 @@ async function handleSelfSign() {
 
       <!-- Right Sidebar: Field Types (Desktop) -->
       <aside v-if="!smAndDown" class="right-sidebar">
+      <div v-if="doc?.is_self_sign">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Self-Sign Tools</span>
+        </div>
+
+        <div class="field-types-hint">
+          Select a tool, then click on the PDF to place it.
+        </div>
+
+        <v-chip-group
+          v-model="quickTool"
+          class="mb-3 tool-palette"
+          mandatory
+          column
+        >
+          <v-chip value="SIGNATURE" variant="outlined" prepend-icon="ri-pen-nib-line" :color="quickTool === 'SIGNATURE' ? 'primary' : undefined">
+            Signature
+          </v-chip>
+          <v-chip value="INITIALS" variant="outlined" prepend-icon="ri-font-size-2" :color="quickTool === 'INITIALS' ? 'primary' : undefined">
+            Initials
+          </v-chip>
+          <v-chip value="TEXT" variant="outlined" prepend-icon="ri-text" :color="quickTool === 'TEXT' ? 'primary' : undefined">
+            Text
+          </v-chip>
+          <v-chip value="DATE" variant="outlined" prepend-icon="ri-calendar-line" :color="quickTool === 'DATE' ? 'primary' : undefined">
+            Date
+          </v-chip>
+        </v-chip-group>
+
+        <v-divider class="my-3" />
+
+        <div v-if="quickTool === 'SIGNATURE'">
+          <div class="text-caption font-weight-bold mb-2">Signature content</div>
+
+          <v-tabs v-model="signatureMode" density="compact" color="primary" class="mb-3">
+            <v-tab value="draw">Draw</v-tab>
+            <v-tab value="type">Type</v-tab>
+            <v-tab value="upload">Upload</v-tab>
+          </v-tabs>
+
+          <div v-if="signatureMode === 'draw'">
+            <div class="signature-canvas-container border rounded mb-2">
+              <canvas
+                ref="signatureCanvas"
+                width="500"
+                height="120"
+                style="width: 100%; height: 120px; background: #fff; cursor: crosshair;"
+                @mousedown="startSigDrawing"
+                @mousemove="sigDraw"
+                @mouseup="stopSigDrawing"
+                @mouseleave="stopSigDrawing"
+                @touchstart="startSigDrawing"
+                @touchmove="sigDraw"
+                @touchend="stopSigDrawing"
+              ></canvas>
+              <div class="d-flex justify-end pr-2 pb-1">
+                <v-btn size="x-small" variant="text" @click="clearSigCanvas">Clear</v-btn>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="signatureMode === 'type'">
+            <v-text-field
+              v-model="typedName"
+              label="Full Name"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mb-2"
+            />
+            <div class="signature-preview text-center pa-2 border rounded bg-grey-lighten-5 mb-2" :style="{ fontFamily: selectedFont, fontSize: '32px' }">
+              {{ typedName || 'Your Signature' }}
+            </div>
+
+            <div class="text-caption mb-1">Font Style:</div>
+            <v-chip-group v-model="selectedFont" mandatory selected-class="text-primary" class="mb-2">
+              <v-chip v-for="font in signatureFonts" :key="font" :value="font" size="small" variant="outlined" filter>
+                <span :style="{ fontFamily: font }">Sign</span>
+              </v-chip>
+            </v-chip-group>
+          </div>
+
+          <div v-else>
+            <v-file-input
+              label="Signature Image"
+              variant="outlined"
+              density="compact"
+              accept="image/*"
+              prepend-icon="ri-attachment-line"
+              @change="handleSigUpload"
+            />
+            <div v-if="uploadedSignature" class="mt-2 text-center">
+              <img :src="uploadedSignature" style="max-height: 70px; max-width: 100%;" alt="Uploaded signature" />
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="quickTool === 'INITIALS'">
+          <div class="text-caption font-weight-bold mb-2">Initials content</div>
+
+          <v-tabs v-model="initialsMode" density="compact" color="primary" class="mb-3">
+            <v-tab value="draw">Draw</v-tab>
+            <v-tab value="type">Type</v-tab>
+            <v-tab value="upload">Upload</v-tab>
+          </v-tabs>
+
+          <div v-if="initialsMode === 'draw'">
+            <div class="signature-canvas-container border rounded mb-2">
+              <canvas
+                ref="initialsCanvas"
+                width="500"
+                height="80"
+                style="width: 100%; height: 80px; background: #fff; cursor: crosshair;"
+                @mousedown="startInitDrawing"
+                @mousemove="initDraw"
+                @mouseup="stopInitDrawing"
+                @mouseleave="stopInitDrawing"
+                @touchstart="startInitDrawing"
+                @touchmove="initDraw"
+                @touchend="stopInitDrawing"
+              ></canvas>
+              <div class="d-flex justify-end pr-2 pb-1">
+                <v-btn size="x-small" variant="text" @click="clearInitCanvas">Clear</v-btn>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="initialsMode === 'type'">
+            <v-text-field
+              v-model="typedInitials"
+              label="Initials"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mb-2"
+            />
+            <div class="initials-preview text-center pa-2 border rounded bg-grey-lighten-5 mb-2" :style="{ fontFamily: selectedFont, fontSize: '32px' }">
+              {{ typedInitials || 'Init' }}
+            </div>
+
+            <div class="text-caption mb-1">Font Style:</div>
+            <v-chip-group v-model="selectedFont" mandatory selected-class="text-primary" class="mb-2">
+              <v-chip v-for="font in signatureFonts" :key="font" :value="font" size="small" variant="outlined" filter>
+                <span :style="{ fontFamily: font }">Init</span>
+              </v-chip>
+            </v-chip-group>
+          </div>
+
+          <div v-else>
+            <v-file-input
+              label="Initials Image"
+              variant="outlined"
+              density="compact"
+              accept="image/*"
+              prepend-icon="ri-font-size"
+              @change="handleInitUpload"
+            />
+            <div v-if="uploadedInitials" class="mt-2 text-center">
+              <img :src="uploadedInitials" style="max-height: 50px; max-width: 100%;" alt="Uploaded initials" />
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="quickTool === 'TEXT'">
+          <v-text-field
+            v-model="quickTextValue"
+            label="Text to place"
+            variant="outlined"
+            density="compact"
+            hide-details
+            class="mb-2"
+          />
+          <div class="text-caption text-medium-emphasis">This value is the default for newly placed TEXT fields (you can edit per-field later).</div>
+        </div>
+
+        <div v-else-if="quickTool === 'DATE'">
+          <v-text-field
+            v-model="quickDateValue"
+            label="Date to place"
+            type="date"
+            variant="outlined"
+            density="compact"
+            hide-details
+            class="mb-2"
+          />
+          <div class="text-caption text-medium-emphasis">This value is the default for newly placed DATE fields (you can edit per-field later).</div>
+        </div>
+
+        <v-divider class="my-3" />
+
+        <div v-if="selectedField && (selectedField.type === 'TEXT' || selectedField.type === 'DATE')">
+          <div class="text-caption font-weight-bold mb-1">Edit {{ selectedField.type === 'DATE' ? 'Date' : 'Text' }}</div>
+          <v-text-field
+            v-model="selectedFieldTextValue"
+            :label="selectedField.type === 'DATE' ? 'Date' : 'Text'"
+            :type="selectedField.type === 'DATE' ? 'date' : 'text'"
+            variant="outlined"
+            density="compact"
+            hide-details
+          />
+        </div>
+      </div>
+
+      <div v-else>
         <div class="sidebar-header">
           <span class="sidebar-title">Field Types</span>
         </div>
-        
+
         <div class="field-types-hint">
           {{ selectedSigner ? `Draw on PDF to add fields for ${selectedSigner.name}` : 'Select a signer first' }}
         </div>
-        
+
         <div class="field-types-list">
           <div
             v-for="type in fieldTypes"
@@ -1391,9 +1812,9 @@ async function handleSelfSign() {
             </div>
           </div>
         </div>
-        
+
         <v-divider class="my-3" />
-        
+
         <div class="summary-section">
           <div class="summary-title">Summary</div>
           <div class="summary-item">
@@ -1409,6 +1830,7 @@ async function handleSelfSign() {
             <span>{{ pageCount }} page(s)</span>
           </div>
         </div>
+      </div>
       </aside>
     </div>
 
@@ -1642,7 +2064,7 @@ async function handleSelfSign() {
     </v-dialog>
 
     <!-- Self Sign Dialog -->
-    <v-dialog v-model="showSelfSignDialog" max-width="550" persistent>
+    <v-dialog v-if="!doc?.is_self_sign" v-model="showSelfSignDialog" max-width="550" persistent>
       <v-card rounded="lg">
         <v-card-title class="bg-primary text-white pa-4">
           <v-icon icon="ri-quill-pen-line" class="mr-2" />
@@ -2229,6 +2651,37 @@ async function handleSelfSign() {
 
 .hint-card {
   pointer-events: auto;
+}
+
+/* Self-sign field contents */
+.field-content-img {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.field-content-img img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.field-content-text {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 /* Responsive */
