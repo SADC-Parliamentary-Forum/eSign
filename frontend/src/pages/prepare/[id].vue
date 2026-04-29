@@ -73,6 +73,8 @@ const isDragging = ref(false)
 const isResizing = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
 const activeInteractionFieldId = ref(null)
+const activeInteractionPage = ref(null)
+const inlineEditingFieldId = ref(null)
 
 // Submit dialog
 const showSubmitDialog = ref(false)
@@ -226,6 +228,8 @@ function quickPlaceField(e, page) {
 
   const type = quickTool.value
   let textValue = null
+  let signaturePreviewValue = null
+  let initialsPreviewValue = null
   if (type === 'TEXT') textValue = quickTextValue.value
   if (type === 'DATE') textValue = quickDateValue.value
 
@@ -236,6 +240,7 @@ function quickPlaceField(e, page) {
       error.value = 'Create your signature first.'
       return
     }
+    signaturePreviewValue = data
   }
   if (type === 'INITIALS') {
     const data = refreshInitialsPreviewFromState()
@@ -243,6 +248,7 @@ function quickPlaceField(e, page) {
       error.value = 'Create your initials first.'
       return
     }
+    initialsPreviewValue = data
   }
 
   const newField = {
@@ -261,6 +267,8 @@ function quickPlaceField(e, page) {
     label: type,
     group_id: crypto.randomUUID(),
     ...(textValue !== null ? { text_value: textValue } : {}),
+    ...(signaturePreviewValue ? { signature_preview_data: signaturePreviewValue } : {}),
+    ...(initialsPreviewValue ? { initials_preview_data: initialsPreviewValue } : {}),
   }
 
   fields.value.push(newField)
@@ -288,11 +296,13 @@ function handleOverlayMouseMove(e, page) {
 // --- Interaction Handlers (Drag/Resize) ---
 
 function startDrag(e, field) {
+    if (inlineEditingFieldId.value === field.id) return
     if (isResizing.value) return
     e.stopPropagation() // Prevent drawing start
     
     isDragging.value = true
     activeInteractionFieldId.value = field.id
+    activeInteractionPage.value = field.page_number
     selectedFieldId.value = field.id
     
     // Calculate offset from top-left of field
@@ -308,20 +318,25 @@ function startDrag(e, field) {
         x: mouseX - field.x,
         y: mouseY - field.y
     }
+
+    bindGlobalInteractionListeners()
 }
 
 function startResize(e, field) {
     e.stopPropagation()
     isResizing.value = true
     activeInteractionFieldId.value = field.id
+    activeInteractionPage.value = field.page_number
     selectedFieldId.value = field.id
+    bindGlobalInteractionListeners()
 }
 
 function onInteractionMove(e, page) {
     const field = fields.value.find(f => f.id === activeInteractionFieldId.value)
     if (!field) return
 
-    const target = e.currentTarget // .field-overlay
+    const target = window.document.querySelector(`.field-overlay[data-page="${field.page_number}"]`) || e.currentTarget
+    if (!target) return
     const rect = target.getBoundingClientRect()
     const clientX = e?.touches?.[0]?.clientX ?? e?.clientX
     const clientY = e?.touches?.[0]?.clientY ?? e?.clientY
@@ -358,6 +373,53 @@ function endInteraction() {
     isDragging.value = false
     isResizing.value = false
     activeInteractionFieldId.value = null
+    activeInteractionPage.value = null
+    unbindGlobalInteractionListeners()
+}
+
+function handleGlobalInteractionMove(e) {
+  if (!isDragging.value && !isResizing.value) return
+  if (e?.cancelable) e.preventDefault()
+  onInteractionMove(e, activeInteractionPage.value)
+}
+
+function handleGlobalInteractionEnd() {
+  if (!isDragging.value && !isResizing.value) return
+  endInteraction()
+}
+
+function bindGlobalInteractionListeners() {
+  window.addEventListener('mousemove', handleGlobalInteractionMove)
+  window.addEventListener('mouseup', handleGlobalInteractionEnd)
+  window.addEventListener('touchmove', handleGlobalInteractionMove, { passive: false })
+  window.addEventListener('touchend', handleGlobalInteractionEnd)
+}
+
+function unbindGlobalInteractionListeners() {
+  window.removeEventListener('mousemove', handleGlobalInteractionMove)
+  window.removeEventListener('mouseup', handleGlobalInteractionEnd)
+  window.removeEventListener('touchmove', handleGlobalInteractionMove)
+  window.removeEventListener('touchend', handleGlobalInteractionEnd)
+}
+
+function getFieldImageSource(field) {
+  if (field.type === 'SIGNATURE') {
+    return field.signature_preview_data || signaturePreviewData.value || savedDefaultSignatureData.value || null
+  }
+  if (field.type === 'INITIALS') {
+    return field.initials_preview_data || initialsPreviewData.value || savedDefaultInitialsData.value || null
+  }
+  return null
+}
+
+function beginInlineEdit(field) {
+  if (!field || !(field.type === 'TEXT' || field.type === 'DATE')) return
+  selectedFieldId.value = field.id
+  inlineEditingFieldId.value = field.id
+}
+
+function endInlineEdit() {
+  inlineEditingFieldId.value = null
 }
 
 function duplicateFieldToAllPages(field) {
@@ -1138,6 +1200,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  unbindGlobalInteractionListeners()
 })
 // Watch tool changes to init signature canvases (self-sign quick mode).
 watch(
@@ -1494,6 +1557,7 @@ async function handleSelfSign() {
               <!-- Field Overlay -->
               <div 
                 class="field-overlay"
+                :data-page="page"
                 :class="{ 
                     'draw-cursor': selectedSigner && !isDragging && !isResizing,
                     'grabbing': isDragging,
@@ -1535,13 +1599,13 @@ async function handleSelfSign() {
                     class="field-content-img"
                   >
                     <img
-                      v-if="field.type === 'SIGNATURE' && signaturePreviewData"
-                      :src="signaturePreviewData"
+                      v-if="field.type === 'SIGNATURE' && getFieldImageSource(field)"
+                      :src="getFieldImageSource(field)"
                       alt="Signature"
                     />
                     <img
-                      v-else-if="field.type === 'INITIALS' && initialsPreviewData"
-                      :src="initialsPreviewData"
+                      v-else-if="field.type === 'INITIALS' && getFieldImageSource(field)"
+                      :src="getFieldImageSource(field)"
                       alt="Initials"
                     />
                   </div>
@@ -1549,8 +1613,26 @@ async function handleSelfSign() {
                   <div
                     v-else-if="doc?.is_self_sign && (field.type === 'TEXT' || field.type === 'DATE')"
                     class="field-content-text"
+                    @dblclick.stop="beginInlineEdit(field)"
                   >
-                    {{ field.text_value || (field.type === 'DATE' ? 'YYYY-MM-DD' : 'Text') }}
+                    <v-text-field
+                      v-if="inlineEditingFieldId === field.id"
+                      v-model="field.text_value"
+                      :type="field.type === 'DATE' ? 'date' : 'text'"
+                      density="compact"
+                      variant="outlined"
+                      hide-details
+                      class="field-inline-input"
+                      autofocus
+                      @mousedown.stop
+                      @touchstart.stop
+                      @click.stop
+                      @blur="endInlineEdit"
+                      @keydown.enter.prevent="endInlineEdit"
+                    />
+                    <span v-else>
+                      {{ field.text_value || (field.type === 'DATE' ? 'YYYY-MM-DD' : 'Text') }}
+                    </span>
                   </div>
 
                   <v-icon
@@ -2734,7 +2816,16 @@ async function handleSelfSign() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: auto;
+}
+
+.field-content-text span {
   pointer-events: none;
+}
+
+.field-content-text .field-inline-input {
+  width: 100%;
+  pointer-events: auto;
 }
 
 /* Responsive */
