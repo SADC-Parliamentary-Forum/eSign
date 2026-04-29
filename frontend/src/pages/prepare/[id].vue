@@ -276,6 +276,11 @@ function handleOverlayMouseDown(e, page) {
 }
 
 function handleOverlayMouseMove(e, page) {
+  // In quick mode, keep drag/resize interactions enabled.
+  if (isSelfSignQuickMode() && (isDragging.value || isResizing.value)) {
+    onInteractionMove(e, page)
+    return
+  }
   if (isSelfSignQuickMode()) return
   onDrawing(e, page)
 }
@@ -318,8 +323,12 @@ function onInteractionMove(e, page) {
 
     const target = e.currentTarget // .field-overlay
     const rect = target.getBoundingClientRect()
-    const mouseX = ((e.clientX - rect.left) / rect.width) * 100
-    const mouseY = ((e.clientY - rect.top) / rect.height) * 100
+    const clientX = e?.touches?.[0]?.clientX ?? e?.clientX
+    const clientY = e?.touches?.[0]?.clientY ?? e?.clientY
+    if (typeof clientX !== 'number' || typeof clientY !== 'number') return
+
+    const mouseX = ((clientX - rect.left) / rect.width) * 100
+    const mouseY = ((clientY - rect.top) / rect.height) * 100
 
     if (isDragging.value) {
         let newX = mouseX - dragOffset.value.x
@@ -1518,6 +1527,7 @@ async function handleSelfSign() {
                     zIndex: selectedFieldId === field.id ? 10 : 1
                   }"
                   @mousedown="startDrag($event, field)"
+                  @touchstart.stop.prevent="startDrag($event, field)"
                   @click.stop="selectField(field)"
                 >
                   <div
@@ -1575,6 +1585,7 @@ async function handleSelfSign() {
                     v-if="selectedFieldId === field.id"
                     class="resize-handle"
                     @mousedown="startResize($event, field)"
+                    @touchstart.stop.prevent="startResize($event, field)"
                   />
                 </div>
                 
