@@ -54,7 +54,7 @@ Broadcast::routes(['middleware' => ['auth:sanctum']]);
 // =============================================================================
 // Public Routes
 // =============================================================================
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:5,1', 'human:login']);
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware(['throttle:login', 'human:login']);
 Route::post('/auth/register', [AuthController::class, 'register'])->middleware(['throttle:5,1', 'human:register']);
 
 // Password Reset

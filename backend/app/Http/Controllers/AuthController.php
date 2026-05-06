@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -179,15 +181,44 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        if (!Auth::attempt(['email' => $user->email, 'password' => $validated['current_password']])) {
+        if (!$this->currentPasswordMatches($user, $validated['current_password'])) {
             return response()->json(['message' => 'Current password is incorrect'], 422);
         }
 
-        $user->update([
-            'password' => bcrypt($validated['password']),
-        ]);
+        try {
+            $this->persistPasswordUpdate($user, $validated['password']);
+
+            $this->auditService->log(
+                $user,
+                'password_changed',
+                'user',
+                $user->id
+            );
+        } catch (\Throwable $exception) {
+            Log::error('Failed to update user password.', [
+                'user_id' => $user->id,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
 
         return response()->json(['message' => 'Password updated successfully']);
+    }
+
+    protected function currentPasswordMatches(User $user, string $currentPassword): bool
+    {
+        return Hash::check($currentPassword, $user->password);
+    }
+
+    protected function persistPasswordUpdate(User $user, string $password): void
+    {
+        User::withoutAuditing(function () use ($user, $password) {
+            $user->forceFill([
+                'password' => Hash::make($password),
+            ])->save();
+        });
     }
     /**
      * Resend verification email
